@@ -24,15 +24,19 @@ app.get('/health', (c) => {
 
 // Public routes (no authentication required)
 app.route('/api/v1', usersController); // User registration, magic link requests, auth
+app.route('/api/v1', adminsController); // Admin management (includes public login endpoint)
 
-// Admin routes (authentication required)
-app.use('/api/v1/admins/*', authenticateAdmin);
+// Admin routes (authentication required) - exclude /admins/login
+app.use('/api/v1/admins/*', (c, next) => {
+  // Skip authentication for login endpoint
+  if (c.req.path === '/api/v1/admins/login') {
+    return next();
+  }
+  return authenticateAdmin(c, next);
+});
 app.use('/api/v1/events/*', authenticateAdmin);
 app.use('/api/v1/groups/*', authenticateAdmin);
 app.use('/api/v1/activities/*', authenticateAdmin);
-
-// Admin management (Super admin only for creation)
-app.route('/api/v1', adminsController);
 
 // Event management
 app.route('/api/v1', eventsController);
@@ -97,7 +101,7 @@ app.doc('/openapi.json', {
   },
   servers: [
     {
-      url: '/api/v1',
+      url: 'http://localhost:3001',
       description: 'API v1',
     },
   ],
