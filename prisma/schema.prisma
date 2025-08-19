@@ -1,0 +1,243 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  // Prisma v6 features
+  binaryTargets = ["native"]
+  // Enable advanced query optimization
+  engineType    = "library"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum AdminRole {
+  SUPER
+  STANDARD
+}
+
+enum ActivityCategory {
+  TRANSPORT
+  HOSPITALITY
+  EXPERIENCE
+  MEETING
+  OTHER
+}
+
+enum MessageType {
+  WELCOME
+  ASSIGNMENT
+  ACTIVITY_UPDATE
+  ANNOUNCEMENT
+  MAGIC_LINK
+}
+
+enum RecipientType {
+  INDIVIDUAL
+  GROUP
+  ALL
+}
+
+// ============================================================================
+// MODELS
+// ============================================================================
+
+model Event {
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  shortName String
+
+  location  Json // { city, country, venue, timezone }
+  dateRange Json // { start: DateTime, end: DateTime }
+  config    Json // { micrositeUrl, registrationOpen }
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  groups      Group[]
+  activities  Activity[]
+  users       User[]
+  messages    Message[]
+  adminEvents AdminEvent[]
+
+  @@map("events")
+}
+
+model Group {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  eventId     String    @db.ObjectId
+  name        String
+  description String
+  memberCount Int       @default(0)
+  active      Boolean   @default(true)
+  deleted     Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  // Relations
+  event      Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  activities Activity[]
+  users      User[]
+
+  @@map("groups")
+}
+
+model Activity {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  eventId String @db.ObjectId
+  groupId String @db.ObjectId
+
+  // Scheduling (required)
+  title         String
+  startDateTime DateTime
+  endDateTime   DateTime
+
+  // Display properties
+  thumbnail String? // S3 URL
+  category  ActivityCategory @default(OTHER)
+
+  // Location (optional)
+  location Json? // { name, address, mapLink }
+
+  // Content
+  content Json // { html: string }
+
+  active         Boolean   @default(true)
+  deleted        Boolean   @default(false)
+  createdBy      String    @db.ObjectId
+  lastModifiedBy String    @db.ObjectId
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  // Relations
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  // Prisma v6 optimized indexes for timeline queries
+  @@index([groupId, startDateTime])
+  @@index([eventId, active, deleted])
+  @@index([groupId, active, deleted])
+  @@map("activities")
+}
+
+model User {
+  id      String  @id @default(auto()) @map("_id") @db.ObjectId
+  eventId String  @db.ObjectId
+  groupId String? @db.ObjectId
+
+  // Profile
+  profile Json // { email, firstName, lastName, phone, guestType }
+
+  // Authentication
+  sessions   Json[] // [{ token, createdAt, expiresAt, used }]
+  magicLinks Json[] // [{ token, createdAt, expiresAt, lastAccessedAt, used }]
+
+  // Communication preferences
+  communication Json // { emailOptIn, whatsappOptIn }
+
+  // Travel & accommodation details
+  flight               Json? // { airline, number, arrival, departure, arrivalAirport, departureAirport }
+  accommodation        Json? // { required, hotel, checkIn, checkOut, specialRequests }
+  transferRequirements String?
+
+  // Requirements
+  requirements Json? // { dietary, medical, accessibility }
+
+  // Merchandise
+  merchandiseSize Json? // { shirt, jacket, hat }
+
+  // Emergency contact
+  emergencyContact Json? // { name, relationship, phone, email }
+
+  // Assignment status
+  assigned   Boolean   @default(false)
+  assignedAt DateTime?
+  assignedBy String?   @db.ObjectId
+
+  // Status & timestamps
+  active       Boolean   @default(true)
+  registeredAt DateTime  @default(now())
+  lastLoginAt  DateTime?
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  event Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  group Group? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  // Prisma v6 optimized indexes
+  @@index([eventId, active])
+  @@index([eventId, assigned])
+  @@index([groupId])
+  @@map("users")
+}
+
+model Admin {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  email        String    @unique
+  firstName    String
+  lastName     String
+  passwordHash String
+  role         AdminRole @default(STANDARD)
+  lastLoginAt  DateTime?
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  adminEvents AdminEvent[]
+
+  @@map("admins")
+}
+
+// Join table for Admin-Event many-to-many relationship
+model AdminEvent {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  adminId String @db.ObjectId
+  eventId String @db.ObjectId
+
+  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([adminId, eventId])
+  @@map("admin_events")
+}
+
+model Message {
+  id      String      @id @default(auto()) @map("_id") @db.ObjectId
+  eventId String      @db.ObjectId
+  type    MessageType
+
+  // Email content
+  emailSubject String?
+  emailContent String? // HTML
+
+  // WhatsApp content
+  whatsappTemplate  String?
+  templateVariables Json? // Variables for template
+
+  // Recipients
+  recipientType RecipientType
+  recipientIds  String[]      @db.ObjectId // User or Group IDs
+
+  // Delivery tracking per user
+  deliveries Json[] // [{ user, channels: { email: {sent, sentAt, delivered, deliveredAt, error}, whatsapp: {...} } }]
+
+  sentBy    String   @db.ObjectId // Admin ID
+  createdAt DateTime @default(now())
+
+  // Relations
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}

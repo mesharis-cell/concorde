@@ -1,0 +1,50 @@
+{
+  "name": "suleman-backend",
+  "version": "1.0.0",
+  "description": "Event Concierge Platform Backend API",
+  "main": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "build": "bun build src/index.ts --outdir ./dist",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push",
+    "prisma:studio": "prisma studio",
+    "prisma:validate": "prisma validate",
+    "prisma:format": "prisma format",
+    "type-check": "tsc --noEmit",
+    "setup": "bun run prisma:generate && bun run prisma:push && bun scripts/setup.js",
+    "reset-db": "bun run prisma:push --force-reset"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.864.0",
+    "@aws-sdk/client-ses": "^3.864.0",
+    "@aws-sdk/s3-request-presigner": "^3.864.0",
+    "@hono/node-server": "^1.19.0",
+    "@hono/swagger-ui": "^0.2.0",
+    "@hono/zod-openapi": "^0.9.0",
+    "@prisma/client": "6.14.0",
+    "@types/node": "^24.3.0",
+    "bcryptjs": "^2.4.3",
+    "csv-parser": "^3.0.0",
+    "csv-writer": "^1.6.0",
+    "dotenv": "^16.3.0",
+    "hono": "^4.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "prisma": "6.14.0",
+    "twilio": "^4.19.0",
+    "uuid": "^9.0.1",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/uuid": "^9.0.7"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
