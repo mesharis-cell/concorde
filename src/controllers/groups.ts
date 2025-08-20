@@ -320,6 +320,64 @@ app.openapi(updateGroupRoute, async (c) => {
   }
 });
 
+// Patch Update Group (alternative to PUT for partial updates)
+const patchGroupRoute = createRoute({
+  method: 'patch',
+  path: '/groups/{id}',
+  tags: ['Groups'],
+  summary: 'Partially update a group',
+  request: {
+    params: z.object({
+      id: z.string().min(1),
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: UpdateGroupSchema.partial(),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Group updated successfully',
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Group not found',
+    },
+  },
+});
+
+app.openapi(patchGroupRoute, async (c) => {
+  try {
+    const { id } = c.req.valid('param');
+    const data = c.req.valid('json');
+    const group = await GroupService.update(id, data);
+    
+    return c.json({
+      success: true,
+      data: group,
+      message: 'Group updated successfully',
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to update group',
+      details: error.message,
+    }, 400);
+  }
+});
+
 // Toggle Group Status
 const toggleGroupRoute = createRoute({
   method: 'patch',

@@ -2,6 +2,7 @@ import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { UserService } from '../services/users.js';
 import { JwtService } from '../utils/jwt.js';
 import { CreateUserSchema, PaginationSchema, ApiSuccessSchema, ApiErrorSchema } from '../types/index.js';
+import { authenticateAdmin } from '../middleware/auth.js';
 
 const app = new OpenAPIHono();
 
@@ -219,115 +220,7 @@ app.openapi(authenticateMagicLinkRoute, async (c) => {
   }
 });
 
-// Get Users by Event
-const getUsersByEventRoute = createRoute({
-  method: 'get',
-  path: '/events/{eventId}/users',
-  tags: ['Users'],
-  summary: 'Get paginated list of users for an event',
-  request: {
-    params: z.object({
-      eventId: z.string().min(1),
-    }),
-    query: PaginationSchema.extend({
-      assigned: z.coerce.boolean().optional(),
-      groupId: z.string().optional(),
-      search: z.string().optional(),
-      hasRequirements: z.coerce.boolean().optional(),
-      guestType: z.string().optional(),
-    }),
-  },
-  responses: {
-    200: {
-      content: {
-        'application/json': {
-          schema: ApiSuccessSchema,
-        },
-      },
-      description: 'Users retrieved successfully',
-    },
-  },
-});
 
-app.openapi(getUsersByEventRoute, async (c) => {
-  try {
-    const { eventId } = c.req.valid('param');
-    const { page, limit, assigned, groupId, search, hasRequirements, guestType } = c.req.valid('query');
-    
-    const result = await UserService.findByEventId(
-      eventId, 
-      { page, limit }, 
-      { assigned, groupId, search, hasRequirements, guestType }
-    );
-    
-    return c.json({
-      success: true,
-      data: result,
-    });
-  } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve users',
-      details: error.message,
-    }, 500);
-  }
-});
-
-// Get User by ID
-const getUserByIdRoute = createRoute({
-  method: 'get',
-  path: '/users/{id}',
-  tags: ['Users'],
-  summary: 'Get user by ID',
-  request: {
-    params: z.object({
-      id: z.string().min(1),
-    }),
-  },
-  responses: {
-    200: {
-      content: {
-        'application/json': {
-          schema: ApiSuccessSchema,
-        },
-      },
-      description: 'User retrieved successfully',
-    },
-    404: {
-      content: {
-        'application/json': {
-          schema: ApiErrorSchema,
-        },
-      },
-      description: 'User not found',
-    },
-  },
-});
-
-app.openapi(getUserByIdRoute, async (c) => {
-  try {
-    const { id } = c.req.valid('param');
-    const user = await UserService.findById(id);
-    
-    if (!user) {
-      return c.json({
-        success: false,
-        error: 'User not found',
-      }, 404);
-    }
-    
-    return c.json({
-      success: true,
-      data: user,
-    });
-  } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve user',
-      details: error.message,
-    }, 500);
-  }
-});
 
 // Update User
 const updateUserRoute = createRoute({
@@ -387,6 +280,64 @@ app.openapi(updateUserRoute, async (c) => {
   }
 });
 
+// Patch User (for frontend compatibility)
+const patchUserRoute = createRoute({
+  method: 'patch',
+  path: '/users/{id}',
+  tags: ['Users'],
+  summary: 'Patch user information',
+  request: {
+    params: z.object({
+      id: z.string().min(1),
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: CreateUserSchema.omit({ eventId: true }).partial(),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'User updated successfully',
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'User not found',
+    },
+  },
+});
+
+app.openapi(patchUserRoute, async (c) => {
+  try {
+    const { id } = c.req.valid('param');
+    const data = c.req.valid('json');
+    const user = await UserService.update(id, data);
+    
+    return c.json({
+      success: true,
+      data: user,
+      message: 'User updated successfully',
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to update user',
+      details: error.message,
+    }, 400);
+  }
+});
+
 // Assign User to Group
 const assignUserToGroupRoute = createRoute({
   method: 'post',
@@ -402,7 +353,6 @@ const assignUserToGroupRoute = createRoute({
         'application/json': {
           schema: z.object({
             groupId: z.string(),
-            adminId: z.string(),
           }),
         },
       },
@@ -428,12 +378,14 @@ const assignUserToGroupRoute = createRoute({
   },
 });
 
+
 app.openapi(assignUserToGroupRoute, async (c) => {
   try {
     const { id } = c.req.valid('param');
-    const { groupId, adminId } = c.req.valid('json');
+    const { groupId } = c.req.valid('json');
+    const authUser = c.get('user');
     
-    const user = await UserService.assignToGroup(id, groupId, adminId);
+    const user = await UserService.assignToGroup(id, groupId, authUser.id);
     
     return c.json({
       success: true,
@@ -462,9 +414,7 @@ const unassignUserFromGroupRoute = createRoute({
     body: {
       content: {
         'application/json': {
-          schema: z.object({
-            adminId: z.string(),
-          }),
+          schema: z.object({}),
         },
       },
     },
@@ -492,9 +442,9 @@ const unassignUserFromGroupRoute = createRoute({
 app.openapi(unassignUserFromGroupRoute, async (c) => {
   try {
     const { id } = c.req.valid('param');
-    const { adminId } = c.req.valid('json');
+    const authUser = c.get('user');
     
-    const user = await UserService.unassignFromGroup(id, adminId);
+    const user = await UserService.unassignFromGroup(id, authUser.id);
     
     return c.json({
       success: true,
@@ -546,6 +496,185 @@ app.openapi(getRequirementsSummaryRoute, async (c) => {
     return c.json({
       success: false,
       error: 'Failed to retrieve requirements summary',
+      details: error.message,
+    }, 500);
+  }
+});
+
+// Get User Statistics for Event
+const getUserStatsRoute = createRoute({
+  method: 'get',
+  path: '/users/stats/{eventId}',
+  tags: ['Users'],
+  summary: 'Get user statistics for an event',
+  request: {
+    params: z.object({
+      eventId: z.string().min(1),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'User statistics retrieved successfully',
+    },
+  },
+});
+
+app.openapi(getUserStatsRoute, async (c) => {
+  try {
+    const { eventId } = c.req.valid('param');
+    
+    const [
+      totalUsers,
+      assignedUsers,
+      unassignedUsers,
+      registeredUsers
+    ] = await prisma.$transaction([
+      prisma.user.count({ where: { eventId, active: true } }),
+      prisma.user.count({ where: { eventId, active: true, assigned: true } }),
+      prisma.user.count({ where: { eventId, active: true, assigned: false } }),
+      prisma.user.count({ where: { eventId, active: true } }),
+    ]);
+
+    const stats = {
+      totalUsers,
+      assignedUsers,
+      unassignedUsers,
+      registeredUsers,
+      registrationPercentage: totalUsers > 0 ? Math.round((assignedUsers / totalUsers) * 100) : 0,
+    };
+    
+    return c.json({
+      success: true,
+      data: stats,
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to retrieve user statistics',
+      details: error.message,
+    }, 500);
+  }
+});
+
+// Export Users
+const exportUsersRoute = createRoute({
+  method: 'get',
+  path: '/users/export',
+  tags: ['Users'],
+  summary: 'Export users data in various formats',
+  request: {
+    query: z.object({
+      eventId: z.string().min(1),
+      format: z.enum(['csv', 'json']).optional().default('csv'),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'text/csv': {
+          schema: z.string(),
+        },
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Users data exported successfully',
+    },
+  },
+});
+
+app.openapi(exportUsersRoute, async (c) => {
+  try {
+    const { eventId, format } = c.req.valid('query');
+    
+    const users = await prisma.user.findMany({
+      where: { eventId, active: true },
+      include: {
+        group: {
+          select: { name: true },
+        },
+      },
+      orderBy: { registeredAt: 'desc' },
+    });
+
+    if (format === 'csv') {
+      // Generate CSV format
+      const headers = [
+        'Email', 'First Name', 'Last Name', 'Phone', 'Guest Type',
+        'Group', 'Assigned', 'Registered At',
+        'Email Opt-In', 'WhatsApp Opt-In',
+        'Airline', 'Flight Number', 'Arrival', 'Departure',
+        'Hotel Required', 'Hotel Name', 'Check-In', 'Check-Out',
+        'Transfer Requirements', 'Dietary Requirements', 'Medical Requirements', 'Accessibility Requirements',
+        'Shirt Size', 'Jacket Size', 'Hat Size',
+        'Emergency Contact Name', 'Emergency Contact Phone', 'Emergency Contact Email'
+      ];
+      
+      const csvData = users.map(user => {
+        const profile = user.profile as any || {};
+        const communication = user.communication as any || {};
+        const flight = user.flight as any || {};
+        const accommodation = user.accommodation as any || {};
+        const requirements = user.requirements as any || {};
+        const merchandiseSize = user.merchandiseSize as any || {};
+        const emergencyContact = user.emergencyContact as any || {};
+        
+        return [
+          profile.email || '',
+          profile.firstName || '',
+          profile.lastName || '',
+          profile.phone || '',
+          profile.guestType || '',
+          user.group?.name || 'Unassigned',
+          user.assigned ? 'Yes' : 'No',
+          user.registeredAt?.toISOString() || '',
+          communication.emailOptIn ? 'Yes' : 'No',
+          communication.whatsappOptIn ? 'Yes' : 'No',
+          flight.airline || '',
+          flight.number || '',
+          flight.arrival || '',
+          flight.departure || '',
+          accommodation.required ? 'Yes' : 'No',
+          accommodation.hotel || '',
+          accommodation.checkIn || '',
+          accommodation.checkOut || '',
+          user.transferRequirements || '',
+          requirements.dietary || '',
+          requirements.medical || '',
+          requirements.accessibility || '',
+          merchandiseSize.shirt || '',
+          merchandiseSize.jacket || '',
+          merchandiseSize.hat || '',
+          emergencyContact.name || '',
+          emergencyContact.phone || '',
+          emergencyContact.email || ''
+        ];
+      });
+      
+      const csvContent = [headers, ...csvData]
+        .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+      
+      c.header('Content-Type', 'text/csv');
+      c.header('Content-Disposition', `attachment; filename="users-${eventId}-${new Date().toISOString().split('T')[0]}.csv"`);
+      return c.text(csvContent);
+    }
+    
+    // JSON format
+    return c.json({
+      success: true,
+      data: users,
+      message: 'Users exported successfully',
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to export users',
       details: error.message,
     }, 500);
   }

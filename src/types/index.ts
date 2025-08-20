@@ -70,7 +70,7 @@ export type UpdateGroup = z.infer<typeof UpdateGroupSchema>;
 export const ActivityLocationSchema = z.object({
   name: z.string(),
   address: z.string(),
-  mapLink: z.string().url(),
+  mapLink: z.string().url().optional(),
 });
 export type ActivityLocation = z.infer<typeof ActivityLocationSchema>;
 
@@ -89,7 +89,6 @@ export const CreateActivitySchema = z.object({
   category: ActivityCategory.default('OTHER'),
   location: ActivityLocationSchema.optional(),
   content: ActivityContentSchema,
-  createdBy: z.string(),
 });
 export type CreateActivity = z.infer<typeof CreateActivitySchema>;
 
@@ -122,35 +121,35 @@ export const UserCommunicationSchema = z.object({
 export type UserCommunication = z.infer<typeof UserCommunicationSchema>;
 
 export const UserFlightSchema = z.object({
-  airline: z.string().optional(),
-  number: z.string().optional(),
-  arrival: z.coerce.date().optional(),
-  departure: z.coerce.date().optional(),
-  arrivalAirport: z.string().optional(),
-  departureAirport: z.string().optional(),
+  airline: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  number: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  arrival: z.coerce.date().nullable().optional().transform(val => val === null ? undefined : val),
+  departure: z.coerce.date().nullable().optional().transform(val => val === null ? undefined : val),
+  arrivalAirport: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  departureAirport: z.string().nullable().optional().transform(val => val === null ? undefined : val),
 });
 export type UserFlight = z.infer<typeof UserFlightSchema>;
 
 export const UserAccommodationSchema = z.object({
   required: z.boolean(),
-  hotel: z.string().optional(),
-  checkIn: z.coerce.date().optional(),
-  checkOut: z.coerce.date().optional(),
-  specialRequests: z.string().optional(),
+  hotel: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  checkIn: z.coerce.date().nullable().optional().transform(val => val === null ? undefined : val),
+  checkOut: z.coerce.date().nullable().optional().transform(val => val === null ? undefined : val),
+  specialRequests: z.string().nullable().optional().transform(val => val === null ? undefined : val),
 });
 export type UserAccommodation = z.infer<typeof UserAccommodationSchema>;
 
 export const UserRequirementsSchema = z.object({
-  dietary: z.string().optional(),
-  medical: z.string().optional(),
-  accessibility: z.string().optional(),
+  dietary: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  medical: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  accessibility: z.string().nullable().optional().transform(val => val === null ? undefined : val),
 });
 export type UserRequirements = z.infer<typeof UserRequirementsSchema>;
 
 export const UserMerchandiseSizeSchema = z.object({
-  shirt: z.string().optional(),
-  jacket: z.string().optional(),
-  hat: z.string().optional(),
+  shirt: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  jacket: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  hat: z.string().nullable().optional().transform(val => val === null ? undefined : val),
 });
 export type UserMerchandiseSize = z.infer<typeof UserMerchandiseSizeSchema>;
 
@@ -158,7 +157,7 @@ export const UserEmergencyContactSchema = z.object({
   name: z.string().min(1),
   relationship: z.string().min(1),
   phone: z.string().min(1),
-  email: z.string().email().optional(),
+  email: z.string().email().nullable().optional().transform(val => val === null ? undefined : val),
 });
 export type UserEmergencyContact = z.infer<typeof UserEmergencyContactSchema>;
 

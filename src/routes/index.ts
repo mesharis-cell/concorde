@@ -1,12 +1,9 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { swaggerUI } from '@hono/swagger-ui';
 
-// Import all controllers
-import eventsController from '../controllers/events.js';
-import groupsController from '../controllers/groups.js';
-import activitiesController from '../controllers/activities.js';
-import usersController from '../controllers/users.js';
-import adminsController from '../controllers/admins.js';
+// Import controllers
+import publicUsersController from '../controllers/public/users.js';
+import adminController from '../controllers/admin.js';
 
 // Import middleware
 import { authenticateAdmin, authenticateUser, requireAdminRole, requireEventAccess } from '../middleware/auth.js';
@@ -22,36 +19,28 @@ app.get('/health', (c) => {
   });
 });
 
-// Public routes (no authentication required)
-app.route('/api/v1', usersController); // User registration, magic link requests, auth
-app.route('/api/v1', adminsController); // Admin management (includes public login endpoint)
+// =============================================================================
+// PUBLIC API ROUTES (No Authentication Required)
+// =============================================================================
 
-// Admin routes (authentication required) - exclude /admins/login
-app.use('/api/v1/admins/*', (c, next) => {
-  // Skip authentication for login endpoint
-  if (c.req.path === '/api/v1/admins/login') {
+// Public user operations (registration, magic links)
+app.route('/api/v1/public', publicUsersController);
+
+// =============================================================================
+// ADMIN API ROUTES (Admin JWT Authentication Required)
+// =============================================================================
+
+// Apply admin authentication to all admin routes except login
+app.use('/api/v1/admin/*', async (c, next) => {
+  // Skip auth for login endpoint
+  if (c.req.path === '/api/v1/admin/login') {
     return next();
   }
   return authenticateAdmin(c, next);
 });
-app.use('/api/v1/events/*', authenticateAdmin);
-app.use('/api/v1/groups/*', authenticateAdmin);
-app.use('/api/v1/activities/*', authenticateAdmin);
 
-// Event management
-app.route('/api/v1', eventsController);
-
-// Group management  
-app.route('/api/v1', groupsController);
-
-// Activity management
-app.route('/api/v1', activitiesController);
-
-// User management (admin access)
-const userAdminRoutes = new OpenAPIHono();
-userAdminRoutes.use(authenticateAdmin);
-userAdminRoutes.route('/', usersController);
-app.route('/api/v1/admin', userAdminRoutes);
+// All admin endpoints in one consolidated controller
+app.route('/api/v1/admin', adminController);
 
 // User-facing routes (user authentication required)
 const userRoutes = new OpenAPIHono();
@@ -89,7 +78,90 @@ userRoutes.get('/itinerary', async (c) => {
   });
 });
 
+// Get user profile (matches /api/user/profile)
+userRoutes.get('/profile', async (c) => {
+  const user = c.get('user');
+  return c.json({
+    success: true,
+    data: user.userData,
+  });
+});
+
+// Update user preferences (matches /api/user/preferences)
+userRoutes.put('/preferences', async (c) => {
+  try {
+    const user = c.get('user');
+    const body = await c.req.json();
+    
+    const { UserService } = await import('../services/users.js');
+    const updatedUser = await UserService.updateCommunicationPreferences(
+      user.userData.id,
+      {
+        emailOptIn: body.emailOptIn,
+        whatsappOptIn: body.whatsappOptIn,
+      }
+    );
+    
+    return c.json({
+      success: true,
+      data: updatedUser,
+      message: 'Communication preferences updated successfully',
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to update preferences',
+      details: error.message,
+    }, 400);
+  }
+});
+
 app.route('/api/v1/user', userRoutes);
+
+// Mount user routes directly under /api for microsite compatibility
+app.route('/api/user', userRoutes);
+
+// Mount activity routes directly under /api for microsite compatibility  
+const activityRoutes = new OpenAPIHono();
+activityRoutes.use(authenticateUser);
+
+activityRoutes.get('/{activityId}', async (c) => {
+  try {
+    const activityId = c.req.param('activityId');
+    const user = c.get('user');
+    
+    const { ActivityService } = await import('../services/activities.js');
+    const activity = await ActivityService.findById(activityId);
+    
+    if (!activity) {
+      return c.json({
+        success: false,
+        error: 'Activity not found',
+      }, 404);
+    }
+
+    // Ensure user can only see activities from their group
+    if (activity.groupId !== user.userData?.groupId) {
+      return c.json({
+        success: false,
+        error: 'Access denied - Activity not in your group',
+      }, 403);
+    }
+    
+    return c.json({
+      success: true,
+      data: activity,
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to retrieve activity',
+      details: error.message,
+    }, 500);
+  }
+});
+
+app.route('/api/activities', activityRoutes);
 
 // OpenAPI documentation
 app.doc('/openapi.json', {

@@ -1,81 +1,9 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { AdminService } from '../services/admins.js';
-import { JwtService } from '../utils/jwt.js';
-import { CreateAdminSchema, AdminLoginSchema, PaginationSchema, AdminRole, ApiSuccessSchema, ApiErrorSchema } from '../types/index.js';
+import { CreateAdminSchema, PaginationSchema, AdminRole, ApiSuccessSchema, ApiErrorSchema } from '../types/index.js';
 
 const app = new OpenAPIHono();
 
-// Admin Login
-const adminLoginRoute = createRoute({
-  method: 'post',
-  path: '/admins/login',
-  tags: ['Admins'],
-  summary: 'Admin login',
-  request: {
-    body: {
-      content: {
-        'application/json': {
-          schema: AdminLoginSchema,
-        },
-      },
-    },
-  },
-  responses: {
-    200: {
-      content: {
-        'application/json': {
-          schema: ApiSuccessSchema,
-        },
-      },
-      description: 'Login successful',
-    },
-    401: {
-      content: {
-        'application/json': {
-          schema: ApiErrorSchema,
-        },
-      },
-      description: 'Invalid credentials',
-    },
-  },
-});
-
-app.openapi(adminLoginRoute, async (c) => {
-  try {
-    const credentials = c.req.valid('json');
-    const admin = await AdminService.authenticate(credentials);
-    
-    if (!admin) {
-      return c.json({
-        success: false,
-        error: 'Invalid email or password',
-      }, 401);
-    }
-
-    const accessToken = JwtService.generateAdminAccessToken(admin.id);
-    
-    return c.json({
-      success: true,
-      data: {
-        admin: {
-          id: admin.id,
-          email: admin.email,
-          firstName: admin.firstName,
-          lastName: admin.lastName,
-          role: admin.role,
-        },
-        accessToken,
-      },
-      message: 'Login successful',
-    });
-  } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Login failed',
-      details: error.message,
-    }, 500);
-  }
-});
 
 // Create Admin (Super Admin only)
 const createAdminRoute = createRoute({
@@ -122,6 +50,15 @@ const createAdminRoute = createRoute({
 
 app.openapi(createAdminRoute, async (c) => {
   try {
+    // Check if user is a super admin
+    const user = c.get('user');
+    if (!user || user.role !== 'admin' || user.adminData?.role !== 'SUPER') {
+      return c.json({
+        success: false,
+        error: 'Super admin access required',
+      }, 403);
+    }
+
     const data = c.req.valid('json');
     
     // Check if admin with email already exists
@@ -289,6 +226,92 @@ app.openapi(updateAdminRoute, async (c) => {
   try {
     const { id } = c.req.valid('param');
     const data = c.req.valid('json');
+    const admin = await AdminService.update(id, data);
+    
+    return c.json({
+      success: true,
+      data: admin,
+      message: 'Admin updated successfully',
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to update admin',
+      details: error.message,
+    }, 400);
+  }
+});
+
+// Patch Admin (for frontend compatibility)
+const patchAdminRoute = createRoute({
+  method: 'patch',
+  path: '/admins/{id}',
+  tags: ['Admins'],
+  summary: 'Patch admin information',
+  request: {
+    params: z.object({
+      id: z.string().min(1),
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: CreateAdminSchema.omit({ password: true }).partial().extend({
+            role: z.enum(['SUPER', 'STANDARD']).optional(),
+            active: z.boolean().optional(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Admin updated successfully',
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Admin not found',
+    },
+  },
+});
+
+app.openapi(patchAdminRoute, async (c) => {
+  try {
+    const { id } = c.req.valid('param');
+    const data = c.req.valid('json');
+    
+    // Convert frontend role format to backend format
+    if (data.role) {
+      data.role = data.role === 'super' ? 'SUPER' : 'STANDARD';
+    }
+    
+    // Handle active status toggle
+    if (typeof data.active !== 'undefined') {
+      if (data.active) {
+        const admin = await AdminService.activate(id);
+        return c.json({
+          success: true,
+          data: admin,
+          message: 'Admin activated successfully',
+        });
+      } else {
+        const admin = await AdminService.deactivate(id);
+        return c.json({
+          success: true,
+          data: admin,
+          message: 'Admin deactivated successfully',
+        });
+      }
+    }
+    
     const admin = await AdminService.update(id, data);
     
     return c.json({

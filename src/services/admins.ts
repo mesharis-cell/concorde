@@ -79,6 +79,15 @@ export class AdminService {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
+        include: {
+          adminEvents: {
+            include: {
+              event: {
+                select: { id: true, name: true, shortName: true, active: true },
+              },
+            },
+          },
+        },
         // With Prisma v6 omit, we don't need to manually select fields to exclude passwordHash
       }),
       prisma.admin.count({ where }),

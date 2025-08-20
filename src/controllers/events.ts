@@ -41,6 +41,15 @@ const createEventRoute = createRoute({
 
 app.openapi(createEventRoute, async (c) => {
   try {
+    // Check if user is a super admin
+    const user = c.get('user');
+    if (!user || user.role !== 'admin' || user.adminData?.role !== 'SUPER') {
+      return c.json({
+        success: false,
+        error: 'Super admin access required',
+      }, 403);
+    }
+
     const data = c.req.valid('json');
     const event = await EventService.create(data);
     
@@ -252,6 +261,15 @@ const updateEventRoute = createRoute({
 
 app.openapi(updateEventRoute, async (c) => {
   try {
+    // Check if user is a super admin
+    const user = c.get('user');
+    if (!user || user.role !== 'admin' || user.adminData?.role !== 'SUPER') {
+      return c.json({
+        success: false,
+        error: 'Super admin access required',
+      }, 403);
+    }
+
     const { id } = c.req.valid('param');
     const data = c.req.valid('json');
     const event = await EventService.update(id, data);
@@ -312,6 +330,15 @@ const toggleEventRoute = createRoute({
 
 app.openapi(toggleEventRoute, async (c) => {
   try {
+    // Check if user is a super admin
+    const user = c.get('user');
+    if (!user || user.role !== 'admin' || user.adminData?.role !== 'SUPER') {
+      return c.json({
+        success: false,
+        error: 'Super admin access required',
+      }, 403);
+    }
+
     const { id } = c.req.valid('param');
     const { active } = c.req.valid('json');
     

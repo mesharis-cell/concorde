@@ -50,6 +50,15 @@ export class EventService {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
+        include: {
+          adminEvents: {
+            include: {
+              admin: {
+                select: { id: true, email: true, firstName: true, lastName: true, role: true, active: true },
+              },
+            },
+          },
+        },
       }),
       prisma.event.count({ where }),
     ]);

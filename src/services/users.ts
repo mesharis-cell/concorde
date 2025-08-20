@@ -61,6 +61,8 @@ export class UserService {
       search?: string;
       hasRequirements?: boolean;
       guestType?: string;
+      requirementType?: 'dietary' | 'medical' | 'accessibility' | 'accommodation' | 'any';
+      communicationType?: 'email-only' | 'whatsapp-only' | 'both' | 'none' | 'any';
     } = {}
   ): Promise<PaginatedResponse<User>> {
     const { page, limit } = pagination;
@@ -79,51 +81,117 @@ export class UserService {
       where.groupId = filters.groupId;
     }
 
-    if (filters.guestType) {
-      where.profile = {
-        path: ['guestType'],
-        equals: filters.guestType,
-      };
-    }
+    // For now, implement basic filtering without JSON path queries
+    // Use simple client-side filtering for complex JSON queries until we implement raw SQL
+    
+    // Basic filters that work with Prisma
+    let users: User[] = [];
+    let filteredCount = 0;
+
+    // Get all users for the event first
+    const allUsers = await prisma.user.findMany({
+      where: {
+        eventId,
+        active: true,
+        ...(filters.assigned !== undefined && { assigned: filters.assigned }),
+        ...(filters.groupId && { groupId: filters.groupId }),
+      },
+      orderBy: { registeredAt: 'desc' },
+      include: {
+        group: {
+          select: { id: true, name: true },
+        },
+      },
+    });
+
+    // Apply client-side filtering for JSON fields
+    let filtered = allUsers;
 
     if (filters.search) {
-      where.OR = [
-        { profile: { path: ['firstName'], string_contains: filters.search } },
-        { profile: { path: ['lastName'], string_contains: filters.search } },
-        { profile: { path: ['email'], string_contains: filters.search } },
-      ];
+      const searchLower = filters.search.toLowerCase();
+      filtered = filtered.filter(user => {
+        const profile = user.profile as any;
+        const firstName = profile?.firstName || '';
+        const lastName = profile?.lastName || '';
+        const email = profile?.email || '';
+        return (
+          firstName.toLowerCase().includes(searchLower) ||
+          lastName.toLowerCase().includes(searchLower) ||
+          email.toLowerCase().includes(searchLower)
+        );
+      });
+    }
+
+    if (filters.guestType) {
+      filtered = filtered.filter(user => {
+        const profile = user.profile as any;
+        return profile?.guestType === filters.guestType;
+      });
+    }
+
+    if (filters.requirementType && filters.requirementType !== 'any') {
+      filtered = filtered.filter(user => {
+        const requirements = user.requirements as any;
+        const accommodation = user.accommodation as any;
+        
+        if (filters.requirementType === 'dietary') {
+          return requirements?.dietary;
+        } else if (filters.requirementType === 'medical') {
+          return requirements?.medical;
+        } else if (filters.requirementType === 'accessibility') {
+          return requirements?.accessibility;
+        } else if (filters.requirementType === 'accommodation') {
+          return accommodation?.required;
+        }
+        return false;
+      });
+    } else if (filters.requirementType === 'any') {
+      filtered = filtered.filter(user => {
+        const requirements = user.requirements as any;
+        const accommodation = user.accommodation as any;
+        return requirements?.dietary || requirements?.medical || requirements?.accessibility || accommodation?.required;
+      });
+    }
+
+    if (filters.communicationType && filters.communicationType !== 'any') {
+      filtered = filtered.filter(user => {
+        const communication = user.communication as any;
+        const emailOptIn = communication?.emailOptIn || false;
+        const whatsappOptIn = communication?.whatsappOptIn || false;
+        
+        if (filters.communicationType === 'email-only') {
+          return emailOptIn && !whatsappOptIn;
+        } else if (filters.communicationType === 'whatsapp-only') {
+          return !emailOptIn && whatsappOptIn;
+        } else if (filters.communicationType === 'both') {
+          return emailOptIn && whatsappOptIn;
+        } else if (filters.communicationType === 'none') {
+          return !emailOptIn && !whatsappOptIn;
+        }
+        return false;
+      });
     }
 
     if (filters.hasRequirements) {
-      where.OR = [
-        { requirements: { path: ['dietary'], not: { equals: null } } },
-        { requirements: { path: ['medical'], not: { equals: null } } },
-        { requirements: { path: ['accessibility'], not: { equals: null } } },
-      ];
+      filtered = filtered.filter(user => {
+        const requirements = user.requirements as any;
+        const accommodation = user.accommodation as any;
+        return requirements?.dietary || requirements?.medical || requirements?.accessibility || accommodation?.required;
+      });
     }
 
-    const [items, total] = await prisma.$transaction([
-      prisma.user.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { registeredAt: 'desc' },
-        include: {
-          group: {
-            select: { id: true, name: true },
-          },
-        },
-      }),
-      prisma.user.count({ where }),
-    ]);
+    // Apply pagination
+    filteredCount = filtered.length;
+    const startIndex = (page - 1) * limit;
+    users = filtered.slice(startIndex, startIndex + limit);
 
     return {
-      items,
+      items: users,
       pagination: {
         page,
         limit,
-        total,
-        totalPages: Math.ceil(total / limit),
+        total: filteredCount,
+        totalPages: Math.ceil(filteredCount / limit),
       },
     };
   }
@@ -478,5 +546,30 @@ export class UserService {
       accommodationRequired: summary.accommodationRequired,
       flightArrivals: summary.flightArrivals,
     };
+  }
+
+  static async updateCommunicationPreferences(
+    userId: string, 
+    preferences: { emailOptIn: boolean; whatsappOptIn: boolean }
+  ): Promise<User> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const currentCommunication = (user.communication as any) || {};
+    const updatedCommunication = {
+      ...currentCommunication,
+      emailOptIn: preferences.emailOptIn,
+      whatsappOptIn: preferences.whatsappOptIn,
+    };
+
+    return await prisma.user.update({
+      where: { id: userId },
+      data: { communication: updatedCommunication },
+    });
   }
 }

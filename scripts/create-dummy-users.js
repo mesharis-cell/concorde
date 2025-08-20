@@ -1,0 +1,260 @@
+#!/usr/bin/env node
+
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+// Sample data arrays
+const firstNames = [
+  'James', 'Mary', 'John', 'Patricia', 'Robert', 'Jennifer', 'Michael', 'Linda',
+  'William', 'Elizabeth', 'David', 'Barbara', 'Richard', 'Susan', 'Joseph', 'Jessica',
+  'Thomas', 'Sarah', 'Christopher', 'Karen', 'Charles', 'Nancy', 'Daniel', 'Lisa',
+  'Matthew', 'Betty', 'Anthony', 'Helen', 'Mark', 'Sandra', 'Donald', 'Donna'
+];
+
+const lastNames = [
+  'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis',
+  'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas',
+  'Taylor', 'Moore', 'Jackson', 'Martin', 'Lee', 'Perez', 'Thompson', 'White',
+  'Harris', 'Sanchez', 'Clark', 'Ramirez', 'Lewis', 'Robinson', 'Walker', 'Young'
+];
+
+const guestTypes = [
+  'VIP', 'Corporate Partner', 'Media', 'Sponsor', 'Speaker', 'Executive',
+  'Board Member', 'Investor', 'Client', 'Premium Guest'
+];
+
+const airlines = [
+  'American Airlines', 'Delta Air Lines', 'United Airlines', 'Southwest Airlines',
+  'British Airways', 'Lufthansa', 'Emirates', 'Air France', 'KLM', 'Singapore Airlines'
+];
+
+const hotels = [
+  'Grand Hyatt', 'The Ritz-Carlton', 'Four Seasons', 'St. Regis', 'W Hotel',
+  'Marriott', 'Hilton', 'Intercontinental', 'Westin', 'Sheraton'
+];
+
+const dietaryRequirements = [
+  null, null, null, // Most people have no special requirements
+  'Vegetarian', 'Vegan', 'Gluten-free', 'Kosher', 'Halal',
+  'Nut allergy', 'Dairy-free', 'Low-sodium'
+];
+
+const medicalRequirements = [
+  null, null, null, null, // Most people have no medical requirements
+  'Wheelchair accessible', 'Hearing impaired', 'Visual impairment',
+  'Mobility assistance', 'Medication storage needed'
+];
+
+const accessibilityRequirements = [
+  null, null, null, null, // Most people have no accessibility requirements
+  'Wheelchair accessible', 'Hearing assistance', 'Visual assistance',
+  'Sign language interpreter', 'Mobility assistance'
+];
+
+const shirtSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+const jacketSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+const hatSizes = ['S/M', 'L/XL', 'One Size'];
+
+const relationships = ['Spouse', 'Parent', 'Sibling', 'Child', 'Friend', 'Colleague'];
+
+function randomChoice(array) {
+  return array[Math.floor(Math.random() * array.length)];
+}
+
+function randomDate(start, end) {
+  return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+}
+
+function generatePhoneNumber() {
+  const areaCode = Math.floor(Math.random() * 900) + 100;
+  const exchange = Math.floor(Math.random() * 900) + 100;
+  const number = Math.floor(Math.random() * 9000) + 1000;
+  return `+1${areaCode}${exchange}${number}`;
+}
+
+function generateFlightNumber() {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const prefix = letters.charAt(Math.floor(Math.random() * letters.length)) + 
+                letters.charAt(Math.floor(Math.random() * letters.length));
+  const number = Math.floor(Math.random() * 9000) + 1000;
+  return prefix + number;
+}
+
+function generateDummyUser(eventId, index) {
+  const firstName = randomChoice(firstNames);
+  const lastName = randomChoice(lastNames);
+  const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}.${index}@example.com`;
+  
+  const hasFlightInfo = Math.random() > 0.2; // 80% have flight info
+  const needsAccommodation = Math.random() > 0.3; // 70% need accommodation
+  const hasDietary = Math.random() > 0.7; // 30% have dietary requirements
+  const hasMedical = Math.random() > 0.9; // 10% have medical requirements
+  const hasAccessibility = Math.random() > 0.95; // 5% have accessibility requirements
+  
+  const eventDate = new Date('2025-03-15');
+  const arrivalDate = new Date(eventDate);
+  arrivalDate.setDate(eventDate.getDate() - Math.floor(Math.random() * 3 + 1)); // 1-3 days before
+  
+  const departureDate = new Date(eventDate);
+  departureDate.setDate(eventDate.getDate() + Math.floor(Math.random() * 3 + 1)); // 1-3 days after
+
+  return {
+    eventId,
+    profile: {
+      email,
+      firstName,
+      lastName,
+      phone: generatePhoneNumber(),
+      guestType: randomChoice(guestTypes),
+    },
+    communication: {
+      emailOptIn: Math.random() > 0.1, // 90% opt into email
+      whatsappOptIn: Math.random() > 0.4, // 60% opt into WhatsApp
+    },
+    flight: hasFlightInfo ? {
+      airline: randomChoice(airlines),
+      number: generateFlightNumber(),
+      arrival: arrivalDate,
+      departure: departureDate,
+      arrivalAirport: randomChoice(['JFK', 'LAX', 'ORD', 'DFW', 'ATL', 'SFO', 'LHR', 'CDG']),
+      departureAirport: randomChoice(['JFK', 'LAX', 'ORD', 'DFW', 'ATL', 'SFO', 'LHR', 'CDG']),
+    } : null,
+    accommodation: needsAccommodation ? {
+      required: true,
+      hotel: randomChoice(hotels),
+      checkIn: arrivalDate,
+      checkOut: departureDate,
+      specialRequests: Math.random() > 0.7 ? randomChoice([
+        'High floor room', 'Ocean view', 'Non-smoking', 'Late checkout', 'Early checkin'
+      ]) : null,
+    } : {
+      required: false,
+      hotel: null,
+      checkIn: null,
+      checkOut: null,
+      specialRequests: null,
+    },
+    transferRequirements: Math.random() > 0.8 ? randomChoice([
+      'Airport pickup required',
+      'Wheelchair accessible vehicle',
+      'Large vehicle for luggage',
+      'Child car seat needed'
+    ]) : null,
+    requirements: {
+      dietary: hasDietary ? randomChoice(dietaryRequirements.filter(r => r !== null)) : null,
+      medical: hasMedical ? randomChoice(medicalRequirements.filter(r => r !== null)) : null,
+      accessibility: hasAccessibility ? randomChoice(accessibilityRequirements.filter(r => r !== null)) : null,
+    },
+    merchandiseSize: {
+      shirt: randomChoice(shirtSizes),
+      jacket: randomChoice(jacketSizes),
+      hat: randomChoice(hatSizes),
+    },
+    emergencyContact: {
+      name: `${randomChoice(firstNames)} ${randomChoice(lastNames)}`,
+      relationship: randomChoice(relationships),
+      phone: generatePhoneNumber(),
+      email: Math.random() > 0.3 ? `emergency${index}@example.com` : null,
+    },
+    sessions: [],
+    magicLinks: [],
+  };
+}
+
+async function createDummyUsers() {
+  console.log('🚀 Creating dummy users for testing...');
+
+  try {
+    // Get all events
+    const events = await prisma.event.findMany({
+      where: { active: true },
+      select: { id: true, name: true },
+    });
+
+    if (events.length === 0) {
+      console.log('❌ No active events found. Please create an event first.');
+      return;
+    }
+
+    console.log(`📅 Found ${events.length} active event(s)`);
+
+    let totalUsersCreated = 0;
+
+    for (const event of events) {
+      console.log(`\n📝 Creating users for event: ${event.name}`);
+      
+      // Check if users already exist for this event
+      const existingCount = await prisma.user.count({
+        where: { eventId: event.id },
+      });
+
+      if (existingCount > 0) {
+        console.log(`   ⚠️  Event already has ${existingCount} users. Skipping...`);
+        continue;
+      }
+
+      // Create 25-50 dummy users per event
+      const userCount = Math.floor(Math.random() * 26) + 25; // 25-50 users
+      console.log(`   🎯 Creating ${userCount} dummy users...`);
+
+      const users = [];
+      for (let i = 1; i <= userCount; i++) {
+        users.push(generateDummyUser(event.id, i));
+      }
+
+      // Create users individually to handle duplicates
+      let createdCount = 0;
+      for (const userData of users) {
+        try {
+          await prisma.user.create({
+            data: userData,
+          });
+          createdCount++;
+        } catch (error) {
+          // Skip duplicates or other errors
+          console.log(`   ⚠️  Skipped user ${userData.profile.email}: ${error.message}`);
+        }
+      }
+
+      console.log(`   ✅ Created ${createdCount} users for ${event.name}`);
+      totalUsersCreated += createdCount;
+    }
+
+    console.log(`\n🎉 Total dummy users created: ${totalUsersCreated}`);
+    console.log('📊 User distribution:');
+    
+    for (const event of events) {
+      const count = await prisma.user.count({
+        where: { eventId: event.id },
+      });
+      console.log(`   • ${event.name}: ${count} users`);
+    }
+
+    console.log('\n🔍 Sample user data created with:');
+    console.log('   • Realistic names and contact information');
+    console.log('   • Varied guest types (VIP, Corporate, Media, etc.)');
+    console.log('   • Flight information (80% of users)');
+    console.log('   • Hotel accommodations (70% of users)');
+    console.log('   • Dietary requirements (30% of users)');
+    console.log('   • Medical requirements (10% of users)');
+    console.log('   • Accessibility requirements (5% of users)');
+    console.log('   • Communication preferences (90% email, 60% WhatsApp)');
+    console.log('   • Merchandise sizes for all users');
+    console.log('   • Emergency contacts for all users');
+    
+    console.log('\n📱 Next steps:');
+    console.log('   1. View users in the admin dashboard');
+    console.log('   2. Create groups and assign users');
+    console.log('   3. Test export functionality');
+    console.log('   4. Test communication features');
+
+  } catch (error) {
+    console.error('❌ Failed to create dummy users:', error.message);
+    process.exit(1);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+createDummyUsers();

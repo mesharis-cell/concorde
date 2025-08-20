@@ -16,6 +16,7 @@
     "prisma:format": "prisma format",
     "type-check": "tsc --noEmit",
     "setup": "bun run prisma:generate && bun run prisma:push && bun scripts/setup.js",
+    "create-dummy-users": "bun scripts/create-dummy-users.js",
     "reset-db": "bun run prisma:push --force-reset"
   },
   "dependencies": {
