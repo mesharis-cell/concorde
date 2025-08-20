@@ -1856,11 +1856,29 @@ const createActivityRoute = createRoute({
   path: '/activities',
   tags: ['Admin - Activities'],
   summary: 'Create activity',
+  description: 'Create a new activity with rich content for a specific group',
   request: {
     body: {
       content: {
         'application/json': {
           schema: CreateActivitySchema,
+          example: {
+            eventId: '60f7b3b3b3b3b3b3b3b3b3b3',
+            groupId: '60f7b3b3b3b3b3b3b3b3b3b4',
+            title: 'Welcome Gala Dinner',
+            startDateTime: '2025-09-05T19:00:00Z',
+            endDateTime: '2025-09-05T22:00:00Z',
+            category: 'HOSPITALITY',
+            thumbnail: 'https://example.com/gala-dinner.jpg',
+            location: {
+              name: 'Grand Ballroom',
+              address: '123 Hotel Drive, Monza, Italy',
+              mapLink: 'https://maps.google.com/place/grand-ballroom'
+            },
+            content: {
+              html: '<h1>Welcome to F1 Italian Grand Prix</h1><p>Join us for an elegant gala dinner featuring <strong>local Italian cuisine</strong> and networking opportunities.</p><ul><li>Cocktail reception: 7:00 PM</li><li>Dinner service: 8:00 PM</li><li>Networking: 9:30 PM</li></ul>'
+            }
+          }
         },
       },
     },

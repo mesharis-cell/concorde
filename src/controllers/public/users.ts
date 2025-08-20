@@ -12,14 +12,59 @@ const eventRegisterRoute = createRoute({
   path: '/events/{eventId}/register',
   tags: ['Public - Registration'],
   summary: 'Register user for specific event',
+  description: 'Complete multi-step registration form for event attendees',
   request: {
     params: z.object({
-      eventId: z.string(),
+      eventId: z.string().describe('Event ID to register for'),
     }),
     body: {
       content: {
         'application/json': {
           schema: CreateUserSchema.omit({ eventId: true }),
+          example: {
+            profile: {
+              email: 'john.doe@example.com',
+              firstName: 'John',
+              lastName: 'Doe',
+              phone: '+1-555-0123',
+              guestType: 'VIP'
+            },
+            communication: {
+              emailOptIn: true,
+              whatsappOptIn: false
+            },
+            flight: {
+              airline: 'British Airways',
+              number: 'BA123',
+              arrival: '2024-09-15T14:30:00Z',
+              departure: '2024-09-18T16:45:00Z',
+              arrivalAirport: 'LHR',
+              departureAirport: 'JFK'
+            },
+            accommodation: {
+              required: true,
+              hotel: 'Grand Hotel Milano',
+              checkIn: '2024-09-15T00:00:00Z',
+              checkOut: '2024-09-18T00:00:00Z',
+              specialRequests: 'High floor, quiet room'
+            },
+            requirements: {
+              dietary: 'Vegetarian, no nuts',
+              medical: 'Diabetic - requires refrigerated medication',
+              accessibility: 'Wheelchair accessible rooms'
+            },
+            merchandiseSize: {
+              shirt: 'L',
+              jacket: 'XL',
+              hat: 'M'
+            },
+            emergencyContact: {
+              name: 'Jane Doe',
+              relationship: 'Spouse',
+              phone: '+1-555-0124',
+              email: 'jane.doe@example.com'
+            }
+          }
         },
       },
     },
@@ -29,6 +74,22 @@ const eventRegisterRoute = createRoute({
       content: {
         'application/json': {
           schema: ApiSuccessSchema,
+          example: {
+            success: true,
+            data: {
+              id: '60f7b3b3b3b3b3b3b3b3b3b3',
+              profile: {
+                email: 'john.doe@example.com',
+                firstName: 'John',
+                lastName: 'Doe',
+                phone: '+1-555-0123',
+                guestType: 'VIP'
+              },
+              assigned: false,
+              eventId: '60f7b3b3b3b3b3b3b3b3b3b3'
+            },
+            message: 'Registration completed successfully'
+          }
         },
       },
       description: 'User registered successfully',
@@ -37,9 +98,36 @@ const eventRegisterRoute = createRoute({
       content: {
         'application/json': {
           schema: ApiErrorSchema,
+          examples: {
+            'already-registered': {
+              value: {
+                success: false,
+                error: 'User already registered',
+                message: 'A user with this email is already registered for this event'
+              }
+            },
+            'registration-closed': {
+              value: {
+                success: false,
+                error: 'Registration is closed for this event'
+              }
+            }
+          }
         },
       },
       description: 'Registration failed',
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+          example: {
+            success: false,
+            error: 'Event not found'
+          }
+        },
+      },
+      description: 'Event not found',
     },
   },
 });
@@ -106,9 +194,10 @@ const eventInfoRoute = createRoute({
   path: '/events/{eventId}/info',
   tags: ['Public - Events'],
   summary: 'Get public event information',
+  description: 'Retrieve public event details for microsite display',
   request: {
     params: z.object({
-      eventId: z.string(),
+      eventId: z.string().describe('Event ID to get information for'),
     }),
   },
   responses: {
@@ -116,6 +205,27 @@ const eventInfoRoute = createRoute({
       content: {
         'application/json': {
           schema: ApiSuccessSchema,
+          example: {
+            success: true,
+            data: {
+              id: '60f7b3b3b3b3b3b3b3b3b3b3',
+              name: 'F1 Italian Grand Prix 2025',
+              shortName: 'Monza 2025',
+              location: {
+                city: 'Monza',
+                country: 'Italy',
+                venue: 'Autodromo Nazionale Monza',
+                timezone: 'Europe/Rome'
+              },
+              dateRange: {
+                start: '2025-09-05T00:00:00Z',
+                end: '2025-09-07T23:59:59Z'
+              },
+              config: {
+                registrationOpen: true
+              }
+            }
+          }
         },
       },
       description: 'Event information retrieved successfully',
@@ -124,6 +234,10 @@ const eventInfoRoute = createRoute({
       content: {
         'application/json': {
           schema: ApiErrorSchema,
+          example: {
+            success: false,
+            error: 'Event not found'
+          }
         },
       },
       description: 'Event not found',
@@ -241,14 +355,19 @@ const requestMagicLinkRoute = createRoute({
   path: '/auth/request-magic-link',
   tags: ['Public - Auth'],
   summary: 'Request a magic link for authentication',
+  description: 'Send passwordless login link to user email (24-hour expiration)',
   request: {
     body: {
       content: {
         'application/json': {
           schema: z.object({
-            email: z.string().email(),
-            eventId: z.string(),
+            email: z.string().email().describe('User email address'),
+            eventId: z.string().describe('Event ID user wants to access'),
           }),
+          example: {
+            email: 'john.doe@example.com',
+            eventId: '60f7b3b3b3b3b3b3b3b3b3b3'
+          }
         },
       },
     },
@@ -258,6 +377,25 @@ const requestMagicLinkRoute = createRoute({
       content: {
         'application/json': {
           schema: ApiSuccessSchema,
+          examples: {
+            'production': {
+              value: {
+                success: true,
+                data: {
+                  message: 'Magic link sent to your email'
+                }
+              }
+            },
+            'development': {
+              value: {
+                success: true,
+                data: {
+                  message: 'Magic link sent to your email',
+                  token: 'ml_1a2b3c4d5e6f7g8h9i0j'
+                }
+              }
+            }
+          }
         },
       },
       description: 'Magic link sent successfully',
@@ -266,6 +404,11 @@ const requestMagicLinkRoute = createRoute({
       content: {
         'application/json': {
           schema: ApiErrorSchema,
+          example: {
+            success: false,
+            error: 'User not found',
+            message: 'No user found with this email for the specified event'
+          }
         },
       },
       description: 'User not found',
@@ -314,13 +457,17 @@ const verifyMagicLinkRoute = createRoute({
   path: '/auth/validate-magic-link',
   tags: ['Public - Auth'],
   summary: 'Verify magic link and get user session',
+  description: 'Validate token from email link and return JWT for authenticated access',
   request: {
     body: {
       content: {
         'application/json': {
           schema: z.object({
-            token: z.string(),
+            token: z.string().describe('Magic link token from email'),
           }),
+          example: {
+            token: 'ml_1a2b3c4d5e6f7g8h9i0j'
+          }
         },
       },
     },
@@ -330,6 +477,25 @@ const verifyMagicLinkRoute = createRoute({
       content: {
         'application/json': {
           schema: ApiSuccessSchema,
+          example: {
+            success: true,
+            data: {
+              sessionToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+              user: {
+                id: '60f7b3b3b3b3b3b3b3b3b3b3',
+                profile: {
+                  email: 'john.doe@example.com',
+                  firstName: 'John',
+                  lastName: 'Doe',
+                  guestType: 'VIP'
+                },
+                assigned: true,
+                groupId: '60f7b3b3b3b3b3b3b3b3b3b4',
+                eventId: '60f7b3b3b3b3b3b3b3b3b3b3'
+              }
+            },
+            message: 'Authentication successful'
+          }
         },
       },
       description: 'Magic link verified successfully',
@@ -338,6 +504,20 @@ const verifyMagicLinkRoute = createRoute({
       content: {
         'application/json': {
           schema: ApiErrorSchema,
+          examples: {
+            'expired': {
+              value: {
+                success: false,
+                error: 'Invalid or expired magic link'
+              }
+            },
+            'already-used': {
+              value: {
+                success: false,
+                error: 'Magic link already used'
+              }
+            }
+          }
         },
       },
       description: 'Invalid or expired magic link',

@@ -1,5 +1,5 @@
 {
-  "name": "suleman-backend",
+  "name": "event-companion-backend",
   "version": "1.0.0",
   "description": "Event Concierge Platform Backend API",
   "main": "src/index.ts",
