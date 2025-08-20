@@ -72,11 +72,17 @@ console.log(`📊 Environment: ${env.NODE_ENV}`);
 console.log(`🔧 Port: ${port}`);
 
 
-// uncomment the below line to serve on nodeJS, this project uses bun
+// For Node.js deployment (uncomment if needed)
 // serve({
 //   fetch: app.fetch,
 //   port,
 // });
+
+// For Bun deployment
+// export default {
+//   port,
+//   fetch: app.fetch,
+// };
 
 console.log(`✅ Server running on http://localhost:${port}`);
 console.log(`📚 API Documentation: http://localhost:${port}/docs`);
