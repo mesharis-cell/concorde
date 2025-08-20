@@ -96,8 +96,6 @@ export const UpdateActivitySchema = CreateActivitySchema.partial().omit({
   eventId: true, 
   groupId: true, 
   createdBy: true 
-}).extend({
-  lastModifiedBy: z.string(),
 });
 export type UpdateActivity = z.infer<typeof UpdateActivitySchema>;
 
