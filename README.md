@@ -1,19 +1,21 @@
 # Event Concierge Platform Backend
 
-A comprehensive multi-event management system with personalized itinerary management and multi-channel communications for luxury events.
+A comprehensive multi-event management system with personalized itinerary management, rich content creation, and multi-channel communications for luxury events.
 
-## Features
+## 🚀 Key Features
 
-- **Multi-Event Management**: Support for multiple isolated events with data scoping
-- **User Registration**: Comprehensive attendee registration with detailed requirements
-- **Group Management**: Organize attendees into groups with dedicated activities
-- **Activity Management**: Rich content activities with scheduling and location details
-- **Magic Link Authentication**: Passwordless authentication for attendees
-- **Admin Management**: Role-based access control (Super/Standard admins)
-- **Multi-Channel Notifications**: Email (AWS SES) and WhatsApp (Twilio) communications
-- **CSV Import/Export**: Bulk user management capabilities
-- **File Upload**: S3 integration for activity images and assets
-- **Rich Content**: HTML editor support for activity descriptions
+- **🎯 Multi-Event Management**: Support for multiple isolated events with complete data scoping
+- **👥 User Registration**: Comprehensive attendee registration with travel, accommodation, and accessibility requirements
+- **📊 Advanced Group Management**: Organize attendees with visual group cards and member management
+- **🎨 Rich Activity Creation**: Tiptap-powered rich text editor with S3 image uploads, edit/preview modes
+- **🔐 Magic Link Authentication**: Passwordless JWT-based authentication for attendees
+- **⚡ Advanced Admin Dashboard**: Role-based access (Super/Standard) with dark mode support
+- **📱 Multi-Channel Communications**: Email (AWS SES) and WhatsApp (Twilio) with user preference controls
+- **📋 Smart CSV Import/Export**: Auto-mapping templates with comprehensive data validation
+- **☁️ S3 File Management**: Presigned URL uploads for secure image handling
+- **🌍 Timezone Support**: Event-based timezone display with admin toggle capabilities
+- **📈 Real-time Statistics**: Comprehensive event analytics and reporting
+- **🎭 Professional Typography**: Plus Jakarta Sans, Lora serif, IBM Plex Mono fonts
 
 ## Tech Stack
 
@@ -69,7 +71,34 @@ bun run prisma:push
 bun run dev
 ```
 
-The API will be available at `http://localhost:3000` and the documentation at `http://localhost:3000/docs`.
+The API will be available at `http://localhost:3001` and the documentation at `http://localhost:3001/docs`.
+
+## 🏗️ Architecture Overview
+
+### Frontend (Admin Dashboard)
+- **Next.js 15**: React framework with App Router and TypeScript
+- **Tailwind CSS**: Styling with shadcn/ui components
+- **Rich Text Editor**: Tiptap with S3 image uploads
+- **State Management**: TanStack Query for server state
+- **Authentication**: JWT token-based with auto-refresh
+- **Theme Support**: Light/dark mode with system preference detection
+
+### Backend (API Server)
+- **Hono Framework**: Fast web framework with OpenAPI integration
+- **Prisma v6**: Advanced ORM with MongoDB optimizations
+- **JWT Authentication**: Secure token-based authentication
+- **File Storage**: AWS S3 with presigned URLs
+- **Email/SMS**: AWS SES and Twilio integration
+
+### Database Schema
+```
+Events
+├── Groups (event-specific containers)
+│   ├── Activities (rich content with scheduling)
+│   └── Users (comprehensive attendee profiles)
+├── Admins (role-based access control)
+└── Messages (multi-channel communication tracking)
+```
 
 ## Environment Configuration
 
@@ -109,33 +138,68 @@ PORT="3000"
 NODE_ENV="development"
 ```
 
-## API Documentation
+## 📚 API Documentation
 
-Once running, visit `http://localhost:3000/docs` for interactive API documentation.
+### Interactive Documentation
+Visit `http://localhost:3001/docs` for complete interactive Swagger documentation with request/response examples.
 
-### Key Endpoints
+### 🌐 Public Endpoints (User Microsite)
+```http
+POST   /api/events/{eventId}/register          # Event registration
+GET    /api/events/{eventId}/info              # Public event information
+POST   /api/auth/request-magic-link            # Request login link
+POST   /api/auth/validate-magic-link           # Validate magic link token
+```
 
-#### Authentication
-- `POST /api/auth/admin/login` - Admin login
-- `POST /api/auth/magic-link/request` - Request magic link
-- `POST /api/auth/magic-link/verify` - Verify magic link
+### 🔐 User Authenticated Endpoints
+```http
+GET    /api/user/profile                       # User profile with group assignment
+GET    /api/user/itinerary                     # User's group activities timeline
+PUT    /api/user/preferences                   # Update communication preferences
+GET    /api/activities/{activityId}            # Single activity details
+```
 
-#### Events Management
-- `GET /api/events` - List events
-- `POST /api/events` - Create event (Super admin)
-- `GET /api/events/{id}/stats` - Event statistics
+### 🛡️ Admin Endpoints
+```http
+# Authentication
+POST   /api/v1/admin/login                     # Admin login
 
-#### User Management
-- `POST /api/users/register` - User registration (public)
-- `GET /api/users` - List users (admin)
-- `POST /api/users/import` - CSV import
-- `GET /api/users/export` - CSV export
+# Event Management (Super Admin Only)
+GET    /api/v1/admin/events                    # List all events
+POST   /api/v1/admin/events                    # Create new event
+PATCH  /api/v1/admin/events/{id}               # Update event
+PATCH  /api/v1/admin/events/{id}/toggle        # Toggle event status
 
-#### Group & Activity Management
-- `GET /api/groups` - List groups
-- `POST /api/groups` - Create group
-- `GET /api/activities` - List activities
-- `POST /api/activities` - Create activity
+# User Management
+GET    /api/v1/admin/users                     # List users with filters
+GET    /api/v1/admin/users/{id}                # Get user details
+PUT    /api/v1/admin/users/{id}                # Update user profile
+PUT    /api/v1/admin/users/{id}/assign         # Assign user to group
+POST   /api/v1/admin/users/{id}/unassign       # Unassign user from group
+POST   /api/v1/admin/users/import              # Bulk import from CSV
+GET    /api/v1/admin/users/export              # Export to CSV
+
+# Group Management
+GET    /api/v1/admin/groups                    # List groups
+POST   /api/v1/admin/groups                    # Create group
+PATCH  /api/v1/admin/groups/{id}               # Update group
+DELETE /api/v1/admin/groups/{id}               # Delete group
+GET    /api/v1/admin/groups/export             # Export groups
+
+# Activity Management
+GET    /api/v1/admin/activities                # List activities
+POST   /api/v1/admin/activities                # Create activity with rich content
+PATCH  /api/v1/admin/activities/{id}           # Update activity
+DELETE /api/v1/admin/activities/{id}           # Delete activity
+GET    /api/v1/admin/activities/export         # Export activities
+
+# File Upload
+POST   /api/v1/admin/upload/presigned-url      # Generate S3 upload URL
+
+# Administrator Management
+GET    /api/v1/admin/administrators            # List administrators
+PATCH  /api/v1/admin/administrators/{id}       # Update admin role/status
+```
 
 ## Core Concepts
 
@@ -151,23 +215,39 @@ Event → Groups → Activities → Users
 4. **Rich Content**: Activities use HTML editor for flexible content
 5. **User-Controlled Communications**: All notifications respect user channel preferences
 
-## Development Scripts
+## 🛠️ Development Scripts
 
+### Backend Server
 ```bash
-bun run dev          # Start development server
-bun run build        # Build for production
-bun run start        # Start production server
-
-# Prisma v6 Commands
-bun run prisma:generate  # Generate Prisma client
-bun run prisma:push     # Push schema to database
-bun run prisma:studio   # Open Prisma Studio
-bun run prisma:validate # Validate schema (Prisma v6)
-bun run prisma:format   # Format schema (Prisma v6)
-
-# Development
+bun run dev             # Start development server (auto-reload)
+bun run build           # Build for production
+bun run start           # Start production server
 bun run type-check      # TypeScript type checking
-bun run setup           # Initial setup with sample data
+```
+
+### Database Management (Prisma v6)
+```bash
+bun run prisma:generate    # Generate Prisma client
+bun run prisma:push        # Push schema to database
+bun run prisma:studio      # Open Prisma Studio GUI
+bun run prisma:validate    # Validate schema
+bun run prisma:format      # Format schema file
+bun run reset-db           # Reset database (development)
+```
+
+### Setup & Utilities
+```bash
+bun run setup              # Initial setup with sample data
+bun run create-dummy-users # Generate test users
+```
+
+### Frontend Admin Dashboard
+```bash
+cd admin-frontend
+bun run dev                # Start Next.js development server
+bun run build              # Build for production
+bun run lint               # ESLint validation
+bun run format             # Prettier formatting
 ```
 
 ## Communication Flow
@@ -179,31 +259,54 @@ bun run setup           # Initial setup with sample data
 5. **Activity Updates**: Notifications when activities are modified
 6. **Announcements**: Broadcast messages to groups or all users
 
-## CSV Import/Export
+## 📋 Advanced Data Management
 
-### Import Template
-Download the CSV template at `/api/users/import-template` which includes:
-- User profile information
-- Flight and accommodation details
-- Requirements (dietary, medical, accessibility)
-- Communication preferences
-- Emergency contact information
+### Smart CSV Import/Export System
+- **Auto-Mapping Templates**: Download pre-formatted CSV templates with sample data
+- **Intelligent Field Detection**: Automatic field mapping when using templates
+- **Fuzzy Matching**: Smart detection of field name variations (e.g., `first_name` → `firstName`)
+- **Export-Import Roundtrip**: Perfect compatibility - exported data can be immediately re-imported
+- **Comprehensive Validation**: Real-time error reporting with row-specific feedback
 
-### Export Options
-Export user data with filtering by:
-- Event
-- Group assignment
-- Assignment status
-- Special requirements
+### Template Structure
+**Users Template (17+ fields)**:
+```csv
+firstName, lastName, email, phone, guestType, group, dietaryRequirements,
+medicalRequirements, accessibilityRequirements, accommodationRequired,
+hotel, checkInDate, checkOutDate, flightArrival, flightDeparture,
+emergencyContactName, emergencyContactPhone
+```
 
-## Security Features
+**Groups Template (5 fields)**:
+```csv  
+name, description, capacity, category, assignedMembers
+```
 
-- JWT-based authentication with magic links
-- Role-based access control (Super/Standard admins)
-- Event-scoped data isolation
-- Input validation with Zod schemas
-- Rate limiting and CORS protection
-- Secure file uploads via S3 presigned URLs
+**Activities Template (10 fields)**:
+```csv
+title, group, startDateTime, endDateTime, location, address,
+category, description, thumbnail, mapLink
+```
+
+## 🔒 Security & Authentication
+
+### User Authentication (Microsite)
+- **Passwordless Magic Links**: 24-hour expiring email-based authentication
+- **JWT Sessions**: Secure token-based sessions lasting event duration
+- **Single-Use Tokens**: Magic links can only be used once
+- **Group-Based Access**: Users only see activities from their assigned group
+
+### Admin Authentication (Dashboard)
+- **Password-Based**: Traditional email/password for admin accounts
+- **Role-Based Access Control**: Super Admin vs Standard Admin permissions
+- **JWT Tokens**: Secure API authentication with automatic refresh
+- **Self-Edit Protection**: Admins cannot modify their own accounts
+
+### Data Security
+- **Event Isolation**: Complete data scoping per event
+- **Input Validation**: Comprehensive Zod schema validation
+- **S3 Presigned URLs**: Secure file uploads without direct S3 access
+- **JWT Token Management**: Automatic token refresh and secure storage
 
 ## Production Deployment
 
@@ -221,6 +324,71 @@ Before production launch, submit message templates to Twilio for approval:
 - Group assignment notifications
 - Activity updates
 - General announcements
+
+## 🎨 Frontend Features (Admin Dashboard)
+
+### Rich Text Activity Editor
+- **Tiptap Integration**: Professional rich text editor with full toolbar
+- **S3 Image Uploads**: Direct image upload with presigned URLs
+- **Edit/Preview Modes**: Real-time content preview for activities
+- **Dark Mode Support**: Complete light/dark theme compatibility
+- **Professional Typography**: Custom Google Fonts (Plus Jakarta Sans, Lora, IBM Plex Mono)
+
+### Advanced User Interface
+- **Card-Based Design**: Modern card layouts for groups, activities, and admins
+- **Responsive Design**: Mobile-friendly admin dashboard
+- **Timezone Management**: Event-based timezone display with clear indicators
+- **Real-Time Statistics**: Live event analytics and reporting
+- **Smart Search**: Enhanced search with visual feedback
+
+### Data Management Tools
+- **Template System**: Downloadable CSV templates with sample data
+- **Auto-Mapping**: Intelligent field detection for imports
+- **Export Compatibility**: Exported data can be immediately re-imported
+- **Bulk Operations**: Efficient handling of large datasets
+
+## 🚀 Getting Started
+
+### Quick Setup (Development)
+```bash
+# 1. Clone and install dependencies
+git clone <repository>
+cd suleman-backend
+bun install
+
+# 2. Set up environment
+cp .env.example .env
+# Configure your MongoDB, AWS, and Twilio credentials
+
+# 3. Initialize database
+bun run prisma:generate
+bun run prisma:push
+bun run setup
+
+# 4. Start backend server
+bun run dev
+# API: http://localhost:3001
+# Docs: http://localhost:3001/docs
+
+# 5. Start admin dashboard (in new terminal)
+cd admin-frontend
+bun install
+bun run dev
+# Dashboard: http://localhost:3000
+```
+
+### Production Deployment Checklist
+- [ ] Configure production MongoDB (Atlas recommended)
+- [ ] Set up AWS services (S3, SES, CloudFront)
+- [ ] Submit WhatsApp templates to Twilio for approval
+- [ ] Configure SSL certificates
+- [ ] Set up monitoring (CloudWatch)
+- [ ] Configure backup strategies
+- [ ] Test email deliverability (SPF/DKIM)
+
+## 📧 Contact & Support
+
+For questions, issues, or feature requests, please refer to the project documentation or contact the development team.
 
 ## License
 
