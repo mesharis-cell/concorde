@@ -3,7 +3,7 @@ import { env } from '../config/env.js';
 
 export interface JwtPayload {
   id: string;
-  role?: 'admin' | 'user';
+  role?: 'superadmin' | 'admin' | 'user';
   eventId?: string;
   type: 'access' | 'refresh' | 'magic';
 }
@@ -57,11 +57,12 @@ export class JwtService {
     );
   }
 
-  static generateAdminAccessToken(adminId: string): string {
+  static generateAdminAccessToken(adminId: string, role: 'SUPER' | 'STANDARD'): string {
+    console.log('role', role);
     return this.sign(
       { 
         id: adminId, 
-        role: 'admin',
+        role: role === 'SUPER' ? 'superadmin' : 'admin',
         type: 'access' 
       }
     );

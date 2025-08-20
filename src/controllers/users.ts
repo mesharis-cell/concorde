@@ -2,7 +2,6 @@ import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { UserService } from '../services/users.js';
 import { JwtService } from '../utils/jwt.js';
 import { CreateUserSchema, PaginationSchema, ApiSuccessSchema, ApiErrorSchema } from '../types/index.js';
-import { authenticateAdmin } from '../middleware/auth.js';
 
 const app = new OpenAPIHono();
 

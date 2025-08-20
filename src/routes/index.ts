@@ -4,9 +4,10 @@ import { swaggerUI } from '@hono/swagger-ui';
 // Import controllers
 import publicUsersController from '../controllers/public/users.js';
 import adminController from '../controllers/admin.js';
+import adminsController from '../controllers/admins.js';
 
 // Import middleware
-import { authenticateAdmin, authenticateUser, requireAdminRole, requireEventAccess } from '../middleware/auth.js';
+import { authenticateAdmin, authenticateUser } from '../middleware/auth.js';
 
 const app = new OpenAPIHono();
 
@@ -36,11 +37,17 @@ app.use('/api/v1/admin/*', async (c, next) => {
   if (c.req.path === '/api/v1/admin/login') {
     return next();
   }
-  return authenticateAdmin(c, next);
+  const auth = await authenticateAdmin(false);
+  return auth(c, next);
 });
 
 // All admin endpoints in one consolidated controller
 app.route('/api/v1/admin', adminController);
+
+// Admin management endpoints (requires admin authentication)
+const adminAuth = await authenticateAdmin(true);
+app.use('/api/admins*', adminAuth);
+app.route('/api', adminsController);
 
 // User-facing routes (user authentication required)
 const userRoutes = new OpenAPIHono();

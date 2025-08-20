@@ -9,7 +9,7 @@ const app = new OpenAPIHono();
 const createAdminRoute = createRoute({
   method: 'post',
   path: '/admins',
-  tags: ['Admins'],
+  tags: ['Super Admin - Admin Management'],
   summary: 'Create a new admin (Super Admin only)',
   request: {
     body: {
@@ -50,15 +50,6 @@ const createAdminRoute = createRoute({
 
 app.openapi(createAdminRoute, async (c) => {
   try {
-    // Check if user is a super admin
-    const user = c.get('user');
-    if (!user || user.role !== 'admin' || user.adminData?.role !== 'SUPER') {
-      return c.json({
-        success: false,
-        error: 'Super admin access required',
-      }, 403);
-    }
-
     const data = c.req.valid('json');
     
     // Check if admin with email already exists
@@ -90,8 +81,8 @@ app.openapi(createAdminRoute, async (c) => {
 const getAdminsRoute = createRoute({
   method: 'get',
   path: '/admins',
-  tags: ['Admins'],
-  summary: 'Get paginated list of admins',
+  tags: ['Super Admin - Admin Management'],
+  summary: 'Get paginated list of admins (Super Admin only)',
   request: {
     query: PaginationSchema.extend({
       role: AdminRole.optional(),
@@ -132,7 +123,7 @@ app.openapi(getAdminsRoute, async (c) => {
 const getAdminByIdRoute = createRoute({
   method: 'get',
   path: '/admins/{id}',
-  tags: ['Admins'],
+  tags: ['Super Admin - Admin Management'],
   summary: 'Get admin by ID',
   request: {
     params: z.object({
@@ -188,7 +179,7 @@ app.openapi(getAdminByIdRoute, async (c) => {
 const updateAdminRoute = createRoute({
   method: 'put',
   path: '/admins/{id}',
-  tags: ['Admins'],
+  tags: ['Super Admin - Admin Management'],
   summary: 'Update admin information',
   request: {
     params: z.object({
@@ -246,7 +237,7 @@ app.openapi(updateAdminRoute, async (c) => {
 const patchAdminRoute = createRoute({
   method: 'patch',
   path: '/admins/{id}',
-  tags: ['Admins'],
+  tags: ['Super Admin - Admin Management'],
   summary: 'Patch admin information',
   request: {
     params: z.object({
@@ -332,7 +323,7 @@ app.openapi(patchAdminRoute, async (c) => {
 const changePasswordRoute = createRoute({
   method: 'post',
   path: '/admins/{id}/change-password',
-  tags: ['Admins'],
+  tags: ['Super Admin - Admin Management'],
   summary: 'Change admin password',
   request: {
     params: z.object({
@@ -392,7 +383,7 @@ app.openapi(changePasswordRoute, async (c) => {
 const toggleAdminRoute = createRoute({
   method: 'patch',
   path: '/admins/{id}/toggle',
-  tags: ['Admins'],
+  tags: ['Super Admin - Admin Management'],
   summary: 'Activate or deactivate an admin',
   request: {
     params: z.object({
@@ -455,7 +446,7 @@ app.openapi(toggleAdminRoute, async (c) => {
 const assignAdminToEventRoute = createRoute({
   method: 'post',
   path: '/admins/{adminId}/events/{eventId}',
-  tags: ['Admins'],
+  tags: ['Super Admin - Admin Management'],
   summary: 'Assign admin to event',
   request: {
     params: z.object({
@@ -498,7 +489,7 @@ app.openapi(assignAdminToEventRoute, async (c) => {
 const unassignAdminFromEventRoute = createRoute({
   method: 'delete',
   path: '/admins/{adminId}/events/{eventId}',
-  tags: ['Admins'],
+  tags: ['Super Admin - Admin Management'],
   summary: 'Unassign admin from event',
   request: {
     params: z.object({
@@ -541,7 +532,7 @@ app.openapi(unassignAdminFromEventRoute, async (c) => {
 const getAdminEventsRoute = createRoute({
   method: 'get',
   path: '/admins/{id}/events',
-  tags: ['Admins'],
+  tags: ['Super Admin - Admin Management'],
   summary: 'Get events assigned to admin',
   request: {
     params: z.object({

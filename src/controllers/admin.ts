@@ -70,7 +70,7 @@ app.openapi(adminLoginRoute, async (c) => {
       }, 401);
     }
 
-    const accessToken = JwtService.generateAdminAccessToken(admin.id);
+    const accessToken = JwtService.generateAdminAccessToken(admin.id, admin.role);
     
     // Get admin's assigned events for frontend
     const assignedEvents = await AdminService.getAssignedEvents(admin.id);
