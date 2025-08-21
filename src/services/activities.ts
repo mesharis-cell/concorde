@@ -4,20 +4,59 @@ import type { Activity } from '@prisma/client';
 
 export class ActivityService {
   static async create(data: CreateActivity): Promise<Activity> {
+    // Fetch event to validate dates and timezone
+    const event = await prisma.event.findUnique({
+      where: { id: data.eventId },
+      select: {
+        dateRange: true,
+        location: true
+      }
+    });
+
+    if (!event) {
+      throw new Error('Event not found');
+    }
+
+    if (!event.dateRange) {
+      throw new Error('Event date range not configured');
+    }
+
+    // Convert activity dates to UTC for comparison
+    const activityStart = new Date(data.startDateTime);
+    const activityEnd = new Date(data.endDateTime);
+    
+    // Event dates should already be in UTC in the database
+    const eventStart = new Date(event.dateRange.start);
+    const eventEnd = new Date(event.dateRange.end);
+
+    // Validate activity dates are within event dates
+    if (activityStart < eventStart || activityStart > eventEnd) {
+      throw new Error(`Activity start date must be within event dates (${eventStart.toISOString()} - ${eventEnd.toISOString()})`);
+    }
+
+    if (activityEnd < eventStart || activityEnd > eventEnd) {
+      throw new Error(`Activity end date must be within event dates (${eventStart.toISOString()} - ${eventEnd.toISOString()})`);
+    }
+
+    if (activityStart >= activityEnd) {
+      throw new Error('Activity start date must be before end date');
+    }
+
+    // Store dates in UTC (they should already be converted by the frontend)
     return prisma.activity.create({
       data: {
         eventId: data.eventId,
         groupId: data.groupId,
         title: data.title,
-        startDateTime: data.startDateTime,
-        endDateTime: data.endDateTime,
+        startDateTime: activityStart, // Store in UTC
+        endDateTime: activityEnd, // Store in UTC
         thumbnail: data.thumbnail,
         category: data.category,
         location: data.location,
         content: data.content,
         createdBy: data.createdBy,
         lastModifiedBy: data.createdBy,
-      },
+      }
     });
   }
 
@@ -179,13 +218,62 @@ export class ActivityService {
   }
 
   static async update(id: string, data: UpdateActivity): Promise<Activity> {
+    // If updating dates, validate against event dates
+    if (data.startDateTime || data.endDateTime) {
+      // Get current activity to get eventId and current dates
+      const currentActivity = await prisma.activity.findUnique({
+        where: { id },
+        select: {
+          eventId: true,
+          startDateTime: true,
+          endDateTime: true,
+        }
+      });
+
+      if (!currentActivity) {
+        throw new Error('Activity not found');
+      }
+
+      // Get event for validation
+      const event = await prisma.event.findUnique({
+        where: { id: currentActivity.eventId },
+        select: {
+          dateRange: true,
+        }
+      });
+
+      if (!event || !event.dateRange) {
+        throw new Error('Event or event date range not found');
+      }
+
+      // Use updated dates or current dates
+      const activityStart = data.startDateTime ? new Date(data.startDateTime) : new Date(currentActivity.startDateTime);
+      const activityEnd = data.endDateTime ? new Date(data.endDateTime) : new Date(currentActivity.endDateTime);
+      
+      const eventStart = new Date(event.dateRange.start);
+      const eventEnd = new Date(event.dateRange.end);
+
+      // Validate dates are within event range
+      if (activityStart < eventStart || activityStart > eventEnd) {
+        throw new Error(`Activity start date must be within event dates (${eventStart.toISOString()} - ${eventEnd.toISOString()})`);
+      }
+
+      if (activityEnd < eventStart || activityEnd > eventEnd) {
+        throw new Error(`Activity end date must be within event dates (${eventStart.toISOString()} - ${eventEnd.toISOString()})`);
+      }
+
+      if (activityStart >= activityEnd) {
+        throw new Error('Activity start date must be before end date');
+      }
+    }
+
     const updateData: any = {
       lastModifiedBy: data.lastModifiedBy,
     };
 
     if (data.title) updateData.title = data.title;
-    if (data.startDateTime) updateData.startDateTime = data.startDateTime;
-    if (data.endDateTime) updateData.endDateTime = data.endDateTime;
+    if (data.startDateTime) updateData.startDateTime = new Date(data.startDateTime); // Ensure UTC
+    if (data.endDateTime) updateData.endDateTime = new Date(data.endDateTime); // Ensure UTC
     if (data.thumbnail !== undefined) updateData.thumbnail = data.thumbnail;
     if (data.category) updateData.category = data.category;
     if (data.location !== undefined) updateData.location = data.location;

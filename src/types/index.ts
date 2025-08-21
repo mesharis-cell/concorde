@@ -188,6 +188,13 @@ export const CreateUserSchema = z.object({
 });
 export type CreateUser = z.infer<typeof CreateUserSchema>;
 
+// Admin User Update Schema - excludes communication preferences
+export const AdminUpdateUserSchema = CreateUserSchema.omit({ 
+  eventId: true, 
+  communication: true 
+}).partial();
+export type AdminUpdateUser = z.infer<typeof AdminUpdateUserSchema>;
+
 // ============================================================================
 // Admin Types
 // ============================================================================

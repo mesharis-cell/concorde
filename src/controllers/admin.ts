@@ -15,6 +15,7 @@ import {
   CreateEventSchema,
   CreateActivitySchema,
   UpdateActivitySchema,
+  AdminUpdateUserSchema,
   PaginationSchema,
   ApiSuccessSchema, 
   ApiErrorSchema 
@@ -410,44 +411,7 @@ const updateUserRoute = createRoute({
     body: {
       content: {
         'application/json': {
-          schema: z.object({
-            firstName: z.string().optional(),
-            lastName: z.string().optional(),
-            email: z.string().email().optional(),
-            phone: z.string().optional(),
-            communication: z.object({
-              emailOptIn: z.boolean(),
-              whatsappOptIn: z.boolean(),
-            }).optional(),
-            flight: z.object({
-              airline: z.string().nullable().optional(),
-              number: z.string().nullable().optional(),
-              arrivalAirport: z.string().nullable().optional(),
-              departureAirport: z.string().nullable().optional(),
-            }).optional(),
-            accommodation: z.object({
-              required: z.boolean().optional(),
-              hotel: z.string().nullable().optional(),
-              specialRequests: z.string().nullable().optional(),
-            }).optional(),
-            transferRequirements: z.string().optional(),
-            requirements: z.object({
-              dietary: z.string().nullable().optional(),
-              medical: z.string().nullable().optional(),
-              accessibility: z.string().nullable().optional(),
-            }).optional(),
-            merchandiseSize: z.object({
-              shirt: z.string().optional(),
-              jacket: z.string().optional(),
-              hat: z.string().optional(),
-            }).optional(),
-            emergencyContact: z.object({
-              name: z.string().optional(),
-              relationship: z.string().optional(),
-              phone: z.string().optional(),
-              email: z.string().optional(),
-            }).optional(),
-          }),
+          schema: AdminUpdateUserSchema,
         },
       },
     },
@@ -503,7 +467,7 @@ app.openapi(updateUserRoute, async (c) => {
     }
     
     // Handle other fields - only include if explicitly provided
-    if (updates.communication !== undefined) updatePayload.communication = updates.communication;
+    // Note: communication field excluded from admin updates for privacy/consent compliance
     if (updates.flight !== undefined) updatePayload.flight = updates.flight;
     if (updates.accommodation !== undefined) updatePayload.accommodation = updates.accommodation;
     if (updates.transferRequirements !== undefined) updatePayload.transferRequirements = updates.transferRequirements;

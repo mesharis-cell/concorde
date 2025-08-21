@@ -18,25 +18,26 @@ const app = new Hono();
 // Global middleware
 app.use('*', logger());
 app.use('*', requestId());
-
-// Trust proxy headers (for Caddy reverse proxy)
-app.use('*', async (c, next) => {
-  // Handle proxy headers from Caddy
-  const forwardedProto = c.req.header('x-forwarded-proto');
-  const forwardedHost = c.req.header('x-forwarded-host');
-  
-  if (forwardedProto) {
-    c.req.url = c.req.url.replace(/^https?:/, forwardedProto + ':');
-  }
-  
-  await next();
-});
-
 app.use('*', secureHeaders());
 app.use('*', timeout(30000)); // 30 second timeout
 
 // CORS configuration
-app.use('*', cors());
+app.use('*', cors({
+  origin: '*',
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'Cache-Control',
+    'X-File-Name',
+    'Access-Control-Allow-Origin'
+  ],
+  credentials: false, // Set to false when using origin: '*'
+  maxAge: 86400,
+}))
 
 // Mount API routes
 app.route('/', apiRoutes);
