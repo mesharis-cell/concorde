@@ -604,7 +604,7 @@ app.openapi(exportUsersRoute, async (c) => {
     if (format === 'csv') {
       // Generate CSV format
       const headers = [
-        'Email', 'First Name', 'Last Name', 'Phone', 'Guest Type',
+        'Email', 'First Name', 'Last Name', 'Phone',
         'Group', 'Assigned', 'Registered At',
         'Email Opt-In', 'WhatsApp Opt-In',
         'Airline', 'Flight Number', 'Arrival', 'Departure',
@@ -628,7 +628,6 @@ app.openapi(exportUsersRoute, async (c) => {
           profile.firstName || '',
           profile.lastName || '',
           profile.phone || '',
-          profile.guestType || '',
           user.group?.name || 'Unassigned',
           user.assigned ? 'Yes' : 'No',
           user.registeredAt?.toISOString() || '',

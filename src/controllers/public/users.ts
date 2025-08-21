@@ -26,8 +26,7 @@ const eventRegisterRoute = createRoute({
               email: 'john.doe@example.com',
               firstName: 'John',
               lastName: 'Doe',
-              phone: '+1-555-0123',
-              guestType: 'VIP'
+              phone: '+1-555-0123'
             },
             communication: {
               emailOptIn: true,
@@ -82,8 +81,7 @@ const eventRegisterRoute = createRoute({
                 email: 'john.doe@example.com',
                 firstName: 'John',
                 lastName: 'Doe',
-                phone: '+1-555-0123',
-                guestType: 'VIP'
+                phone: '+1-555-0123'
               },
               assigned: false,
               eventId: '60f7b3b3b3b3b3b3b3b3b3b3'
@@ -486,8 +484,7 @@ const verifyMagicLinkRoute = createRoute({
                 profile: {
                   email: 'john.doe@example.com',
                   firstName: 'John',
-                  lastName: 'Doe',
-                  guestType: 'VIP'
+                  lastName: 'Doe'
                 },
                 assigned: true,
                 groupId: '60f7b3b3b3b3b3b3b3b3b3b4',

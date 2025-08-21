@@ -4,6 +4,8 @@ import { UserService } from '../services/users.js';
 import { EventService } from '../services/events.js';
 import { GroupService } from '../services/groups.js';
 import { ActivityService } from '../services/activities.js';
+import { CommunicationLogService } from '../services/communication-logs.js';
+import { CommunicationsService } from '../services/communications.js';
 import { S3Service } from '../services/s3.js';
 import { JwtService } from '../utils/jwt.js';
 import { 
@@ -143,7 +145,7 @@ app.openapi(exportUsersRoute, async (c) => {
     if (format === 'csv') {
       // CSV headers matching import template exactly
       const headers = [
-        'firstName', 'lastName', 'email', 'phone', 'guestType', 'group',
+        'firstName', 'lastName', 'email', 'phone', 'group',
         'dietaryRequirements', 'medicalRequirements', 'accessibilityRequirements',
         'accommodationRequired', 'hotel', 'checkInDate', 'checkOutDate',
         'flightArrival', 'flightDeparture', 'emergencyContactName', 'emergencyContactPhone'
@@ -166,7 +168,6 @@ app.openapi(exportUsersRoute, async (c) => {
           profile.lastName || '',
           profile.email || '',
           profile.phone || '',
-          profile.guestType || '',
           user.groupId ? (groupLookup.get(user.groupId) || user.groupId) : '',
           requirements.dietary || '',
           requirements.medical || '',
@@ -215,7 +216,6 @@ const getUsersRoute = createRoute({
       search: z.string().optional(),
       assigned: z.coerce.boolean().optional(),
       groupId: z.string().optional(),
-      guestType: z.string().optional(),
       requirementType: z.enum(['dietary', 'medical', 'accessibility', 'accommodation', 'any']).optional(),
       communicationType: z.enum(['email-only', 'whatsapp-only', 'both', 'none', 'any']).optional(),
       hasRequirements: z.coerce.boolean().optional(),
@@ -242,7 +242,6 @@ app.openapi(getUsersRoute, async (c) => {
       search,
       assigned,
       groupId,
-      guestType,
       requirementType,
       communicationType,
       hasRequirements
@@ -255,7 +254,6 @@ app.openapi(getUsersRoute, async (c) => {
         search,
         assigned,
         groupId,
-        guestType,
         requirementType,
         communicationType,
         hasRequirements
@@ -355,6 +353,18 @@ const getUserStatsRoute = createRoute({
 app.openapi(getUserStatsRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
+    const authUser = c.get('user');
+    
+    // Check if admin has access to this event
+    if (authUser.adminData?.role !== 'SUPER') {
+      const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
+      if (!hasAccess) {
+        return c.json({
+          success: false,
+          error: 'Access denied to this event',
+        }, 403);
+      }
+    }
     
     const { prisma } = await import('../config/database.js');
     
@@ -405,7 +415,6 @@ const updateUserRoute = createRoute({
             lastName: z.string().optional(),
             email: z.string().email().optional(),
             phone: z.string().optional(),
-            guestType: z.string().optional(),
             communication: z.object({
               emailOptIn: z.boolean(),
               whatsappOptIn: z.boolean(),
@@ -472,7 +481,7 @@ app.openapi(updateUserRoute, async (c) => {
     const updatePayload: any = {};
     
     // Handle profile fields - only include if any profile field was updated
-    const profileFields = ['firstName', 'lastName', 'email', 'phone', 'guestType'];
+    const profileFields = ['firstName', 'lastName', 'email', 'phone'];
     const hasProfileUpdates = profileFields.some(field => updates[field] !== undefined);
     
     if (hasProfileUpdates) {
@@ -490,7 +499,6 @@ app.openapi(updateUserRoute, async (c) => {
         ...(updates.lastName !== undefined && { lastName: updates.lastName }),
         ...(updates.email !== undefined && { email: updates.email }),
         ...(updates.phone !== undefined && { phone: updates.phone }),
-        ...(updates.guestType !== undefined && { guestType: updates.guestType }),
       };
     }
     
@@ -516,6 +524,56 @@ app.openapi(updateUserRoute, async (c) => {
       error: 'Failed to update user',
       details: error.message,
     }, 400);
+  }
+});
+
+const deleteUserRoute = createRoute({
+  method: 'delete',
+  path: '/users/{userId}',
+  tags: ['Admin - Users'],
+  summary: 'Soft delete user',
+  request: {
+    params: z.object({
+      userId: z.string().min(1),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'User deleted successfully',
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'User not found',
+    },
+  },
+});
+
+app.openapi(deleteUserRoute, async (c) => {
+  try {
+    const { userId } = c.req.valid('param');
+    const user = await UserService.softDelete(userId);
+    
+    return c.json({
+      success: true,
+      data: user,
+      message: 'User deleted successfully',
+    });
+  } catch (error: any) {
+    const statusCode = error.message.includes('not found') ? 404 : 400;
+    return c.json({
+      success: false,
+      error: 'Failed to delete user',
+      details: error.message,
+    }, statusCode);
   }
 });
 
@@ -1013,6 +1071,18 @@ const getEventOverviewStatsRoute = createRoute({
 app.openapi(getEventOverviewStatsRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
+    const authUser = c.get('user');
+    
+    // Check if admin has access to this event
+    if (authUser.adminData?.role !== 'SUPER') {
+      const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
+      if (!hasAccess) {
+        return c.json({
+          success: false,
+          error: 'Access denied to this event',
+        }, 403);
+      }
+    }
     
     const { prisma } = await import('../config/database.js');
     
@@ -1251,8 +1321,8 @@ app.openapi(createEventRoute, async (c) => {
 const updateEventRoute = createRoute({
   method: 'patch',
   path: '/events/{eventId}',
-  tags: ['Super Admin - Events'],
-  summary: 'Update event (Super Admin only)',
+  tags: ['Admin - Events'],
+  summary: 'Update event (Super Admin or assigned Standard Admin)',
   request: {
     params: z.object({
       eventId: z.string().min(1),
@@ -1280,7 +1350,7 @@ const updateEventRoute = createRoute({
           schema: ApiErrorSchema,
         },
       },
-      description: 'Super admin access required',
+      description: 'Access denied to this event',
     },
     404: {
       content: {
@@ -1304,16 +1374,18 @@ const updateEventRoute = createRoute({
 app.openapi(updateEventRoute, async (c) => {
   try {
     const authUser = c.get('user');
-    
-    // Check if user is a super admin
-    if (!authUser || authUser.adminData?.role !== 'SUPER') {
-      return c.json({
-        success: false,
-        error: 'Super admin access required to update events',
-      }, 403);
-    }
-
     const { eventId } = c.req.valid('param');
+    
+    // Check if admin has access to this event
+    if (authUser.adminData?.role !== 'SUPER') {
+      const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
+      if (!hasAccess) {
+        return c.json({
+          success: false,
+          error: 'Access denied to this event',
+        }, 403);
+      }
+    }
     const data = c.req.valid('json');
     const event = await EventService.update(eventId, data);
     
@@ -1430,8 +1502,23 @@ app.openapi(getEventsRoute, async (c) => {
   try {
     const authUser = c.get('user');
     
-    // For now, allow all admins to view events (can be restricted to SUPER later)
-    const eventsResult = await EventService.findAll({ page: 1, limit: 100 }, {});
+    let eventsResult;
+    if (authUser.adminData?.role === 'SUPER') {
+      // Super admins can see all events
+      eventsResult = await EventService.findAll({ page: 1, limit: 100 }, {});
+    } else {
+      // Standard admins only see assigned events
+      const assignedEvents = await AdminService.getAssignedEvents(authUser.id);
+      eventsResult = {
+        items: assignedEvents,
+        pagination: {
+          page: 1,
+          limit: 100,
+          total: assignedEvents.length,
+          totalPages: 1
+        }
+      };
+    }
     
     return c.json({
       success: true,
@@ -1483,6 +1570,19 @@ const getEventByIdRoute = createRoute({
 app.openapi(getEventByIdRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
+    const authUser = c.get('user');
+    
+    // Check if admin has access to this event
+    if (authUser.adminData?.role !== 'SUPER') {
+      const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
+      if (!hasAccess) {
+        return c.json({
+          success: false,
+          error: 'Access denied to this event',
+        }, 403);
+      }
+    }
+    
     const event = await EventService.findById(eventId);
     
     if (!event) {
@@ -1530,6 +1630,18 @@ const getEventStatsRoute = createRoute({
 app.openapi(getEventStatsRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
+    const authUser = c.get('user');
+    
+    // Check if admin has access to this event
+    if (authUser.adminData?.role !== 'SUPER') {
+      const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
+      if (!hasAccess) {
+        return c.json({
+          success: false,
+          error: 'Access denied to this event',
+        }, 403);
+      }
+    }
     
     const { prisma } = await import('../config/database.js');
     
@@ -2198,9 +2310,6 @@ app.openapi(importUsersRoute, async (c) => {
             case 'phone':
               userData.profile.phone = value;
               break;
-            case 'guestType':
-              userData.profile.guestType = value;
-              break;
             case 'dietaryRequirements':
               userData.requirements.dietary = value;
               break;
@@ -2604,6 +2713,450 @@ app.openapi(importActivitiesRoute, async (c) => {
     return c.json({
       success: false,
       error: 'Import failed',
+      details: error.message,
+    }, 500);
+  }
+});
+
+// =============================================================================
+// 8. COMMUNICATION LOGS MANAGEMENT
+// =============================================================================
+
+const getCommunicationLogsRoute = createRoute({
+  method: 'get',
+  path: '/users/{userId}/communication-logs',
+  tags: ['Admin - Communication Logs'],
+  summary: 'Get user communication logs',
+  request: {
+    params: z.object({
+      userId: z.string().min(1),
+    }),
+    query: PaginationSchema.extend({
+      type: z.enum(['email', 'whatsapp']).optional(),
+      purpose: z.enum(['group_assignment', 'event_reminder', 'custom', 'announcement']).optional(),
+      status: z.enum(['sent', 'delivered', 'failed', 'pending']).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Communication logs retrieved successfully',
+    },
+  },
+});
+
+app.openapi(getCommunicationLogsRoute, async (c) => {
+  try {
+    const { userId } = c.req.valid('param');
+    const { page, limit, type, purpose, status } = c.req.valid('query');
+    
+    const result = await CommunicationLogService.findByUserId(
+      userId,
+      { page: page || 1, limit: limit || 20 },
+      { type, purpose, status }
+    );
+    
+    return c.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to retrieve communication logs',
+      details: error.message,
+    }, 500);
+  }
+});
+
+const getGroupNotificationStatsRoute = createRoute({
+  method: 'get',
+  path: '/groups/{groupId}/notification-stats',
+  tags: ['Admin - Groups'],
+  summary: 'Get group notification statistics',
+  request: {
+    params: z.object({
+      groupId: z.string().min(1),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Group notification stats retrieved successfully',
+    },
+  },
+});
+
+app.openapi(getGroupNotificationStatsRoute, async (c) => {
+  try {
+    const { groupId } = c.req.valid('param');
+    const stats = await CommunicationLogService.getGroupNotificationStats(groupId);
+    
+    return c.json({
+      success: true,
+      data: stats,
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to retrieve notification stats',
+      details: error.message,
+    }, 500);
+  }
+});
+
+const sendGroupNotificationsRoute = createRoute({
+  method: 'post',
+  path: '/groups/{groupId}/send-notifications',
+  tags: ['Admin - Groups'],
+  summary: 'Send group assignment notifications to selected users',
+  request: {
+    params: z.object({
+      groupId: z.string().min(1),
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            userIds: z.array(z.string()),
+            channel: z.enum(['email', 'whatsapp']).default('email'),
+            customMessage: z.string().optional(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Notifications sent successfully',
+    },
+  },
+});
+
+app.openapi(sendGroupNotificationsRoute, async (c) => {
+  try {
+    const { groupId } = c.req.valid('param');
+    const { userIds, channel, customMessage } = c.req.valid('json');
+    const authUser = c.get('user');
+    
+    // Get group info for the message
+    const group = await GroupService.findById(groupId);
+    if (!group) {
+      return c.json({
+        success: false,
+        error: 'Group not found',
+      }, 404);
+    }
+    
+    const event = await EventService.findById(group.eventId);
+    if (!event) {
+      return c.json({
+        success: false,
+        error: 'Event not found',
+      }, 404);
+    }
+
+    // Create message content
+    const content = {
+      html: customMessage || `<p>You have been assigned to the group: <strong>${group.name}</strong></p><p>Event: ${event.name}</p>`,
+      text: customMessage || `You have been assigned to the group: ${group.name}. Event: ${event.name}`,
+    };
+    
+    // Log the communications and mark users as notified
+    const logs = await CommunicationLogService.logGroupAssignmentNotification(
+      userIds,
+      groupId,
+      group.eventId,
+      authUser.id,
+      channel,
+      content
+    );
+    
+    return c.json({
+      success: true,
+      data: {
+        sent: logs.length,
+        logs: logs.map(log => ({ id: log.id, userId: log.userId, status: log.status })),
+      },
+      message: `Notifications sent to ${logs.length} users`,
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to send notifications',
+      details: error.message,
+    }, 500);
+  }
+});
+
+const getGroupMembersWithNotificationStatusRoute = createRoute({
+  method: 'get',
+  path: '/groups/{groupId}/members-with-status',
+  tags: ['Admin - Groups'],
+  summary: 'Get group members with notification status',
+  request: {
+    params: z.object({
+      groupId: z.string().min(1),
+    }),
+    query: PaginationSchema,
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Group members with notification status retrieved successfully',
+    },
+  },
+});
+
+app.openapi(getGroupMembersWithNotificationStatusRoute, async (c) => {
+  try {
+    const { groupId } = c.req.valid('param');
+    const { page, limit } = c.req.valid('query');
+    
+    const result = await UserService.getUsersWithNotificationStatus(
+      groupId,
+      { page: page || 1, limit: limit || 20 }
+    );
+    
+    return c.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to retrieve group members with status',
+      details: error.message,
+    }, 500);
+  }
+});
+
+// =============================================================================
+// 9. COMMUNICATIONS MANAGEMENT
+// =============================================================================
+
+const sendCommunicationRoute = createRoute({
+  method: 'post',
+  path: '/communications/send',
+  tags: ['Admin - Communications'],
+  summary: 'Send communication to users via email',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            eventId: z.string().min(1),
+            recipientType: z.enum(['individual', 'group', 'all']),
+            recipientIds: z.array(z.string()).optional(),
+            subject: z.string().min(1),
+            content: z.string().min(1),
+            templateType: z.enum(['welcome', 'assignment', 'activity_update', 'announcement', 'custom']).optional(),
+            variables: z.record(z.any()).optional(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Communication sent successfully',
+    },
+  },
+});
+
+app.openapi(sendCommunicationRoute, async (c) => {
+  try {
+    const body = c.req.valid('json');
+    const authUser = c.get('user');
+    
+    const request = {
+      ...body,
+      adminId: authUser.id,
+      channel: 'email' as const,
+    };
+    
+    const result = await CommunicationsService.sendCommunication(request);
+    
+    return c.json({
+      success: true,
+      data: result,
+      message: `Communication sent successfully. ${result.sentCount} sent, ${result.skippedCount} skipped, ${result.failedCount} failed.`,
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to send communication',
+      details: error.message,
+    }, 500);
+  }
+});
+
+const getCommunicationStatsRoute = createRoute({
+  method: 'get',
+  path: '/communications/{eventId}/stats',
+  tags: ['Admin - Communications'],
+  summary: 'Get communication statistics for event',
+  request: {
+    params: z.object({
+      eventId: z.string().min(1),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Communication stats retrieved successfully',
+    },
+  },
+});
+
+app.openapi(getCommunicationStatsRoute, async (c) => {
+  try {
+    const { eventId } = c.req.valid('param');
+    const authUser = c.get('user');
+    
+    // Check if admin has access to this event
+    if (authUser.adminData?.role !== 'SUPER') {
+      const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
+      if (!hasAccess) {
+        return c.json({
+          success: false,
+          error: 'Access denied to this event',
+        }, 403);
+      }
+    }
+    
+    const stats = await CommunicationsService.getCommunicationStats(eventId);
+    
+    return c.json({
+      success: true,
+      data: stats,
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to retrieve communication stats',
+      details: error.message,
+    }, 500);
+  }
+});
+
+const getEmailTemplatesRoute = createRoute({
+  method: 'get',
+  path: '/communications/templates',
+  tags: ['Admin - Communications'],
+  summary: 'Get available email templates',
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Email templates retrieved successfully',
+    },
+  },
+});
+
+app.openapi(getEmailTemplatesRoute, async (c) => {
+  try {
+    const templates = CommunicationsService.getEmailTemplates();
+    
+    return c.json({
+      success: true,
+      data: { templates },
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to retrieve email templates',
+      details: error.message,
+    }, 500);
+  }
+});
+
+const getCommunicationHistoryRoute = createRoute({
+  method: 'get',
+  path: '/communications/{eventId}/history',
+  tags: ['Admin - Communications'],
+  summary: 'Get communication history for event',
+  request: {
+    params: z.object({
+      eventId: z.string().min(1),
+    }),
+    query: PaginationSchema.extend({
+      type: z.enum(['email', 'whatsapp']).optional(),
+      status: z.enum(['sent', 'delivered', 'failed', 'pending']).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Communication history retrieved successfully',
+    },
+  },
+});
+
+app.openapi(getCommunicationHistoryRoute, async (c) => {
+  try {
+    const { eventId } = c.req.valid('param');
+    const { page, limit, type, status } = c.req.valid('query');
+    const authUser = c.get('user');
+    
+    // Check if admin has access to this event
+    if (authUser.adminData?.role !== 'SUPER') {
+      const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
+      if (!hasAccess) {
+        return c.json({
+          success: false,
+          error: 'Access denied to this event',
+        }, 403);
+      }
+    }
+    
+    const result = await CommunicationLogService.findByEventId(
+      eventId,
+      { page: page || 1, limit: limit || 20 },
+      { type, status }
+    );
+    
+    return c.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to retrieve communication history',
       details: error.message,
     }, 500);
   }

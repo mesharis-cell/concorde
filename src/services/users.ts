@@ -6,6 +6,14 @@ import { GroupService } from './groups.js';
 
 export class UserService {
   static async create(data: CreateUser): Promise<User> {
+    // Check if user with same email already exists in this event
+    if (data.profile?.email) {
+      const existingUser = await this.findByEmailAndEvent(data.profile.email, data.eventId);
+      if (existingUser) {
+        throw new Error(`User with email ${data.profile.email} already exists in this event`);
+      }
+    }
+
     const user = await prisma.user.create({
       data: {
         eventId: data.eventId,
@@ -60,7 +68,6 @@ export class UserService {
       groupId?: string;
       search?: string;
       hasRequirements?: boolean;
-      guestType?: string;
       requirementType?: 'dietary' | 'medical' | 'accessibility' | 'accommodation' | 'any';
       communicationType?: 'email-only' | 'whatsapp-only' | 'both' | 'none' | 'any';
     } = {}
@@ -122,12 +129,6 @@ export class UserService {
       });
     }
 
-    if (filters.guestType) {
-      filtered = filtered.filter(user => {
-        const profile = user.profile as any;
-        return profile?.guestType === filters.guestType;
-      });
-    }
 
     if (filters.requirementType && filters.requirementType !== 'any') {
       filtered = filtered.filter(user => {
@@ -197,6 +198,24 @@ export class UserService {
   }
 
   static async update(id: string, data: Partial<CreateUser>): Promise<User> {
+    // If email is being updated, check for duplicates within the same event
+    if (data.profile?.email) {
+      const currentUser = await prisma.user.findUnique({
+        where: { id },
+        select: { eventId: true, profile: true },
+      });
+      
+      if (currentUser) {
+        const currentEmail = (currentUser.profile as any)?.email;
+        if (currentEmail !== data.profile.email) {
+          const existingUser = await this.findByEmailAndEvent(data.profile.email, currentUser.eventId);
+          if (existingUser) {
+            throw new Error(`User with email ${data.profile.email} already exists in this event`);
+          }
+        }
+      }
+    }
+
     const updateData: any = {};
 
     if (data.profile) updateData.profile = data.profile;
@@ -571,5 +590,107 @@ export class UserService {
       where: { id: userId },
       data: { communication: updatedCommunication },
     });
+  }
+
+  static async getUsersWithNotificationStatus(
+    groupId: string,
+    pagination: Pagination
+  ): Promise<PaginatedResponse<User & { notificationStatus: 'notified' | 'pending' }>> {
+    const { page, limit } = pagination;
+    const skip = (page - 1) * limit;
+
+    const [users, total] = await prisma.$transaction([
+      prisma.user.findMany({
+        where: {
+          groupId,
+          assigned: true,
+          active: true,
+        },
+        skip,
+        take: limit,
+        orderBy: { assignedAt: 'desc' },
+      }),
+      prisma.user.count({
+        where: {
+          groupId,
+          assigned: true,
+          active: true,
+        },
+      }),
+    ]);
+
+    const usersWithStatus = users.map(user => ({
+      ...user,
+      notificationStatus: user.groupAssignmentNotified ? 'notified' : 'pending' as const,
+    }));
+
+    return {
+      items: usersWithStatus,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  static async markUsersAsNotified(userIds: string[]): Promise<void> {
+    await prisma.user.updateMany({
+      where: {
+        id: { in: userIds },
+      },
+      data: {
+        groupAssignmentNotified: true,
+        groupAssignmentNotifiedAt: new Date(),
+      },
+    });
+  }
+
+  static async findByEmailAndEvent(email: string, eventId: string): Promise<User | null> {
+    const user = await prisma.user.findFirst({
+      where: {
+        eventId,
+        active: true,
+        profile: {
+          path: ['email'],
+          equals: email,
+        },
+      },
+    });
+
+    return user;
+  }
+
+  static async softDelete(userId: string): Promise<User> {
+    // First check if user exists and is not already deleted
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    if (!user.active) {
+      throw new Error('User is already deleted');
+    }
+
+    // Soft delete by setting active to false
+    const deletedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        active: false,
+        assigned: false, // Unassign from group when deleted
+        groupId: null,
+      },
+    });
+
+    // Update group member count if user was assigned
+    if (user.groupId) {
+      await GroupService.updateMemberCount(user.groupId);
+    }
+
+    return deletedUser;
   }
 }

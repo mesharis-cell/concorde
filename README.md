@@ -269,9 +269,9 @@ bun run format             # Prettier formatting
 - **Comprehensive Validation**: Real-time error reporting with row-specific feedback
 
 ### Template Structure
-**Users Template (17+ fields)**:
+**Users Template (16+ fields)**:
 ```csv
-firstName, lastName, email, phone, guestType, group, dietaryRequirements,
+firstName, lastName, email, phone, dietaryRequirements,
 medicalRequirements, accessibilityRequirements, accommodationRequired,
 hotel, checkInDate, checkOutDate, flightArrival, flightDeparture,
 emergencyContactName, emergencyContactPhone

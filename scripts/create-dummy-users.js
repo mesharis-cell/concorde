@@ -19,10 +19,6 @@ const lastNames = [
   'Harris', 'Sanchez', 'Clark', 'Ramirez', 'Lewis', 'Robinson', 'Walker', 'Young'
 ];
 
-const guestTypes = [
-  'VIP', 'Corporate Partner', 'Media', 'Sponsor', 'Speaker', 'Executive',
-  'Board Member', 'Investor', 'Client', 'Premium Guest'
-];
 
 const airlines = [
   'American Airlines', 'Delta Air Lines', 'United Airlines', 'Southwest Airlines',
@@ -106,7 +102,6 @@ function generateDummyUser(eventId, index) {
       firstName,
       lastName,
       phone: generatePhoneNumber(),
-      guestType: randomChoice(guestTypes),
     },
     communication: {
       emailOptIn: Math.random() > 0.1, // 90% opt into email

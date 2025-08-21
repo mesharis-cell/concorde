@@ -35,7 +35,7 @@ export const EventDateRangeSchema = z.object({
 export type EventDateRange = z.infer<typeof EventDateRangeSchema>;
 
 export const EventConfigSchema = z.object({
-  micrositeUrl: z.string().url(),
+  micrositeUrl: z.string().url().optional(),
   registrationOpen: z.boolean(),
 });
 export type EventConfig = z.infer<typeof EventConfigSchema>;
@@ -108,7 +108,6 @@ export const UserProfileSchema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   phone: z.string().optional(),
-  guestType: z.string().min(1),
 });
 export type UserProfile = z.infer<typeof UserProfileSchema>;
 

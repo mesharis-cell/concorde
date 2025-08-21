@@ -19,7 +19,6 @@ const getUsersByEventRoute = createRoute({
       groupId: z.string().optional(),
       search: z.string().optional(),
       hasRequirements: z.coerce.boolean().optional(),
-      guestType: z.string().optional(),
       // Requirements filters
       requirementType: z.enum(['dietary', 'medical', 'accessibility', 'accommodation', 'any']).optional(),
       // Communication filters  
@@ -41,12 +40,12 @@ const getUsersByEventRoute = createRoute({
 app.openapi(getUsersByEventRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
-    const { page, limit, assigned, groupId, search, hasRequirements, guestType, requirementType, communicationType } = c.req.valid('query');
+    const { page, limit, assigned, groupId, search, hasRequirements, requirementType, communicationType } = c.req.valid('query');
     
     const result = await UserService.findByEventId(
       eventId, 
       { page, limit }, 
-      { assigned, groupId, search, hasRequirements, guestType, requirementType, communicationType }
+      { assigned, groupId, search, hasRequirements, requirementType, communicationType }
     );
     
     return c.json({
