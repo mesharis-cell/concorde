@@ -16,6 +16,7 @@ import {
   CreateActivitySchema,
   UpdateActivitySchema,
   AdminUpdateUserSchema,
+  CreateUserSchema,
   PaginationSchema,
   ApiSuccessSchema, 
   ApiErrorSchema 
@@ -108,6 +109,88 @@ app.openapi(adminLoginRoute, async (c) => {
 // =============================================================================
 // 2. USER MANAGEMENT
 // =============================================================================
+
+// Admin User Registration - used by admin dashboard to create users
+const adminRegisterUserRoute = createRoute({
+  method: 'post',
+  path: '/users/register',
+  tags: ['Admin - Users'],
+  summary: 'Register a new user for an event (Admin Only)',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: CreateUserSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'User registered successfully',
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Registration failed',
+    },
+  },
+});
+
+app.openapi(adminRegisterUserRoute, async (c) => {
+  try {
+    const data = c.req.valid('json');
+    const authUser = c.get('user');
+    
+    // Verify admin has access to this event
+    if (authUser.adminData.role !== 'SUPER') {
+      // Standard admins can only create users for events they're assigned to
+      const hasAccess = authUser.adminData.eventIds?.includes(data.eventId);
+      if (!hasAccess) {
+        return c.json({
+          success: false,
+          error: 'Access denied to this event',
+        }, 403);
+      }
+    }
+    
+    // Check if user already exists
+    const existingUser = await UserService.findByEmail(data.profile.email, data.eventId);
+    if (existingUser) {
+      return c.json({
+        success: false,
+        error: 'User with this email already registered for this event',
+      }, 400);
+    }
+
+    const user = await UserService.create(data);
+    
+    return c.json({
+      success: true,
+      data: {
+        id: user.id,
+        profile: user.profile,
+        communication: user.communication,
+        registeredAt: user.registeredAt,
+      },
+      message: 'User registered successfully',
+    }, 201);
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Registration failed',
+      details: error.message,
+    }, 400);
+  }
+});
 
 // Export routes MUST come before parameterized routes to avoid conflicts
 const exportUsersRoute = createRoute({

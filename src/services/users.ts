@@ -48,16 +48,19 @@ export class UserService {
   }
 
   static async findByEmail(email: string, eventId: string): Promise<User | null> {
-    return prisma.user.findFirst({
+    // Use raw query since Prisma doesn't support JSON field queries well with MongoDB
+    const users = await prisma.user.findMany({
       where: { 
         eventId,
         active: true,
-        profile: {
-          path: ['email'],
-          equals: email,
-        },
       },
     });
+    
+    // Filter by email in JavaScript since JSON field querying is limited
+    return users.find(user => {
+      const profile = user.profile as any;
+      return profile?.email === email;
+    }) || null;
   }
 
   static async findByEventId(
@@ -384,24 +387,35 @@ export class UserService {
     return token;
   }
 
+  // Alias for compatibility with controller
+  static async generateMagicLink(userId: string): Promise<{ token: string }> {
+    const token = await this.createMagicLink(userId);
+    return { token };
+  }
+
   static async validateMagicLink(token: string): Promise<User | null> {
-    const user = await prisma.user.findFirst({
-      where: {
-        magicLinks: {
-          path: [],
-          array_contains: [{ token }],
-        },
-        active: true,
-      },
+    // Since MongoDB JSON field querying is complex, get all users and filter in JavaScript
+    const allUsers = await prisma.user.findMany({
+      where: { active: true },
     });
 
-    if (!user) return null;
+    let matchingUser: any = null;
+    let linkIndex = -1;
 
-    const magicLinks = user.magicLinks as UserMagicLink[];
-    const linkIndex = magicLinks.findIndex(link => link.token === token);
-    
-    if (linkIndex === -1) return null;
+    for (const user of allUsers) {
+      const magicLinks = (user.magicLinks as UserMagicLink[]) || [];
+      const index = magicLinks.findIndex(link => link.token === token);
+      
+      if (index !== -1) {
+        matchingUser = user;
+        linkIndex = index;
+        break;
+      }
+    }
 
+    if (!matchingUser || linkIndex === -1) return null;
+
+    const magicLinks = matchingUser.magicLinks as UserMagicLink[];
     const link = magicLinks[linkIndex];
 
     // Check if expired or already used
@@ -416,18 +430,31 @@ export class UserService {
       lastAccessedAt: new Date(),
     };
 
-    await prisma.user.update({
-      where: { id: user.id },
+    const updatedUser = await prisma.user.update({
+      where: { id: matchingUser.id },
       data: { 
         magicLinks,
         lastLoginAt: new Date(),
       },
+      include: {
+        event: {
+          select: { id: true, name: true, shortName: true },
+        },
+        group: {
+          select: { id: true, name: true, description: true },
+        },
+      },
     });
 
-    return user;
+    return updatedUser;
   }
 
-  static async createSession(userId: string): Promise<string> {
+  // Alias for compatibility with controller
+  static async verifyMagicLink(token: string): Promise<User | null> {
+    return this.validateMagicLink(token);
+  }
+
+  static async createSession(userId: string, sessionToken?: string): Promise<string> {
     const token = uuidv4();
     const createdAt = new Date();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
@@ -460,54 +487,46 @@ export class UserService {
   }
 
   static async validateSession(token: string): Promise<User | null> {
-    const user = await prisma.user.findFirst({
-      where: {
-        sessions: {
-          path: [],
-          array_contains: [{ token }],
-        },
-        active: true,
-      },
+    // Since MongoDB JSON field querying is complex, get all users and filter in JavaScript
+    const allUsers = await prisma.user.findMany({
+      where: { active: true },
     });
 
-    if (!user) return null;
-
-    const sessions = user.sessions as UserSession[];
-    const session = sessions.find(s => s.token === token);
-    
-    if (!session || session.used || new Date() > new Date(session.expiresAt)) {
-      return null;
+    for (const user of allUsers) {
+      const sessions = (user.sessions as UserSession[]) || [];
+      const session = sessions.find(s => s.token === token);
+      
+      if (session && !session.used && new Date() <= new Date(session.expiresAt)) {
+        return user;
+      }
     }
 
-    return user;
+    return null;
   }
 
   static async invalidateSession(token: string): Promise<void> {
-    const user = await prisma.user.findFirst({
-      where: {
-        sessions: {
-          path: [],
-          array_contains: [{ token }],
-        },
-      },
+    // Since MongoDB JSON field querying is complex, get all users and filter in JavaScript
+    const allUsers = await prisma.user.findMany({
+      where: { active: true },
     });
 
-    if (!user) return;
+    for (const user of allUsers) {
+      const sessions = (user.sessions as UserSession[]) || [];
+      const sessionIndex = sessions.findIndex(s => s.token === token);
+      
+      if (sessionIndex !== -1) {
+        sessions[sessionIndex] = {
+          ...sessions[sessionIndex],
+          used: true,
+        };
 
-    const sessions = user.sessions as UserSession[];
-    const sessionIndex = sessions.findIndex(s => s.token === token);
-    
-    if (sessionIndex === -1) return;
-
-    sessions[sessionIndex] = {
-      ...sessions[sessionIndex],
-      used: true,
-    };
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { sessions },
-    });
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { sessions },
+        });
+        break;
+      }
+    }
   }
 
   static async deactivate(id: string): Promise<User> {
@@ -648,16 +667,19 @@ export class UserService {
   }
 
   static async findByEmailAndEvent(email: string, eventId: string): Promise<User | null> {
-    const user = await prisma.user.findFirst({
+    // Use raw query since Prisma doesn't support JSON field queries well with MongoDB
+    const users = await prisma.user.findMany({
       where: {
         eventId,
         active: true,
-        profile: {
-          path: ['email'],
-          equals: email,
-        },
       },
     });
+    
+    // Filter by email in JavaScript since JSON field querying is limited
+    const user = users.find(user => {
+      const profile = user.profile as any;
+      return profile?.email === email;
+    }) || null;
 
     return user;
   }

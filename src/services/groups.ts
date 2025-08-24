@@ -195,43 +195,55 @@ export class GroupService {
       active: true,
     };
 
+    // Get all users first, then filter in JavaScript (MongoDB JSON field limitations)
+    const allUsers = await prisma.user.findMany({
+      where: {
+        groupId, 
+        assigned: true,
+        active: true,
+      },
+      orderBy: { assignedAt: 'desc' },
+      select: {
+        id: true,
+        profile: true,
+        communication: true,
+        flight: true,
+        accommodation: true,
+        requirements: true,
+        emergencyContact: true,
+        assignedAt: true,
+        registeredAt: true,
+      },
+    });
+
+    // Apply JavaScript filters for JSON field searching
+    let filteredUsers = allUsers;
+
     if (filters.search) {
-      // Search in profile JSON field
-      where.OR = [
-        { profile: { path: ['firstName'], string_contains: filters.search } },
-        { profile: { path: ['lastName'], string_contains: filters.search } },
-        { profile: { path: ['email'], string_contains: filters.search } },
-      ];
+      const searchLower = filters.search.toLowerCase();
+      filteredUsers = filteredUsers.filter(user => {
+        const profile = user.profile as any;
+        const firstName = profile?.firstName?.toLowerCase() || '';
+        const lastName = profile?.lastName?.toLowerCase() || '';
+        const email = profile?.email?.toLowerCase() || '';
+        return firstName.includes(searchLower) || 
+               lastName.includes(searchLower) || 
+               email.includes(searchLower);
+      });
     }
 
     if (filters.hasRequirements) {
-      where.OR = [
-        { requirements: { path: ['dietary'], not: { equals: null } } },
-        { requirements: { path: ['medical'], not: { equals: null } } },
-        { requirements: { path: ['accessibility'], not: { equals: null } } },
-      ];
+      filteredUsers = filteredUsers.filter(user => {
+        const requirements = user.requirements as any;
+        return requirements?.dietary || 
+               requirements?.medical || 
+               requirements?.accessibility;
+      });
     }
 
-    const [items, total] = await prisma.$transaction([
-      prisma.user.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { assignedAt: 'desc' },
-        select: {
-          id: true,
-          profile: true,
-          communication: true,
-          flight: true,
-          accommodation: true,
-          requirements: true,
-          emergencyContact: true,
-          assignedAt: true,
-          registeredAt: true,
-        },
-      }),
-      prisma.user.count({ where }),
-    ]);
+    // Apply pagination to filtered results
+    const total = filteredUsers.length;
+    const items = filteredUsers.slice(skip, skip + limit);
 
     return {
       items,

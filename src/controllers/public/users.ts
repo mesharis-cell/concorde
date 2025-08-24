@@ -3,8 +3,17 @@ import { UserService } from '../../services/users.js';
 import { EventService } from '../../services/events.js';
 import { JwtService } from '../../utils/jwt.js';
 import { CreateUserSchema, ApiSuccessSchema, ApiErrorSchema } from '../../types/index.js';
+import { authenticateUser } from '../../middleware/auth.js';
+import { EmailService } from '../../services/email.js';
 
 const app = new OpenAPIHono();
+
+// Register Bearer Auth security scheme for authenticated endpoints
+app.openAPIRegistry.registerComponent('securitySchemes', 'bearerAuth', {
+  type: 'http',
+  scheme: 'bearer',
+  bearerFormat: 'JWT',
+});
 
 // Event Registration (Public)
 const eventRegisterRoute = createRoute({
@@ -277,75 +286,7 @@ app.openapi(eventInfoRoute, async (c) => {
   }
 });
 
-// Legacy User Registration (Public) - keeping for backward compatibility
-const registerUserRoute = createRoute({
-  method: 'post',
-  path: '/users/register',
-  tags: ['Public - Users'],
-  summary: 'Register a new user for an event',
-  request: {
-    body: {
-      content: {
-        'application/json': {
-          schema: CreateUserSchema,
-        },
-      },
-    },
-  },
-  responses: {
-    201: {
-      content: {
-        'application/json': {
-          schema: ApiSuccessSchema,
-        },
-      },
-      description: 'User registered successfully',
-    },
-    400: {
-      content: {
-        'application/json': {
-          schema: ApiErrorSchema,
-        },
-      },
-      description: 'Registration failed',
-    },
-  },
-});
-
-app.openapi(registerUserRoute, async (c) => {
-  try {
-    const data = c.req.valid('json');
-    
-    // Check if user already exists
-    const existingUser = await UserService.findByEmail(data.profile.email, data.eventId);
-    if (existingUser) {
-      return c.json({
-        success: false,
-        error: 'User already registered',
-        message: 'A user with this email is already registered for this event',
-      }, 400);
-    }
-
-    const user = await UserService.create(data);
-    
-    return c.json({
-      success: true,
-      data: {
-        id: user.id,
-        profile: user.profile,
-        assigned: user.assigned,
-        groupId: user.groupId,
-      },
-      message: 'User registered successfully',
-    }, 201);
-  } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Registration failed',
-      details: error.message,
-    }, 400);
-  }
-});
+// Legacy /users/register route removed - use event-specific /events/{eventId}/register for public registration
 
 // Request Magic Link (Public)
 const requestMagicLinkRoute = createRoute({
@@ -427,10 +368,42 @@ app.openapi(requestMagicLinkRoute, async (c) => {
       }, 404);
     }
 
+    // Get event details for the email
+    const event = await EventService.findById(eventId);
+    if (!event) {
+      return c.json({
+        success: false,
+        error: 'Event not found',
+      }, 404);
+    }
+
     const magicLink = await UserService.generateMagicLink(user.id);
     
-    // TODO: Send email with magic link
-    // await EmailService.sendMagicLink(email, magicLink.token);
+    // Get user profile for personalization
+    const profile = user.profile as any;
+    const firstName = profile?.firstName || '';
+    const lastName = profile?.lastName || '';
+    
+    if (process.env.NODE_ENV === 'development') {
+      // In development, just log the magic link
+      console.log('🔗 Magic Link Generated:');
+      console.log(`📧 To: ${email}`);
+      console.log(`🎫 Token: ${magicLink.token}`);
+      console.log(`👤 User: ${firstName} ${lastName}`);
+      console.log(`🎪 Event: ${event.name}`);
+      console.log('---');
+    } else {
+      // In production, send email via AWS SES
+      const frontendUrl = process.env.FRONTEND_URL || 'https://your-frontend.com';
+      const magicLinkUrl = `${frontendUrl}/auth/magic?token=${magicLink.token}&event=${eventId}`;
+      
+      await EmailService.sendMagicLinkEmail(email, {
+        eventName: event.name,
+        firstName,
+        lastName,
+        magicLink: magicLinkUrl,
+      });
+    }
     
     return c.json({
       success: true,
@@ -534,15 +507,11 @@ app.openapi(verifyMagicLinkRoute, async (c) => {
       }, 400);
     }
 
-    // Generate JWT session token
-    const sessionToken = JwtService.sign({ 
-      id: user.id, 
-      role: 'user',
-      eventId: user.eventId
-    });
+    // Generate JWT session token using the utility method
+    const sessionToken = JwtService.generateUserAccessToken(user.id, user.eventId);
     
     // Create session record
-    await UserService.createSession(user.id, sessionToken);
+    await UserService.createSession(user.id);
     
     return c.json({
       success: true,
@@ -562,6 +531,324 @@ app.openapi(verifyMagicLinkRoute, async (c) => {
     return c.json({
       success: false,
       error: 'Authentication failed',
+      details: error.message,
+    }, 400);
+  }
+});
+
+// =============================================================================
+// AUTHENTICATED USER ENDPOINTS (JWT Required from /auth/validate-magic-link)
+// =============================================================================
+
+// Get User Itinerary (Authenticated)
+const getUserItineraryRoute = createRoute({
+  method: 'get',
+  path: '/user/itinerary',
+  tags: ['Public - User (Authenticated)'],
+  summary: 'Get user assigned group activities',
+  description: 'Retrieve activities for the user\'s assigned group - requires JWT from magic link validation',
+  middleware: [authenticateUser] as const,
+  security: [{ bearerAuth: [] }],
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+          example: {
+            success: true,
+            data: {
+              group: {
+                id: '60f7b3b3b3b3b3b3b3b3b3b4',
+                name: 'VIP Group A',
+                eventId: '60f7b3b3b3b3b3b3b3b3b3b3'
+              },
+              timeline: [
+                {
+                  id: '60f7b3b3b3b3b3b3b3b3b3b5',
+                  title: 'Welcome Reception',
+                  startDateTime: '2025-09-05T19:00:00Z',
+                  endDateTime: '2025-09-05T21:00:00Z',
+                  content: '<p>Join us for cocktails and networking...</p>',
+                  groupId: '60f7b3b3b3b3b3b3b3b3b3b4'
+                }
+              ]
+            }
+          }
+        },
+      },
+      description: 'Itinerary retrieved successfully',
+    },
+    401: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+          example: {
+            success: false,
+            error: 'Missing or invalid authorization header'
+          }
+        },
+      },
+      description: 'Unauthorized - JWT required',
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+          example: {
+            success: false,
+            error: 'Not assigned to any group yet'
+          }
+        },
+      },
+      description: 'User not assigned to group',
+    },
+  },
+});
+
+app.openapi(getUserItineraryRoute, async (c) => {
+  // Manually run authentication middleware
+  const authResult = await authenticateUser(c, async () => {});
+  if (authResult) {
+    return authResult; // Return auth error response
+  }
+
+  try {
+    const userContext = c.get('user');
+    
+    if (!userContext || !userContext.userData) {
+      return c.json({
+        success: false,
+        error: 'User not authenticated',
+      }, 401);
+    }
+    
+    if (!userContext.userData?.groupId) {
+      return c.json({
+        success: false,
+        error: 'Not assigned to any group yet',
+      }, 404);
+    }
+
+    // Get group activities
+    const { ActivityService } = await import('../../services/activities.js');
+    const activities = await ActivityService.getTimeline(userContext.userData.groupId);
+    
+    return c.json({
+      success: true,
+      data: {
+        group: userContext.userData.group,
+        timeline: activities,
+      },
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to retrieve itinerary',
+      details: error.message,
+    }, 500);
+  }
+});
+
+// Get User Profile (Authenticated)
+const getUserProfileRoute = createRoute({
+  method: 'get',
+  path: '/user/profile',
+  tags: ['Public - User (Authenticated)'],
+  summary: 'Get current user profile',
+  description: 'Retrieve complete user profile information - requires JWT from magic link validation',
+  middleware: [authenticateUser] as const,
+  security: [{ bearerAuth: [] }],
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+          example: {
+            success: true,
+            data: {
+              id: '60f7b3b3b3b3b3b3b3b3b3b3',
+              profile: {
+                email: 'john.doe@example.com',
+                firstName: 'John',
+                lastName: 'Doe',
+                phone: '+1-555-0123'
+              },
+              communication: {
+                emailOptIn: true,
+                whatsappOptIn: false
+              },
+              assigned: true,
+              groupId: '60f7b3b3b3b3b3b3b3b3b3b4',
+              eventId: '60f7b3b3b3b3b3b3b3b3b3b3',
+              flight: {
+                airline: 'British Airways',
+                number: 'BA123',
+                arrival: '2024-09-15T14:30:00Z',
+                departure: '2024-09-18T16:45:00Z'
+              },
+              accommodation: {
+                required: true,
+                hotel: 'Grand Hotel Milano'
+              }
+            }
+          }
+        },
+      },
+      description: 'Profile retrieved successfully',
+    },
+    401: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+          example: {
+            success: false,
+            error: 'Missing or invalid authorization header'
+          }
+        },
+      },
+      description: 'Unauthorized - JWT required',
+    },
+  },
+});
+
+app.openapi(getUserProfileRoute, async (c) => {
+  // Manually run authentication middleware
+  const authResult = await authenticateUser(c, async () => {});
+  if (authResult) {
+    return authResult; // Return auth error response
+  }
+
+  try {
+    const userContext = c.get('user');
+    
+    if (!userContext || !userContext.userData) {
+      return c.json({
+        success: false,
+        error: 'User not authenticated',
+      }, 401);
+    }
+    
+    return c.json({
+      success: true,
+      data: userContext.userData,
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to retrieve profile',
+      details: error.message,
+    }, 500);
+  }
+});
+
+// Update Communication Preferences (Authenticated)
+const updateCommunicationPreferencesRoute = createRoute({
+  method: 'put',
+  path: '/user/communication-preferences',
+  tags: ['Public - User (Authenticated)'],
+  summary: 'Update user communication preferences',
+  description: 'Update email and WhatsApp notification preferences - requires JWT from magic link validation',
+  middleware: [authenticateUser] as const,
+  security: [{ bearerAuth: [] }],
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            emailOptIn: z.boolean().describe('Enable email notifications'),
+            whatsappOptIn: z.boolean().describe('Enable WhatsApp notifications'),
+          }),
+          example: {
+            emailOptIn: true,
+            whatsappOptIn: false
+          }
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+          example: {
+            success: true,
+            data: {
+              id: '60f7b3b3b3b3b3b3b3b3b3b3',
+              communication: {
+                emailOptIn: true,
+                whatsappOptIn: false
+              }
+            },
+            message: 'Communication preferences updated successfully'
+          }
+        },
+      },
+      description: 'Preferences updated successfully',
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+          example: {
+            success: false,
+            error: 'Failed to update preferences',
+            details: 'Invalid request body'
+          }
+        },
+      },
+      description: 'Invalid request',
+    },
+    401: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+          example: {
+            success: false,
+            error: 'Missing or invalid authorization header'
+          }
+        },
+      },
+      description: 'Unauthorized - JWT required',
+    },
+  },
+});
+
+app.openapi(updateCommunicationPreferencesRoute, async (c) => {
+  // Manually run authentication middleware
+  const authResult = await authenticateUser(c, async () => {});
+  if (authResult) {
+    return authResult; // Return auth error response
+  }
+
+  try {
+    const userContext = c.get('user');
+    const body = c.req.valid('json');
+    
+    if (!userContext || !userContext.userData) {
+      return c.json({
+        success: false,
+        error: 'User not authenticated',
+      }, 401);
+    }
+    
+    const updatedUser = await UserService.updateCommunicationPreferences(
+      userContext.userData.id,
+      {
+        emailOptIn: body.emailOptIn,
+        whatsappOptIn: body.whatsappOptIn,
+      }
+    );
+    
+    return c.json({
+      success: true,
+      data: updatedUser,
+      message: 'Communication preferences updated successfully',
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to update preferences',
       details: error.message,
     }, 400);
   }

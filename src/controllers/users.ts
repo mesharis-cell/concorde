@@ -5,74 +5,7 @@ import { CreateUserSchema, PaginationSchema, ApiSuccessSchema, ApiErrorSchema } 
 
 const app = new OpenAPIHono();
 
-// User Registration
-const registerUserRoute = createRoute({
-  method: 'post',
-  path: '/users/register',
-  tags: ['Users'],
-  summary: 'Register a new user for an event',
-  request: {
-    body: {
-      content: {
-        'application/json': {
-          schema: CreateUserSchema,
-        },
-      },
-    },
-  },
-  responses: {
-    201: {
-      content: {
-        'application/json': {
-          schema: ApiSuccessSchema,
-        },
-      },
-      description: 'User registered successfully',
-    },
-    400: {
-      content: {
-        'application/json': {
-          schema: ApiErrorSchema,
-        },
-      },
-      description: 'Registration failed',
-    },
-  },
-});
-
-app.openapi(registerUserRoute, async (c) => {
-  try {
-    const data = c.req.valid('json');
-    
-    // Check if user already exists
-    const existingUser = await UserService.findByEmail(data.profile.email, data.eventId);
-    if (existingUser) {
-      return c.json({
-        success: false,
-        error: 'User with this email already registered for this event',
-      }, 400);
-    }
-
-    const user = await UserService.create(data);
-    
-    return c.json({
-      success: true,
-      data: {
-        id: user.id,
-        profile: user.profile,
-        communication: user.communication,
-        registeredAt: user.registeredAt,
-      },
-      message: 'Registration successful',
-    }, 201);
-  } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Registration failed',
-      details: error.message,
-    }, 400);
-  }
-});
+// Admin user registration moved to /controllers/admin.ts for proper security
 
 // Request Magic Link
 const requestMagicLinkRoute = createRoute({
