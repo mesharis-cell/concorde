@@ -1,6 +1,7 @@
 import { prisma } from '../config/database.js';
 import type { CreateActivity, UpdateActivity, Pagination, PaginatedResponse } from '../types/index.js';
 import type { Activity } from '@prisma/client';
+import { AdminService } from './admins.js';
 
 export class ActivityService {
   static async create(data: CreateActivity): Promise<Activity> {
@@ -46,7 +47,7 @@ export class ActivityService {
     return prisma.activity.create({
       data: {
         eventId: data.eventId,
-        groupId: data.groupId,
+        groupId: data.groupId || null, // Allow null groupId
         title: data.title,
         startDateTime: activityStart, // Store in UTC
         endDateTime: activityEnd, // Store in UTC
@@ -70,6 +71,109 @@ export class ActivityService {
         group: {
           select: { id: true, name: true, memberCount: true },
         },
+        createdByAdmin: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        lastModifiedByAdmin: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+    });
+  }
+
+  // Check if admin can modify this activity
+  static async canAdminModifyActivity(activityId: string, adminId: string): Promise<{ canModify: boolean; reason?: string }> {
+    const activity = await prisma.activity.findUnique({
+      where: { id: activityId, deleted: false },
+      select: { createdBy: true },
+    });
+
+    if (!activity) {
+      return { canModify: false, reason: 'Activity not found' };
+    }
+
+    const admin = await AdminService.findById(adminId);
+    if (!admin) {
+      return { canModify: false, reason: 'Admin not found' };
+    }
+
+    // Super admins can modify any activity
+    if (admin.role === 'SUPER') {
+      return { canModify: true };
+    }
+
+    // Regular admins can only modify activities they created
+    if (activity.createdBy === adminId) {
+      return { canModify: true };
+    }
+
+    return { 
+      canModify: false, 
+      reason: 'You can only modify activities that you created. Contact a super admin if you need to modify this activity.' 
+    };
+  }
+
+  static async assignToGroup(activityId: string, groupId: string, adminId: string): Promise<Activity> {
+    // Check if activity exists and admin has permission
+    const activity = await prisma.activity.findUnique({
+      where: { id: activityId, deleted: false },
+      select: { id: true, groupId: true, eventId: true, title: true },
+    });
+
+    if (!activity) {
+      throw new Error('Activity not found');
+    }
+
+    if (activity.groupId) {
+      throw new Error('Activity is already assigned to a group');
+    }
+
+    // Verify group exists and belongs to same event
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+      select: { eventId: true, active: true, deleted: true },
+    });
+
+    if (!group || group.deleted || !group.active) {
+      throw new Error('Group not found or inactive');
+    }
+
+    if (group.eventId !== activity.eventId) {
+      throw new Error('Activity and group must belong to the same event');
+    }
+
+    // Update activity assignment
+    return await prisma.activity.update({
+      where: { id: activityId },
+      data: {
+        groupId,
+        lastModifiedBy: adminId,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  static async unassignFromGroup(activityId: string, adminId: string): Promise<Activity> {
+    const activity = await prisma.activity.findUnique({
+      where: { id: activityId, deleted: false },
+      select: { id: true, groupId: true, title: true },
+    });
+
+    if (!activity) {
+      throw new Error('Activity not found');
+    }
+
+    if (!activity.groupId) {
+      throw new Error('Activity is not assigned to any group');
+    }
+
+    // Update activity assignment
+    return await prisma.activity.update({
+      where: { id: activityId },
+      data: {
+        groupId: null,
+        lastModifiedBy: adminId,
+        updatedAt: new Date(),
       },
     });
   }
@@ -126,6 +230,12 @@ export class ActivityService {
         include: {
           group: {
             select: { id: true, name: true },
+          },
+          createdByAdmin: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
+          lastModifiedByAdmin: {
+            select: { id: true, firstName: true, lastName: true, email: true },
           },
         },
       }),
@@ -200,6 +310,12 @@ export class ActivityService {
         include: {
           group: {
             select: { id: true, name: true },
+          },
+          createdByAdmin: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
+          lastModifiedByAdmin: {
+            select: { id: true, firstName: true, lastName: true, email: true },
           },
         },
       }),
@@ -352,6 +468,8 @@ export class ActivityService {
         thumbnail: true,
         location: true,
         content: true,
+        createdBy: true,
+        lastModifiedBy: true,
       },
     });
 
@@ -359,6 +477,85 @@ export class ActivityService {
     const timeline: Record<string, typeof activities> = {};
     
     activities.forEach(activity => {
+      const date = activity.startDateTime.toISOString().split('T')[0];
+      if (!timeline[date]) {
+        timeline[date] = [];
+      }
+      timeline[date].push(activity);
+    });
+
+    return timeline;
+  }
+
+  // Get timeline for a specific user with exclusions filtered out
+  static async getUserTimeline(
+    userId: string,
+    filters: {
+      dateFrom?: Date;
+      dateTo?: Date;
+    } = {}
+  ) {
+    // First get the user's group
+    const user = await prisma.user.findUnique({
+      where: { id: userId, active: true, assigned: true },
+      select: { groupId: true, eventId: true },
+    });
+
+    if (!user || !user.groupId) {
+      throw new Error('User not found or not assigned to a group');
+    }
+
+    // Get all activities for the group
+    const where: any = { 
+      groupId: user.groupId, 
+      deleted: false,
+      active: true,
+    };
+
+    if (filters.dateFrom || filters.dateTo) {
+      where.startDateTime = {};
+      if (filters.dateFrom) {
+        where.startDateTime.gte = filters.dateFrom;
+      }
+      if (filters.dateTo) {
+        where.startDateTime.lte = filters.dateTo;
+      }
+    }
+
+    const activities = await prisma.activity.findMany({
+      where,
+      orderBy: { startDateTime: 'asc' },
+      select: {
+        id: true,
+        title: true,
+        startDateTime: true,
+        endDateTime: true,
+        category: true,
+        thumbnail: true,
+        location: true,
+        content: true,
+        createdBy: true,
+        lastModifiedBy: true,
+      },
+    });
+
+    // Get user's exclusions for this group
+    const exclusions = await prisma.userActivityExclusion.findMany({
+      where: { userId, groupId: user.groupId },
+      select: { activityId: true },
+    });
+
+    const excludedActivityIds = new Set(exclusions.map(e => e.activityId));
+
+    // Filter out excluded activities
+    const filteredActivities = activities.filter(activity => 
+      !excludedActivityIds.has(activity.id)
+    );
+
+    // Group activities by date for better timeline presentation
+    const timeline: Record<string, typeof filteredActivities> = {};
+    
+    filteredActivities.forEach(activity => {
       const date = activity.startDateTime.toISOString().split('T')[0];
       if (!timeline[date]) {
         timeline[date] = [];
@@ -420,6 +617,8 @@ export class ActivityService {
         category: true,
         thumbnail: true,
         location: true,
+        createdBy: true,
+        lastModifiedBy: true,
       },
     });
   }

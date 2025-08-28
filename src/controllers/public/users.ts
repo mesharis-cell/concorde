@@ -2,7 +2,7 @@ import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { UserService } from '../../services/users.js';
 import { EventService } from '../../services/events.js';
 import { JwtService } from '../../utils/jwt.js';
-import { CreateUserSchema, ApiSuccessSchema, ApiErrorSchema } from '../../types/index.js';
+import { CreateUserSchema, PublicRegistrationSchema, ApiSuccessSchema, ApiErrorSchema } from '../../types/index.js';
 import { authenticateUser } from '../../middleware/auth.js';
 import { EmailService } from '../../services/email.js';
 
@@ -29,7 +29,7 @@ const eventRegisterRoute = createRoute({
     body: {
       content: {
         'application/json': {
-          schema: CreateUserSchema.omit({ eventId: true }),
+          schema: PublicRegistrationSchema.omit({ eventId: true }),
           example: {
             profile: {
               email: 'john.doe@example.com',
@@ -41,25 +41,12 @@ const eventRegisterRoute = createRoute({
               emailOptIn: true,
               whatsappOptIn: false
             },
-            flight: {
-              airline: 'British Airways',
-              number: 'BA123',
-              arrival: '2024-09-15T14:30:00Z',
-              departure: '2024-09-18T16:45:00Z',
-              arrivalAirport: 'LHR',
-              departureAirport: 'JFK'
-            },
-            accommodation: {
-              required: true,
-              hotel: 'Grand Hotel Milano',
-              checkIn: '2024-09-15T00:00:00Z',
-              checkOut: '2024-09-18T00:00:00Z',
-              specialRequests: 'High floor, quiet room'
-            },
+            transferRequirements: 'Need wheelchair accessible vehicle',
             requirements: {
-              dietary: 'Vegetarian, no nuts',
-              medical: 'Diabetic - requires refrigerated medication',
-              accessibility: 'Wheelchair accessible rooms'
+              dietary: 'Vegetarian, nut allergy',
+              medical: 'Diabetic, requires refrigeration for insulin',
+              accessibility: 'Wheelchair user, requires ramp access',
+              specialRequests: 'High floor, quiet room, early check-in'
             },
             merchandiseSize: {
               shirt: 'L',
@@ -392,10 +379,18 @@ app.openapi(requestMagicLinkRoute, async (c) => {
       console.log(`👤 User: ${firstName} ${lastName}`);
       console.log(`🎪 Event: ${event.name}`);
       console.log('---');
+
+      const magicLinkUrl = `${event.config['micrositeUrl']}/auth/magic?token=${magicLink.token}&event=${eventId}`;
+      
+      await EmailService.sendMagicLinkEmail(email, {
+        eventName: event.name,
+        firstName,
+        lastName,
+        magicLink: magicLinkUrl,
+      });
     } else {
       // In production, send email via AWS SES
-      const frontendUrl = process.env.FRONTEND_URL || 'https://your-frontend.com';
-      const magicLinkUrl = `${frontendUrl}/auth/magic?token=${magicLink.token}&event=${eventId}`;
+      const magicLinkUrl = `${event.config['micrositeUrl']}/auth/magic?token=${magicLink.token}&event=${eventId}`;
       
       await EmailService.sendMagicLinkEmail(email, {
         eventName: event.name,
@@ -629,9 +624,9 @@ app.openapi(getUserItineraryRoute, async (c) => {
       }, 404);
     }
 
-    // Get group activities
+    // Get user-specific activities (filtered for exclusions)
     const { ActivityService } = await import('../../services/activities.js');
-    const activities = await ActivityService.getTimeline(userContext.userData.groupId);
+    const activities = await ActivityService.getUserTimeline(userContext.userData.id);
     
     return c.json({
       success: true,

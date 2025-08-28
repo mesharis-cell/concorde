@@ -5,6 +5,7 @@ import { swaggerUI } from '@hono/swagger-ui';
 import publicUsersController from '../controllers/public/users.js';
 import adminController from '../controllers/admin.js';
 import adminsController from '../controllers/admins.js';
+import trackingController from '../controllers/tracking.js';
 
 // Import middleware
 import { authenticateAdmin, authenticateUser } from '../middleware/auth.js';
@@ -26,6 +27,9 @@ app.get('/health', (c) => {
 
 // Public user operations (registration, magic links)
 app.route('/api/v1/public', publicUsersController);
+
+// Public tracking endpoints (email opens)
+app.route('/api', trackingController);
 
 // =============================================================================
 // ADMIN API ROUTES (Admin JWT Authentication Required)

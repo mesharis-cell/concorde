@@ -82,21 +82,14 @@ function generateDummyUser(eventId, index) {
   const lastName = randomChoice(lastNames);
   const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}.${index}@example.com`;
   
-  const hasFlightInfo = Math.random() > 0.2; // 80% have flight info
-  const needsAccommodation = Math.random() > 0.3; // 70% need accommodation
   const hasDietary = Math.random() > 0.7; // 30% have dietary requirements
   const hasMedical = Math.random() > 0.9; // 10% have medical requirements
   const hasAccessibility = Math.random() > 0.95; // 5% have accessibility requirements
+  const hasSpecialRequests = Math.random() > 0.6; // 40% have special requests
   
-  const eventDate = new Date('2025-03-15');
-  const arrivalDate = new Date(eventDate);
-  arrivalDate.setDate(eventDate.getDate() - Math.floor(Math.random() * 3 + 1)); // 1-3 days before
-  
-  const departureDate = new Date(eventDate);
-  departureDate.setDate(eventDate.getDate() + Math.floor(Math.random() * 3 + 1)); // 1-3 days after
-
   return {
     eventId,
+    // USER-PROVIDED FIELDS (required for public registration)
     profile: {
       email,
       firstName,
@@ -106,29 +99,6 @@ function generateDummyUser(eventId, index) {
     communication: {
       emailOptIn: Math.random() > 0.1, // 90% opt into email
       whatsappOptIn: Math.random() > 0.4, // 60% opt into WhatsApp
-    },
-    flight: hasFlightInfo ? {
-      airline: randomChoice(airlines),
-      number: generateFlightNumber(),
-      arrival: arrivalDate,
-      departure: departureDate,
-      arrivalAirport: randomChoice(['JFK', 'LAX', 'ORD', 'DFW', 'ATL', 'SFO', 'LHR', 'CDG']),
-      departureAirport: randomChoice(['JFK', 'LAX', 'ORD', 'DFW', 'ATL', 'SFO', 'LHR', 'CDG']),
-    } : null,
-    accommodation: needsAccommodation ? {
-      required: true,
-      hotel: randomChoice(hotels),
-      checkIn: arrivalDate,
-      checkOut: departureDate,
-      specialRequests: Math.random() > 0.7 ? randomChoice([
-        'High floor room', 'Ocean view', 'Non-smoking', 'Late checkout', 'Early checkin'
-      ]) : null,
-    } : {
-      required: false,
-      hotel: null,
-      checkIn: null,
-      checkOut: null,
-      specialRequests: null,
     },
     transferRequirements: Math.random() > 0.8 ? randomChoice([
       'Airport pickup required',
@@ -140,6 +110,10 @@ function generateDummyUser(eventId, index) {
       dietary: hasDietary ? randomChoice(dietaryRequirements.filter(r => r !== null)) : null,
       medical: hasMedical ? randomChoice(medicalRequirements.filter(r => r !== null)) : null,
       accessibility: hasAccessibility ? randomChoice(accessibilityRequirements.filter(r => r !== null)) : null,
+      specialRequests: hasSpecialRequests ? randomChoice([
+        'High floor room', 'Ocean view', 'Non-smoking', 'Late checkout', 'Early checkin',
+        'Extra pillows', 'Room service setup', 'Quiet room away from elevators'
+      ]) : null,
     },
     merchandiseSize: {
       shirt: randomChoice(shirtSizes),
@@ -152,6 +126,13 @@ function generateDummyUser(eventId, index) {
       phone: generatePhoneNumber(),
       email: Math.random() > 0.3 ? `emergency${index}@example.com` : null,
     },
+    
+    // ADMIN-MANAGED FIELDS (not provided during public registration, added by admins later)
+    // These are set to null/empty and will be managed by admins
+    flight: null, // Admin will add flight information later
+    accommodation: null, // Admin will manage accommodation details
+    
+    // System fields
     sessions: [],
     magicLinks: [],
   };
@@ -228,15 +209,16 @@ async function createDummyUsers() {
 
     console.log('\n🔍 Sample user data created with:');
     console.log('   • Realistic names and contact information');
-    console.log('   • Varied guest types (VIP, Corporate, Media, etc.)');
-    console.log('   • Flight information (80% of users)');
-    console.log('   • Hotel accommodations (70% of users)');
-    console.log('   • Dietary requirements (30% of users)');
-    console.log('   • Medical requirements (10% of users)');
-    console.log('   • Accessibility requirements (5% of users)');
     console.log('   • Communication preferences (90% email, 60% WhatsApp)');
+    console.log('   • Transfer requirements (20% of users)');
+    console.log('   • Personal requirements:');
+    console.log('     - Dietary requirements (30% of users)');
+    console.log('     - Medical requirements (10% of users)');
+    console.log('     - Accessibility requirements (5% of users)');
+    console.log('     - Special requests (40% of users)');
     console.log('   • Merchandise sizes for all users');
     console.log('   • Emergency contacts for all users');
+    console.log('   • Flight & accommodation data: Set to null (admin-managed)');
     
     console.log('\n📱 Next steps:');
     console.log('   1. View users in the admin dashboard');

@@ -39,6 +39,20 @@ enum MessageType {
   MAGIC_LINK
 }
 
+enum TemplateType {
+  COMMUNICATION
+  AUTHENTICATION
+}
+
+enum TemplateCategory {
+  WELCOME
+  ASSIGNMENT
+  ACTIVITY_UPDATE
+  ANNOUNCEMENT
+  MAGIC_LINK
+  CUSTOM
+}
+
 enum RecipientType {
   INDIVIDUAL
   GROUP
@@ -69,6 +83,8 @@ model Event {
   messages    Message[]
   adminEvents AdminEvent[]
   communicationLogs CommunicationLog[]
+  userActivityExclusions UserActivityExclusion[]
+  emailTemplates EmailTemplate[]
 
   @@map("events")
 }
@@ -90,14 +106,15 @@ model Group {
   activities Activity[]
   users      User[]
   communicationLogs CommunicationLog[]
+  userActivityExclusions UserActivityExclusion[]
 
   @@map("groups")
 }
 
 model Activity {
-  id      String @id @default(auto()) @map("_id") @db.ObjectId
-  eventId String @db.ObjectId
-  groupId String @db.ObjectId
+  id      String  @id @default(auto()) @map("_id") @db.ObjectId
+  eventId String  @db.ObjectId
+  groupId String? @db.ObjectId
 
   // Scheduling (required)
   title         String
@@ -123,13 +140,18 @@ model Activity {
   deletedAt      DateTime?
 
   // Relations
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  event                 Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  group                 Group? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  createdByAdmin        Admin  @relation("ActivityCreator", fields: [createdBy], references: [id])
+  lastModifiedByAdmin   Admin  @relation("ActivityModifier", fields: [lastModifiedBy], references: [id])
+  userExclusions        UserActivityExclusion[]
 
   // Prisma v6 optimized indexes for timeline queries
   @@index([groupId, startDateTime])
   @@index([eventId, active, deleted])
   @@index([groupId, active, deleted])
+  @@index([createdBy])
+  @@index([lastModifiedBy])
   @@map("activities")
 }
 
@@ -181,6 +203,8 @@ model User {
   event Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
   group Group? @relation(fields: [groupId], references: [id], onDelete: SetNull)
   communicationLogs CommunicationLog[]
+  activityExclusions UserActivityExclusion[]
+  emailTracking EmailTracking[]
 
   // Prisma v6 optimized indexes
   @@index([eventId, active])
@@ -247,8 +271,12 @@ model Admin {
   updatedAt    DateTime  @updatedAt
 
   // Relations
-  adminEvents AdminEvent[]
-  communicationLogs CommunicationLog[]
+  adminEvents           AdminEvent[]
+  communicationLogs     CommunicationLog[]
+  createdActivities     Activity[] @relation("ActivityCreator")
+  lastModifiedActivities Activity[] @relation("ActivityModifier")
+  createdExclusions     UserActivityExclusion[] @relation("ExclusionCreator")
+  createdTemplates      EmailTemplate[] @relation("TemplateCreator")
 
   @@map("admins")
 }
@@ -266,31 +294,125 @@ model AdminEvent {
   @@map("admin_events")
 }
 
-model Message {
-  id      String      @id @default(auto()) @map("_id") @db.ObjectId
-  eventId String      @db.ObjectId
-  type    MessageType
+model UserActivityExclusion {
+  id         String @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String @db.ObjectId
+  activityId String @db.ObjectId
+  groupId    String @db.ObjectId // For context and validation
+  eventId    String @db.ObjectId // For event isolation
+  
+  // Metadata
+  excludedBy String   @db.ObjectId // Admin who created the exclusion
+  reason     String?  // Optional reason for exclusion
+  createdAt  DateTime @default(now())
+  
+  // Relations
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  admin    Admin    @relation("ExclusionCreator", fields: [excludedBy], references: [id])
+  
+  // Ensure unique exclusions per user-activity pair
+  @@unique([userId, activityId])
+  @@index([userId])
+  @@index([activityId])
+  @@index([groupId])
+  @@index([eventId])
+  @@map("user_activity_exclusions")
+}
 
+model EmailTemplate {
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  eventId  String   @db.ObjectId
+  name     String   // Template name (unique per event)
+  type     TemplateType // 'COMMUNICATION' | 'AUTHENTICATION'
+  category TemplateCategory // 'WELCOME' | 'ASSIGNMENT' | etc.
+  
   // Email content
+  subject  String   // Email subject with variable placeholders
+  html     String   // Complete HTML template
+  
+  // Template metadata
+  requiredVariables String[] // Variable names needed for template
+  active            Boolean @default(true)
+  createdBy         String  @db.ObjectId // Super admin who created template
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  event             Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdByAdmin    Admin    @relation("TemplateCreator", fields: [createdBy], references: [id])
+  messages          Message[]
+  
+  // Unique template name per event
+  @@unique([eventId, name])
+  @@index([eventId, type])
+  @@index([eventId, category])
+  @@index([createdBy])
+  @@map("email_templates")
+}
+
+model EmailTracking {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  messageId  String   @db.ObjectId
+  userId     String   @db.ObjectId
+  
+  // Tracking details
+  trackingUrl String   // Generated unique tracking URL
+  opened      Boolean @default(false)
+  openedAt    DateTime?
+  userAgent   String?  // Email client info
+  ipAddress   String?
+  
+  // Relations
+  message     Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Unique tracking per message-user pair and unique tracking URL
+  @@unique([messageId, userId])
+  @@unique([trackingUrl])
+  @@index([messageId])
+  @@index([userId])
+  @@map("email_tracking")
+}
+
+model Message {
+  id         String      @id @default(auto()) @map("_id") @db.ObjectId
+  eventId    String      @db.ObjectId
+  templateId String?     @db.ObjectId // Reference to EmailTemplate (optional for backward compatibility)
+  type       MessageType
+
+  // Email content (legacy fields - template takes precedence)
   emailSubject String?
   emailContent String? // HTML
 
-  // WhatsApp content
+  // WhatsApp content (legacy)
   whatsappTemplate  String?
-  templateVariables Json? // Variables for template
+  templateVariables Json? // Variables used for template substitution
 
   // Recipients
   recipientType RecipientType
   recipientIds  String[]      @db.ObjectId // User or Group IDs
 
-  // Delivery tracking per user
-  deliveries Json[] // [{ user, channels: { email: {sent, sentAt, delivered, deliveredAt, error}, whatsapp: {...} } }]
+  // Enhanced delivery tracking per user
+  deliveries Json[] // [{ user, email: {sent, sentAt, opened, openedAt, delivered, deliveredAt, error}, whatsapp: {...} }]
 
+  // Monitoring
+  monitoringEmailSent Boolean @default(false)
+  
   sentBy    String   @db.ObjectId // Admin ID
   createdAt DateTime @default(now())
+  status    String   @default("draft") // 'draft' | 'sending' | 'sent' | 'failed'
 
   // Relations
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event         Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  template      EmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  emailTracking EmailTracking[]
 
+  @@index([eventId])
+  @@index([templateId])
+  @@index([sentBy])
+  @@index([status])
   @@map("messages")
 }

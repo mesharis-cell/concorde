@@ -1,19 +1,30 @@
 import { EmailService, EmailTemplate } from './email.js';
+import { TemplateService } from './templates.js';
 import { CommunicationLogService } from './communication-logs.js';
 import { UserService } from './users.js';
 import { EventService } from './events.js';
 import { GroupService } from './groups.js';
+import { prisma } from '../config/database.js';
+import { env } from '../config/env.js';
 
 export interface SendCommunicationRequest {
   eventId: string;
   adminId: string;
   recipientType: 'individual' | 'group' | 'all';
   recipientIds?: string[]; // User IDs or Group IDs based on recipientType
-  subject: string;
-  content: string; // HTML content
+  templateId?: string; // Use template-based sending (preferred)
+  subject?: string; // Fallback for non-template sending
+  content?: string; // Fallback HTML content
   channel: 'email'; // For now, email only as per requirements
-  templateType?: 'welcome' | 'assignment' | 'activity_update' | 'announcement' | 'custom';
   variables?: Record<string, any>;
+}
+
+export interface SendTemplateEmailRequest {
+  templateId: string;
+  recipientType: 'individual' | 'group' | 'all';
+  recipientIds?: string[]; // For authentication, only single user allowed
+  variables?: Record<string, any>;
+  adminId: string;
 }
 
 export interface CommunicationRecipient {
@@ -150,6 +161,221 @@ export class CommunicationsService {
     }
 
     return result;
+  }
+
+  // Template-based email sending with tracking and monitoring
+  static async sendTemplateEmail(request: SendTemplateEmailRequest): Promise<CommunicationResult> {
+    // Get template and validate access
+    const template = await TemplateService.findById(request.templateId);
+    if (!template) {
+      throw new Error('Template not found');
+    }
+
+    // Check admin access to template
+    const accessCheck = await TemplateService.checkAccess(request.templateId, request.adminId);
+    if (!accessCheck.canAccess) {
+      throw new Error('Access denied - insufficient permissions for this template type');
+    }
+
+    // Authentication templates can only be sent to single users
+    if (template.type === 'AUTHENTICATION' && request.recipientType !== 'individual') {
+      throw new Error('Authentication templates can only be sent to single users');
+    }
+
+    if (template.type === 'AUTHENTICATION' && (!request.recipientIds || request.recipientIds.length !== 1)) {
+      throw new Error('Authentication templates require exactly one recipient');
+    }
+
+    // Get recipients
+    const recipients = await this.getRecipients(template.eventId, request.recipientType, request.recipientIds);
+    
+    // Filter to only email opt-in users (except for authentication emails which bypass opt-in)
+    const eligibleRecipients = template.type === 'AUTHENTICATION' 
+      ? recipients.filter(r => r.email)
+      : recipients.filter(r => r.emailOptIn);
+    
+    const skippedCount = recipients.length - eligibleRecipients.length;
+    
+    const result: CommunicationResult = {
+      totalRecipients: recipients.length,
+      sentCount: 0,
+      skippedCount,
+      failedCount: 0,
+      deliveries: [],
+    };
+
+    // Create message record
+    const message = await prisma.message.create({
+      data: {
+        eventId: template.eventId,
+        templateId: template.id,
+        type: this.getMessageTypeFromCategory(template.category),
+        recipientType: this.convertRecipientType(request.recipientType),
+        recipientIds: request.recipientIds || [],
+        templateVariables: request.variables || {},
+        sentBy: request.adminId,
+        status: 'sending',
+        monitoringEmailSent: false,
+        deliveries: [],
+      },
+    });
+
+    // Send emails to eligible recipients
+    const deliveries = [];
+    for (const recipient of eligibleRecipients) {
+      try {
+        // Generate tracking URL
+        const trackingUrl = await TemplateService.generateTrackingUrl(message.id, recipient.userId);
+        
+        // Build variables for template substitution
+        const variables = {
+          firstName: recipient.firstName,
+          lastName: recipient.lastName,
+          email: recipient.email,
+          eventName: (template as any).event?.name || 'Event',
+          ...request.variables,
+        };
+
+        // Inject tracking pixel into HTML
+        const trackingPixel = `<img src="${env.APP_URL || 'http://localhost:3001'}${trackingUrl}" width="1" height="1" style="display:none;" alt="" />`;
+        const htmlWithTracking = template.html.replace('</body>', `${trackingPixel}</body>`);
+        
+        const emailTemplate: EmailTemplate = {
+          subject: this.replaceVariables(template.subject, variables),
+          html: this.replaceVariables(htmlWithTracking, variables),
+        };
+
+        const emailResult = await EmailService.sendEmail(recipient.email, emailTemplate, {});
+        
+        if (emailResult.success) {
+          result.sentCount++;
+          deliveries.push({
+            user: recipient.userId,
+            email: {
+              sent: true,
+              sentAt: new Date(),
+              opened: false,
+              openedAt: null,
+              delivered: false,
+              deliveredAt: null,
+              error: null,
+            },
+          });
+
+          result.deliveries.push({
+            userId: recipient.userId,
+            email: recipient.email,
+            status: 'sent',
+            messageId: emailResult.messageId,
+          });
+        } else {
+          result.failedCount++;
+          deliveries.push({
+            user: recipient.userId,
+            email: {
+              sent: false,
+              sentAt: null,
+              opened: false,
+              openedAt: null,
+              delivered: false,
+              deliveredAt: null,
+              error: emailResult.error,
+            },
+          });
+
+          result.deliveries.push({
+            userId: recipient.userId,
+            email: recipient.email,
+            status: 'failed',
+            error: emailResult.error,
+          });
+        }
+      } catch (error: any) {
+        result.failedCount++;
+        deliveries.push({
+          user: recipient.userId,
+          email: {
+            sent: false,
+            sentAt: null,
+            opened: false,
+            openedAt: null,
+            delivered: false,
+            deliveredAt: null,
+            error: error.message,
+          },
+        });
+
+        result.deliveries.push({
+          userId: recipient.userId,
+          email: recipient.email,
+          status: 'failed',
+          error: error.message,
+        });
+      }
+    }
+
+    // Send monitoring email if configured
+    const monitoringEmail = env.MONITORING_EMAIL;
+    if (monitoringEmail && result.sentCount > 0) {
+      try {
+        const monitoringSubject = `[MONITORING] ${template.subject} - Sent to ${result.sentCount} recipients`;
+        const monitoringContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px;">
+            <h3>Email Campaign Summary</h3>
+            <table style="border-collapse: collapse; width: 100%;">
+              <tr><td><strong>Template:</strong></td><td>${template.name} (${template.type})</td></tr>
+              <tr><td><strong>Event:</strong></td><td>${(template as any).event?.name || 'Unknown'}</td></tr>
+              <tr><td><strong>Recipients:</strong></td><td>${result.sentCount} sent, ${result.skippedCount} skipped, ${result.failedCount} failed</td></tr>
+              <tr><td><strong>Sent by:</strong></td><td>Admin ID ${request.adminId}</td></tr>
+              <tr><td><strong>Time:</strong></td><td>${new Date().toISOString()}</td></tr>
+            </table>
+          </div>
+        `;
+        
+        await EmailService.sendEmail(monitoringEmail, {
+          subject: monitoringSubject,
+          html: monitoringContent,
+        }, {});
+
+        await prisma.message.update({
+          where: { id: message.id },
+          data: { monitoringEmailSent: true },
+        });
+      } catch (error) {
+        console.error('Failed to send monitoring email:', error);
+      }
+    }
+
+    // Update message with final status and deliveries
+    await prisma.message.update({
+      where: { id: message.id },
+      data: {
+        status: result.failedCount === 0 ? 'sent' : (result.sentCount > 0 ? 'partial' : 'failed'),
+        deliveries,
+      },
+    });
+
+    return result;
+  }
+
+  private static getMessageTypeFromCategory(category: string): any {
+    switch (category) {
+      case 'WELCOME': return 'WELCOME';
+      case 'ASSIGNMENT': return 'ASSIGNMENT';
+      case 'ACTIVITY_UPDATE': return 'ACTIVITY_UPDATE';
+      case 'ANNOUNCEMENT': return 'ANNOUNCEMENT';
+      case 'MAGIC_LINK': return 'MAGIC_LINK';
+      default: return 'ANNOUNCEMENT';
+    }
+  }
+
+  private static convertRecipientType(type: string): any {
+    switch (type) {
+      case 'individual': return 'INDIVIDUAL';
+      case 'group': return 'GROUP';
+      case 'all': return 'ALL';
+      default: return 'INDIVIDUAL';
+    }
   }
 
   private static async getRecipients(

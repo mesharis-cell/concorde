@@ -2,6 +2,8 @@ import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { UserService } from '../services/users.js';
 import { JwtService } from '../utils/jwt.js';
 import { CreateUserSchema, PaginationSchema, ApiSuccessSchema, ApiErrorSchema } from '../types/index.js';
+import { EmailService } from '../services/email';
+import { EventService } from '../services/events';
 
 const app = new OpenAPIHono();
 
@@ -57,10 +59,32 @@ app.openapi(requestMagicLinkRoute, async (c) => {
       }, 404);
     }
 
+
+    // fetch event
+    const event = await EventService.findById(eventId);
+    if (!event) {
+      return c.json({
+        success: false,
+        error: 'Event not found',
+      }, 404);
+    }
+
     const magicToken = await UserService.createMagicLink(user.id);
+
+    if (event.config['micrositeUrl'] === 'undefined') {
+      return c.json({
+        success: false,
+        error: 'URL is not set in the event yet',
+      }, 404);
+    }
     
     // TODO: Send email with magic link
-    // await EmailService.sendMagicLink(email, magicToken);
+    await EmailService.sendMagicLinkEmail(email, {
+      eventName: event.name,
+      firstName: user.profile['firstName'] as string || '',
+      lastName: user.profile['lastName'] as string || '',
+      magicLink: `https://${event.config['micrositeUrl'] ?? 'undefined'}/auth/magic?token=${magicToken}`,
+    });
     
     return c.json({
       success: true,

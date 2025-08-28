@@ -365,6 +365,19 @@ app.openapi(updateActivityRoute, async (c) => {
   try {
     const { id } = c.req.valid('param');
     const data = c.req.valid('json');
+    
+    // Check if admin can modify this activity
+    const adminId = data.lastModifiedBy;
+    const permissionCheck = await ActivityService.canAdminModifyActivity(id, adminId);
+    
+    if (!permissionCheck.canModify) {
+      return c.json({
+        success: false,
+        error: 'Permission denied',
+        details: permissionCheck.reason,
+      }, 403);
+    }
+    
     const activity = await ActivityService.update(id, data);
     
     return c.json({
@@ -426,6 +439,17 @@ app.openapi(toggleActivityRoute, async (c) => {
   try {
     const { id } = c.req.valid('param');
     const { active, adminId } = c.req.valid('json');
+    
+    // Check if admin can modify this activity
+    const permissionCheck = await ActivityService.canAdminModifyActivity(id, adminId);
+    
+    if (!permissionCheck.canModify) {
+      return c.json({
+        success: false,
+        error: 'Permission denied',
+        details: permissionCheck.reason,
+      }, 403);
+    }
     
     const activity = active 
       ? await ActivityService.activate(id, adminId) 
@@ -551,6 +575,17 @@ app.openapi(deleteActivityRoute, async (c) => {
   try {
     const { id } = c.req.valid('param');
     const { adminId } = c.req.valid('json');
+    
+    // Check if admin can modify this activity
+    const permissionCheck = await ActivityService.canAdminModifyActivity(id, adminId);
+    
+    if (!permissionCheck.canModify) {
+      return c.json({
+        success: false,
+        error: 'Permission denied',
+        details: permissionCheck.reason,
+      }, 403);
+    }
     
     const activity = await ActivityService.softDelete(id, adminId);
     

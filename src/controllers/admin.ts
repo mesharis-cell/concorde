@@ -1,9 +1,12 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
+import { prisma } from '../config/database.js';
 import { AdminService } from '../services/admins.js';
 import { UserService } from '../services/users.js';
 import { EventService } from '../services/events.js';
 import { GroupService } from '../services/groups.js';
 import { ActivityService } from '../services/activities.js';
+import { UserActivityExclusionService } from '../services/user-activity-exclusions.js';
+import { TemplateService } from '../services/templates.js';
 import { CommunicationLogService } from '../services/communication-logs.js';
 import { CommunicationsService } from '../services/communications.js';
 import { S3Service } from '../services/s3.js';
@@ -15,6 +18,13 @@ import {
   CreateEventSchema,
   CreateActivitySchema,
   UpdateActivitySchema,
+  AssignActivitySchema,
+  UnassignActivitySchema,
+  CreateExclusionSchema,
+  RemoveExclusionSchema,
+  CreateTemplateSchema,
+  UpdateTemplateSchema,
+  TestTemplateSchema,
   AdminUpdateUserSchema,
   CreateUserSchema,
   PaginationSchema,
@@ -527,9 +537,14 @@ app.openapi(updateUserRoute, async (c) => {
     // Build the update payload for partial updates - only include changed fields
     const updatePayload: any = {};
     
-    // Handle profile fields - only include if any profile field was updated
+    // Handle profile fields - support both nested and flat structure
+    const profileUpdates = updates.profile || {};
     const profileFields = ['firstName', 'lastName', 'email', 'phone'];
-    const hasProfileUpdates = profileFields.some(field => updates[field] !== undefined);
+    
+    // Check for profile updates in nested structure or at root level
+    const hasProfileUpdates = profileFields.some(field => 
+      profileUpdates[field] !== undefined || updates[field] !== undefined
+    );
     
     if (hasProfileUpdates) {
       // Get current user to merge with updates
@@ -541,11 +556,16 @@ app.openapi(updateUserRoute, async (c) => {
       const currentProfile = currentUser.profile as any || {};
       updatePayload.profile = {
         ...currentProfile,
-        // Only update fields that were provided
-        ...(updates.firstName !== undefined && { firstName: updates.firstName }),
-        ...(updates.lastName !== undefined && { lastName: updates.lastName }),
-        ...(updates.email !== undefined && { email: updates.email }),
-        ...(updates.phone !== undefined && { phone: updates.phone }),
+        // Handle nested profile structure (preferred)
+        ...(profileUpdates.firstName !== undefined && { firstName: profileUpdates.firstName }),
+        ...(profileUpdates.lastName !== undefined && { lastName: profileUpdates.lastName }),
+        ...(profileUpdates.email !== undefined && { email: profileUpdates.email }),
+        ...(profileUpdates.phone !== undefined && { phone: profileUpdates.phone }),
+        // Handle flat structure for backward compatibility
+        ...(updates.firstName !== undefined && !profileUpdates.firstName && { firstName: updates.firstName }),
+        ...(updates.lastName !== undefined && !profileUpdates.lastName && { lastName: updates.lastName }),
+        ...(updates.email !== undefined && !profileUpdates.email && { email: updates.email }),
+        ...(updates.phone !== undefined && !profileUpdates.phone && { phone: updates.phone }),
       };
     }
     
@@ -1994,6 +2014,18 @@ app.openapi(deleteActivityRoute, async (c) => {
   try {
     const { activityId } = c.req.valid('param');
     const authUser = c.get('user');
+    
+    // Check if admin can modify this activity
+    const permissionCheck = await ActivityService.canAdminModifyActivity(activityId, authUser.id);
+    
+    if (!permissionCheck.canModify) {
+      return c.json({
+        success: false,
+        error: 'Permission denied',
+        details: permissionCheck.reason,
+      }, 403);
+    }
+    
     const activity = await ActivityService.softDelete(activityId, authUser.id);
     
     return c.json({
@@ -2007,6 +2039,351 @@ app.openapi(deleteActivityRoute, async (c) => {
       error: 'Failed to delete activity',
       details: error.message,
     }, 400);
+  }
+});
+
+// Assign Activity to Group
+const assignActivityToGroupRoute = createRoute({
+  method: 'put',
+  path: '/activities/{activityId}/assign',
+  tags: ['Admin - Activities'],
+  summary: 'Assign activity to group',
+  description: 'Assign an unassigned activity to a specific group - only creator or super admin can perform this operation',
+  request: {
+    params: z.object({
+      activityId: z.string().min(1),
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: AssignActivitySchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Activity assigned successfully',
+    },
+    403: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Permission denied',
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Assignment failed',
+    },
+  },
+});
+
+app.openapi(assignActivityToGroupRoute, async (c) => {
+  try {
+    const { activityId } = c.req.valid('param');
+    const { groupId, adminId } = c.req.valid('json');
+    
+    // Check if admin can modify this activity
+    const permissionCheck = await ActivityService.canAdminModifyActivity(activityId, adminId);
+    
+    if (!permissionCheck.canModify) {
+      return c.json({
+        success: false,
+        error: 'Permission denied',
+        details: permissionCheck.reason,
+      }, 403);
+    }
+    
+    const activity = await ActivityService.assignToGroup(activityId, groupId, adminId);
+    
+    return c.json({
+      success: true,
+      data: activity,
+      message: 'Activity assigned to group successfully',
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to assign activity',
+      details: error.message,
+    }, 400);
+  }
+});
+
+// Unassign Activity from Group
+const unassignActivityFromGroupRoute = createRoute({
+  method: 'post',
+  path: '/activities/{activityId}/unassign',
+  tags: ['Admin - Activities'],
+  summary: 'Unassign activity from group',
+  description: 'Remove activity from its current group assignment - only creator or super admin can perform this operation',
+  request: {
+    params: z.object({
+      activityId: z.string().min(1),
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: UnassignActivitySchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Activity unassigned successfully',
+    },
+    403: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Permission denied',
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Unassignment failed',
+    },
+  },
+});
+
+app.openapi(unassignActivityFromGroupRoute, async (c) => {
+  try {
+    const { activityId } = c.req.valid('param');
+    const { adminId } = c.req.valid('json');
+    
+    // Check if admin can modify this activity
+    const permissionCheck = await ActivityService.canAdminModifyActivity(activityId, adminId);
+    
+    if (!permissionCheck.canModify) {
+      return c.json({
+        success: false,
+        error: 'Permission denied',
+        details: permissionCheck.reason,
+      }, 403);
+    }
+    
+    const activity = await ActivityService.unassignFromGroup(activityId, adminId);
+    
+    return c.json({
+      success: true,
+      data: activity,
+      message: 'Activity unassigned from group successfully',
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to unassign activity',
+      details: error.message,
+    }, 400);
+  }
+});
+
+// Exclude User from Activity
+const excludeUserFromActivityRoute = createRoute({
+  method: 'post',
+  path: '/groups/{groupId}/users/{userId}/exclude-activity',
+  tags: ['Admin - User Activity Exclusions'],
+  summary: 'Exclude user from specific activity',
+  description: 'Prevent a group member from seeing/participating in a specific activity',
+  request: {
+    params: z.object({
+      groupId: z.string().min(1),
+      userId: z.string().min(1),
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: CreateExclusionSchema.omit({ groupId: true, userId: true }),
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'User excluded from activity successfully',
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Exclusion failed',
+    },
+  },
+});
+
+app.openapi(excludeUserFromActivityRoute, async (c) => {
+  try {
+    const { groupId, userId } = c.req.valid('param');
+    const { activityId, adminId, reason } = c.req.valid('json');
+    
+    // Get eventId from the group
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+      select: { eventId: true },
+    });
+    
+    if (!group) {
+      return c.json({
+        success: false,
+        error: 'Group not found',
+      }, 404);
+    }
+    
+    const exclusion = await UserActivityExclusionService.excludeUserFromActivity({
+      userId,
+      activityId,
+      groupId,
+      eventId: group.eventId,
+      excludedBy: adminId,
+      reason,
+    });
+    
+    return c.json({
+      success: true,
+      data: exclusion,
+      message: 'User excluded from activity successfully',
+    }, 201);
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to exclude user from activity',
+      details: error.message,
+    }, 400);
+  }
+});
+
+// Include User in Activity (Remove Exclusion)
+const includeUserInActivityRoute = createRoute({
+  method: 'delete',
+  path: '/groups/{groupId}/users/{userId}/include-activity/{activityId}',
+  tags: ['Admin - User Activity Exclusions'],
+  summary: 'Include user in activity (remove exclusion)',
+  description: 'Remove exclusion so user can see/participate in the activity again',
+  request: {
+    params: z.object({
+      groupId: z.string().min(1),
+      userId: z.string().min(1),
+      activityId: z.string().min(1),
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            adminId: z.string().min(1),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'User included in activity successfully',
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Inclusion failed',
+    },
+  },
+});
+
+app.openapi(includeUserInActivityRoute, async (c) => {
+  try {
+    const { userId, activityId } = c.req.valid('param');
+    const { adminId } = c.req.valid('json');
+    
+    await UserActivityExclusionService.includeUserInActivity(userId, activityId);
+    
+    return c.json({
+      success: true,
+      message: 'User included in activity successfully',
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to include user in activity',
+      details: error.message,
+    }, 400);
+  }
+});
+
+// Get Group User Exclusions
+const getGroupUserExclusionsRoute = createRoute({
+  method: 'get',
+  path: '/groups/{groupId}/user-exclusions',
+  tags: ['Admin - User Activity Exclusions'],
+  summary: 'Get all user exclusions for a group',
+  description: 'Retrieve list of users and their excluded activities within a group',
+  request: {
+    params: z.object({
+      groupId: z.string().min(1),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'User exclusions retrieved successfully',
+    },
+  },
+});
+
+app.openapi(getGroupUserExclusionsRoute, async (c) => {
+  try {
+    const { groupId } = c.req.valid('param');
+    
+    const exclusions = await UserActivityExclusionService.getGroupUserExclusions(groupId);
+    
+    return c.json({
+      success: true,
+      data: exclusions,
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to retrieve user exclusions',
+      details: error.message,
+    }, 500);
   }
 });
 
@@ -2132,6 +2509,17 @@ app.openapi(updateActivityRoute, async (c) => {
     const data = c.req.valid('json');
     const authUser = c.get('user');
     
+    // Check if admin can modify this activity
+    const permissionCheck = await ActivityService.canAdminModifyActivity(activityId, authUser.id);
+    
+    if (!permissionCheck.canModify) {
+      return c.json({
+        success: false,
+        error: 'Permission denied',
+        details: permissionCheck.reason,
+      }, 403);
+    }
+    
     // Add lastModifiedBy from authenticated user
     const activityData = {
       ...data,
@@ -2154,8 +2542,540 @@ app.openapi(updateActivityRoute, async (c) => {
   }
 });
 
+// Get User Activity Exclusions
+const getUserExclusionsRoute = createRoute({
+  method: 'get',
+  path: '/users/{userId}/activity-exclusions',
+  tags: ['Admin - User Activity Exclusions'],
+  summary: 'Get user activity exclusions',
+  description: 'Retrieve all activities this user is excluded from',
+  request: {
+    params: z.object({
+      userId: z.string().min(1),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'User exclusions retrieved successfully',
+    },
+  },
+});
+
+app.openapi(getUserExclusionsRoute, async (c) => {
+  try {
+    const { userId } = c.req.valid('param');
+    
+    const exclusions = await UserActivityExclusionService.getUserExclusions(userId);
+    
+    return c.json({
+      success: true,
+      data: exclusions,
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to retrieve user exclusions',
+      details: error.message,
+    }, 500);
+  }
+});
+
 // =============================================================================
-// 6. FILE UPLOAD MANAGEMENT
+// 6. EMAIL TEMPLATE MANAGEMENT
+// =============================================================================
+
+// Create Email Template (Super Admin Only)
+const createTemplateRoute = createRoute({
+  method: 'post',
+  path: '/templates',
+  tags: ['Admin - Email Templates'],
+  summary: 'Create email template (Super Admin only)',
+  description: 'Create a new email template for communication or authentication',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: CreateTemplateSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Template created successfully',
+    },
+    403: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Permission denied - Super Admin only',
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Template creation failed',
+    },
+  },
+});
+
+app.openapi(createTemplateRoute, async (c) => {
+  try {
+    const data = c.req.valid('json');
+    const authUser = c.get('user');
+    
+    const template = await TemplateService.create({
+      ...data,
+      createdBy: authUser.id,
+    });
+    
+    return c.json({
+      success: true,
+      data: template,
+      message: 'Email template created successfully',
+    }, 201);
+  } catch (error: any) {
+    const statusCode = error.message.includes('Only super administrators') ? 403 : 400;
+    return c.json({
+      success: false,
+      error: 'Failed to create template',
+      details: error.message,
+    }, statusCode);
+  }
+});
+
+// Get Templates by Event
+const getTemplatesRoute = createRoute({
+  method: 'get',
+  path: '/events/{eventId}/templates',
+  tags: ['Admin - Email Templates'],
+  summary: 'Get event templates with role-based filtering',
+  description: 'Retrieve templates for an event - authentication templates only visible to super admin',
+  request: {
+    params: z.object({
+      eventId: z.string().min(1),
+    }),
+    query: z.object({
+      type: z.enum(['COMMUNICATION', 'AUTHENTICATION']).optional(),
+      category: z.string().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Templates retrieved successfully',
+    },
+  },
+});
+
+app.openapi(getTemplatesRoute, async (c) => {
+  try {
+    const { eventId } = c.req.valid('param');
+    const { type, category } = c.req.valid('query');
+    const authUser = c.get('user');
+    
+    // Get all templates for the event
+    let templates = await TemplateService.findByEventId(eventId, { type, category });
+    
+    // Filter based on admin role - only super admin sees authentication templates
+    if (authUser.role !== 'superadmin') {
+      templates = templates.filter(template => template.type === 'COMMUNICATION');
+    }
+    
+    return c.json({
+      success: true,
+      data: templates,
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to retrieve templates',
+      details: error.message,
+    }, 500);
+  }
+});
+
+// Update Template (Super Admin Only)
+const updateTemplateRoute = createRoute({
+  method: 'put',
+  path: '/templates/{templateId}',
+  tags: ['Admin - Email Templates'],
+  summary: 'Update email template (Super Admin only)',
+  description: 'Update an existing email template',
+  request: {
+    params: z.object({
+      templateId: z.string().min(1),
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: UpdateTemplateSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Template updated successfully',
+    },
+    403: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Permission denied - Super Admin only',
+    },
+  },
+});
+
+app.openapi(updateTemplateRoute, async (c) => {
+  try {
+    const { templateId } = c.req.valid('param');
+    const data = c.req.valid('json');
+    const authUser = c.get('user');
+    
+    const template = await TemplateService.update(templateId, data, authUser.id);
+    
+    return c.json({
+      success: true,
+      data: template,
+      message: 'Template updated successfully',
+    });
+  } catch (error: any) {
+    const statusCode = error.message.includes('Only super administrators') ? 403 : 400;
+    return c.json({
+      success: false,
+      error: 'Failed to update template',
+      details: error.message,
+    }, statusCode);
+  }
+});
+
+// Delete Template (Super Admin Only)
+const deleteTemplateRoute = createRoute({
+  method: 'delete',
+  path: '/templates/{templateId}',
+  tags: ['Admin - Email Templates'],
+  summary: 'Delete email template (Super Admin only)',
+  description: 'Soft delete an email template',
+  request: {
+    params: z.object({
+      templateId: z.string().min(1),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Template deleted successfully',
+    },
+    403: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Permission denied - Super Admin only',
+    },
+  },
+});
+
+app.openapi(deleteTemplateRoute, async (c) => {
+  try {
+    const { templateId } = c.req.valid('param');
+    const authUser = c.get('user');
+    
+    await TemplateService.delete(templateId, authUser.id);
+    
+    return c.json({
+      success: true,
+      message: 'Template deleted successfully',
+    });
+  } catch (error: any) {
+    const statusCode = error.message.includes('Only super administrators') ? 403 : 400;
+    return c.json({
+      success: false,
+      error: 'Failed to delete template',
+      details: error.message,
+    }, statusCode);
+  }
+});
+
+// Test Template
+const testTemplateRoute = createRoute({
+  method: 'post',
+  path: '/templates/{templateId}/test',
+  tags: ['Admin - Email Templates'],
+  summary: 'Send test email using template',
+  description: 'Send a test email to verify template functionality',
+  request: {
+    params: z.object({
+      templateId: z.string().min(1),
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: TestTemplateSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Test email sent successfully',
+    },
+    403: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Access denied',
+    },
+  },
+});
+
+app.openapi(testTemplateRoute, async (c) => {
+  try {
+    const { templateId } = c.req.valid('param');
+    const { recipientEmail, variables = {} } = c.req.valid('json');
+    const authUser = c.get('user');
+    
+    // Check if admin can access this template
+    const accessCheck = await TemplateService.checkAccess(templateId, authUser.id);
+    if (!accessCheck.canAccess) {
+      return c.json({
+        success: false,
+        error: 'Access denied',
+        details: 'You do not have permission to access this template',
+      }, 403);
+    }
+    
+    const template = await TemplateService.findById(templateId);
+    if (!template) {
+      return c.json({
+        success: false,
+        error: 'Template not found',
+      }, 404);
+    }
+
+    // Send test email
+    const { EmailService } = await import('../services/email.js');
+    const emailResult = await EmailService.sendEmail(recipientEmail, {
+      subject: template.subject,
+      html: template.html,
+    }, {
+      ...variables,
+      // Default test variables
+      firstName: 'Test',
+      lastName: 'User',
+      eventName: 'Test Event',
+      magicLink: 'https://example.com/test-link',
+    });
+    
+    return c.json({
+      success: emailResult.success,
+      message: emailResult.success ? 'Test email sent successfully' : 'Test email failed',
+      details: emailResult.error,
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to send test email',
+      details: error.message,
+    }, 500);
+  }
+});
+
+// Send Template-Based Communication
+const sendTemplateCommunicationRoute = createRoute({
+  method: 'post',
+  path: '/communications/send-template',
+  tags: ['Admin - Communications'],
+  summary: 'Send template-based communication',
+  description: 'Send emails using templates with role-based access control',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            templateId: z.string().min(1),
+            recipientType: z.enum(['individual', 'group', 'all']),
+            recipientIds: z.array(z.string()).optional(),
+            variables: z.record(z.string()).optional(),
+            adminId: z.string().min(1),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Message sent successfully',
+    },
+    403: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Access denied',
+    },
+  },
+});
+
+app.openapi(sendTemplateCommunicationRoute, async (c) => {
+  try {
+    const data = c.req.valid('json');
+    
+    const result = await CommunicationsService.sendTemplateEmail(data);
+    
+    return c.json({
+      success: true,
+      data: result,
+      message: `Message sent successfully to ${result.sentCount} recipients`,
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to send message',
+      details: error.message,
+    }, 400);
+  }
+});
+
+// Send Authentication Magic Link (Super Admin Only)
+const sendAuthenticationRoute = createRoute({
+  method: 'post',
+  path: '/auth/send-magic-link',
+  tags: ['Admin - Authentication'],
+  summary: 'Send magic link using authentication template (Super Admin only)',
+  description: 'Generate and send magic link using authentication template',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            templateId: z.string().min(1),
+            userId: z.string().min(1),
+            variables: z.record(z.string()).optional(),
+            adminId: z.string().min(1),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Magic link sent successfully',
+    },
+    403: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Super Admin access required',
+    },
+  },
+});
+
+app.openapi(sendAuthenticationRoute, async (c) => {
+  try {
+    const { templateId, userId, variables, adminId } = c.req.valid('json');
+    const authUser = c.get('user');
+    
+    // Only super admin can send authentication emails
+    if (authUser.role !== 'superadmin') {
+      return c.json({
+        success: false,
+        error: 'Access denied',
+        details: 'Only super administrators can send authentication emails',
+      }, 403);
+    }
+    
+    // Generate magic link for the user
+    const { UserService } = await import('../services/users.js');
+    const user = await UserService.findById(userId);
+    if (!user) {
+      return c.json({
+        success: false,
+        error: 'User not found',
+      }, 404);
+    }
+
+    const magicLink = await UserService.generateMagicLink(userId);
+    
+    // Send using template with magic link variable
+    const result = await CommunicationsService.sendTemplateEmail({
+      templateId,
+      recipientType: 'individual',
+      recipientIds: [userId],
+      variables: {
+        ...variables,
+        magicLink: `${process.env.FRONTEND_URL || 'https://your-frontend.com'}/auth/magic?token=${magicLink.token}&event=${user.eventId}`,
+      },
+      adminId,
+    });
+    
+    return c.json({
+      success: true,
+      data: result,
+      message: 'Magic link sent successfully',
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to send magic link',
+      details: error.message,
+    }, 400);
+  }
+});
+
+// =============================================================================
+// 7. FILE UPLOAD MANAGEMENT
 // =============================================================================
 
 const generateUploadUrlRoute = createRoute({

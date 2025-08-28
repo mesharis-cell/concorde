@@ -81,7 +81,7 @@ export type ActivityContent = z.infer<typeof ActivityContentSchema>;
 
 export const CreateActivitySchema = z.object({
   eventId: z.string(),
-  groupId: z.string(),
+  groupId: z.string().optional(), // Now optional
   title: z.string().min(1),
   startDateTime: z.coerce.date(),
   endDateTime: z.coerce.date(),
@@ -98,6 +98,78 @@ export const UpdateActivitySchema = CreateActivitySchema.partial().omit({
   createdBy: true 
 });
 export type UpdateActivity = z.infer<typeof UpdateActivitySchema>;
+
+// Activity assignment schemas
+export const AssignActivitySchema = z.object({
+  groupId: z.string().min(1),
+  adminId: z.string().min(1),
+});
+export type AssignActivity = z.infer<typeof AssignActivitySchema>;
+
+export const UnassignActivitySchema = z.object({
+  adminId: z.string().min(1),
+});
+export type UnassignActivity = z.infer<typeof UnassignActivitySchema>;
+
+// User Activity Exclusion schemas
+export const CreateExclusionSchema = z.object({
+  userId: z.string().min(1),
+  activityId: z.string().min(1),
+  groupId: z.string().min(1),
+  adminId: z.string().min(1),
+  reason: z.string().optional(),
+});
+export type CreateExclusion = z.infer<typeof CreateExclusionSchema>;
+
+export const RemoveExclusionSchema = z.object({
+  userId: z.string().min(1),
+  activityId: z.string().min(1),
+  adminId: z.string().min(1),
+});
+export type RemoveExclusion = z.infer<typeof RemoveExclusionSchema>;
+
+// ============================================================================
+// Template Types
+// ============================================================================
+
+export const TemplateTypeEnum = z.enum(['COMMUNICATION', 'AUTHENTICATION']);
+export const TemplateCategoryEnum = z.enum(['WELCOME', 'ASSIGNMENT', 'ACTIVITY_UPDATE', 'ANNOUNCEMENT', 'MAGIC_LINK', 'CUSTOM']);
+
+export const CreateTemplateSchema = z.object({
+  eventId: z.string().min(1),
+  name: z.string().min(1).max(100),
+  type: TemplateTypeEnum,
+  category: TemplateCategoryEnum,
+  subject: z.string().min(1),
+  html: z.string().min(1),
+}).refine(
+  (data) => {
+    // Authentication templates must include magicLink variable
+    if (data.type === 'AUTHENTICATION' && data.category === 'MAGIC_LINK') {
+      return data.html.includes('{{magicLink}}');
+    }
+    return true;
+  },
+  {
+    message: 'Authentication templates must include {{magicLink}} variable in the content',
+    path: ['html']
+  }
+);
+export type CreateTemplate = z.infer<typeof CreateTemplateSchema>;
+
+export const UpdateTemplateSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  subject: z.string().min(1).optional(),
+  html: z.string().min(1).optional(),
+  active: z.boolean().optional(),
+});
+export type UpdateTemplate = z.infer<typeof UpdateTemplateSchema>;
+
+export const TestTemplateSchema = z.object({
+  recipientEmail: z.string().email(),
+  variables: z.record(z.any()).optional(),
+});
+export type TestTemplate = z.infer<typeof TestTemplateSchema>;
 
 // ============================================================================
 // User Types  
@@ -132,7 +204,6 @@ export const UserAccommodationSchema = z.object({
   hotel: z.string().nullable().optional().transform(val => val === null ? undefined : val),
   checkIn: z.coerce.date().nullable().optional().transform(val => val === null ? undefined : val),
   checkOut: z.coerce.date().nullable().optional().transform(val => val === null ? undefined : val),
-  specialRequests: z.string().nullable().optional().transform(val => val === null ? undefined : val),
 });
 export type UserAccommodation = z.infer<typeof UserAccommodationSchema>;
 
@@ -140,6 +211,7 @@ export const UserRequirementsSchema = z.object({
   dietary: z.string().nullable().optional().transform(val => val === null ? undefined : val),
   medical: z.string().nullable().optional().transform(val => val === null ? undefined : val),
   accessibility: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  specialRequests: z.string().nullable().optional().transform(val => val === null ? undefined : val),
 });
 export type UserRequirements = z.infer<typeof UserRequirementsSchema>;
 
@@ -187,6 +259,21 @@ export const CreateUserSchema = z.object({
   emergencyContact: UserEmergencyContactSchema.optional(),
 });
 export type CreateUser = z.infer<typeof CreateUserSchema>;
+
+// Public Registration Schema - Only user-provided fields, admin-managed fields optional
+export const PublicRegistrationSchema = z.object({
+  eventId: z.string(),
+  profile: UserProfileSchema, // Required: email, firstName, lastName, phone
+  communication: UserCommunicationSchema.default({ emailOptIn: true, whatsappOptIn: false }),
+  transferRequirements: z.string().nullable().optional(),
+  requirements: UserRequirementsSchema.optional(), // Optional: dietary, medical, accessibility, specialRequests
+  merchandiseSize: UserMerchandiseSizeSchema.optional(), // Optional: shirt, jacket, hat
+  emergencyContact: UserEmergencyContactSchema.optional(), // Optional: name, relationship, phone, email
+  // Admin-managed fields are NOT included in public registration:
+  // - flight: Managed by admin
+  // - accommodation: Managed by admin
+});
+export type PublicRegistration = z.infer<typeof PublicRegistrationSchema>;
 
 // Admin User Update Schema - excludes communication preferences
 export const AdminUpdateUserSchema = CreateUserSchema.omit({ 
