@@ -240,9 +240,12 @@ app.openapi(exportUsersRoute, async (c) => {
       // CSV headers matching import template exactly
       const headers = [
         'firstName', 'lastName', 'email', 'phone', 'group',
-        'dietaryRequirements', 'medicalRequirements', 'accessibilityRequirements',
+        'dietaryRequirements', 'medicalRequirements', 'accessibilityRequirements', 'specialRequests',
         'accommodationRequired', 'hotel', 'checkInDate', 'checkOutDate',
-        'flightArrival', 'flightDeparture', 'emergencyContactName', 'emergencyContactPhone'
+        'flightArrival', 'flightDeparture', 'arrivalAirport', 'departureAirport', 'airline', 'flightNumber',
+        'emergencyContactName', 'emergencyContactPhone', 'emergencyContactEmail', 'emergencyContactRelationship',
+        'transferRequirements', 'shirtSize', 'jacketSize', 'hatSize',
+        'emailOptIn', 'whatsappOptIn'
       ];
       
       // Get groups for lookup
@@ -257,6 +260,9 @@ app.openapi(exportUsersRoute, async (c) => {
         const flight = (user.flight as any) || {};
         const emergency = (user.emergencyContact as any) || {};
         
+        const communication = (user.communication as any) || {};
+        const merchandiseSize = (user.merchandiseSize as any) || {};
+        
         return [
           profile.firstName || '',
           profile.lastName || '',
@@ -266,14 +272,27 @@ app.openapi(exportUsersRoute, async (c) => {
           requirements.dietary || '',
           requirements.medical || '',
           requirements.accessibility || '',
+          requirements.specialRequests || '',
           accommodation.required ? 'Yes' : 'No',
           accommodation.hotel || '',
           accommodation.checkIn ? new Date(accommodation.checkIn).toISOString().split('T')[0] : '',
           accommodation.checkOut ? new Date(accommodation.checkOut).toISOString().split('T')[0] : '',
           flight.arrival ? new Date(flight.arrival).toISOString().slice(0, 16).replace('T', ' ') : '',
           flight.departure ? new Date(flight.departure).toISOString().slice(0, 16).replace('T', ' ') : '',
+          flight.arrivalAirport || '',
+          flight.departureAirport || '',
+          flight.airline || '',
+          flight.number || '',
           emergency.name || '',
-          emergency.phone || ''
+          emergency.phone || '',
+          emergency.email || '',
+          emergency.relationship || '',
+          user.transferRequirements || '',
+          merchandiseSize.shirt || '',
+          merchandiseSize.jacket || '',
+          merchandiseSize.hat || '',
+          communication.emailOptIn ? 'Yes' : 'No',
+          communication.whatsappOptIn ? 'Yes' : 'No'
         ];
       });
       
@@ -3332,7 +3351,7 @@ app.openapi(importUsersRoute, async (c) => {
               userData.transferRequirements = value;
               break;
             case 'specialRequests':
-              userData.accommodation.specialRequests = value;
+              userData.requirements.specialRequests = value;
               break;
             case 'shirtSize':
               userData.merchandiseSize.shirt = value;

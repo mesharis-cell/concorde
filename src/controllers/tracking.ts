@@ -1,4 +1,4 @@
-import { createRoute, OpenAPIHono } from '@hono/zod-openapi';
+import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { TemplateService } from '../services/templates.js';
 
 const app = new OpenAPIHono();
@@ -11,11 +11,11 @@ const trackEmailOpenRoute = createRoute({
   summary: 'Track email opens',
   description: 'Track when users open emails - serves 1x1 transparent GIF',
   request: {
-    params: {
-      messageId: 'string',
-      userId: 'string', 
-      trackingId: 'string',
-    },
+    params: z.object({
+      messageId: z.string(),
+      userId: z.string(),
+      trackingId: z.string(),
+    }),
   },
   responses: {
     200: {

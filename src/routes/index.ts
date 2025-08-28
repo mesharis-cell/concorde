@@ -174,6 +174,7 @@ activityRoutes.get('/{activityId}', async (c) => {
 
 app.route('/api/activities', activityRoutes);
 
+
 // OpenAPI documentation
 app.doc('/openapi.json', {
   openapi: '3.0.0',
@@ -185,7 +186,7 @@ app.doc('/openapi.json', {
   servers: [
     {
       url: 'http://localhost:3001',
-      description: 'API v1',
+      description: 'Development API',
     },
   ],
 });
