@@ -7,6 +7,7 @@ FROM oven/bun:1 as build
 WORKDIR /app
 COPY . .
 COPY --from=dependencies /app/node_modules ./node_modules
+RUN bun run prisma:generate
 RUN bun run build
 
 FROM oven/bun:1 as runtime
@@ -17,6 +18,7 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
 
+RUN bun run prisma:generate
 # Create non-root user
 RUN addgroup --system --gid 1001 bunjs
 RUN adduser --system --uid 1001 bunjs
