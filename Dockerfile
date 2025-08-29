@@ -1,4 +1,5 @@
 FROM oven/bun:1 as dependencies
+RUN apt-get update -y && apt-get install -y openssl
 WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
