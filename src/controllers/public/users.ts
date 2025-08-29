@@ -849,4 +849,120 @@ app.openapi(updateCommunicationPreferencesRoute, async (c) => {
   }
 });
 
+// =============================================================================
+// PUBLIC ACTIVITY ENDPOINTS (No Authentication Required)
+// =============================================================================
+
+// Get Activity Details
+const getActivityInfoRoute = createRoute({
+  method: 'get',
+  path: '/activity/{activityId}/info',
+  tags: ['Public - Activities'],
+  summary: 'Get public activity information',
+  description: 'Retrieve activity details for public display (no authentication required)',
+  request: {
+    params: z.object({
+      activityId: z.string().min(1).openapi({
+        description: 'Activity ID to get information for',
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+          example: {
+            success: true,
+            data: {
+              id: '60f7b3b3b3b3b3b3b3b3b3b5',
+              title: 'Welcome Reception',
+              startDateTime: '2025-09-05T19:00:00Z',
+              endDateTime: '2025-09-05T21:00:00Z',
+              category: 'HOSPITALITY',
+              location: {
+                name: 'Grand Ballroom',
+                address: '123 Main St, City, State',
+                mapLink: 'https://maps.google.com/...'
+              },
+              content: {
+                html: '<p>Join us for cocktails and networking...</p>'
+              },
+              thumbnail: 'https://example.com/reception.jpg',
+              group: {
+                id: '60f7b3b3b3b3b3b3b3b3b3b4',
+                name: 'VIP Group A'
+              },
+              event: {
+                id: '60f7b3b3b3b3b3b3b3b3b3b3',
+                name: 'Corporate Event 2025',
+                shortName: 'CE2025'
+              }
+            }
+          }
+        },
+      },
+      description: 'Activity information retrieved successfully',
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+          example: {
+            success: false,
+            error: 'Activity not found'
+          }
+        },
+      },
+      description: 'Activity not found',
+    },
+  },
+});
+
+app.openapi(getActivityInfoRoute, async (c) => {
+  try {
+    const { activityId } = c.req.valid('param');
+    
+    const { ActivityService } = await import('../../services/activities.js');
+    const activity = await ActivityService.findById(activityId);
+    
+    if (!activity) {
+      return c.json({
+        success: false,
+        error: 'Activity not found',
+      }, 404);
+    }
+
+    // Return public activity information
+    return c.json({
+      success: true,
+      data: {
+        id: activity.id,
+        title: activity.title,
+        startDateTime: activity.startDateTime,
+        endDateTime: activity.endDateTime,
+        category: activity.category,
+        location: activity.location,
+        content: activity.content,
+        thumbnail: activity.thumbnail,
+        group: activity.group ? {
+          id: activity.group.id,
+          name: activity.group.name,
+        } : null,
+        event: activity.event ? {
+          id: activity.event.id,
+          name: activity.event.name,
+          shortName: activity.event.shortName,
+        } : null,
+      },
+    });
+  } catch (error: any) {
+    return c.json({
+      success: false,
+      error: 'Failed to retrieve activity information',
+      details: error.message,
+    }, 500);
+  }
+});
+
 export default app;

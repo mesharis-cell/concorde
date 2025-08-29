@@ -204,15 +204,33 @@ export class CommunicationsService {
       deliveries: [],
     };
 
-    // Create message record
+    // Get event info for variable substitution
+    const event = await prisma.event.findUnique({
+      where: { id: template.eventId },
+      select: { name: true, shortName: true, location: true, dateRange: true },
+    });
+
+    // Build base variables that will be the same for all recipients
+    const baseVariables = {
+      eventName: event?.name || 'Event',
+      eventLocation: (event?.location as any)?.city || 'TBD',
+      eventDate: event?.dateRange ? 
+        new Date((event.dateRange as any).start).toLocaleDateString() : 'TBD',
+      ...request.variables,
+    };
+
+    // Create message record with processed subject
+    const processedSubject = this.replaceVariables(template.subject, baseVariables);
+    
     const message = await prisma.message.create({
       data: {
         eventId: template.eventId,
         templateId: template.id,
         type: this.getMessageTypeFromCategory(template.category),
+        emailSubject: processedSubject, // Store the processed subject
         recipientType: this.convertRecipientType(request.recipientType),
         recipientIds: request.recipientIds || [],
-        templateVariables: request.variables || {},
+        templateVariables: baseVariables,
         sentBy: request.adminId,
         status: 'sending',
         monitoringEmailSent: false,
@@ -227,13 +245,12 @@ export class CommunicationsService {
         // Generate tracking URL
         const trackingUrl = await TemplateService.generateTrackingUrl(message.id, recipient.userId);
         
-        // Build variables for template substitution
+        // Build variables for template substitution (combine base + recipient-specific)
         const variables = {
+          ...baseVariables,
           firstName: recipient.firstName,
           lastName: recipient.lastName,
           email: recipient.email,
-          eventName: (template as any).event?.name || 'Event',
-          ...request.variables,
         };
 
         // Inject tracking pixel into HTML
@@ -248,6 +265,27 @@ export class CommunicationsService {
         const emailResult = await EmailService.sendEmail(recipient.email, emailTemplate, {});
         
         if (emailResult.success) {
+          // Create communication log for statistics and user tracking
+          await CommunicationLogService.create({
+            userId: recipient.userId,
+            eventId: template.eventId,
+            groupId: recipient.groupId,
+            adminId: request.adminId,
+            type: 'email',
+            channel: 'email',
+            purpose: template.type === 'AUTHENTICATION' ? 'authentication' : 'communication',
+            subject: this.replaceVariables(template.subject, variables),
+            content: {
+              html: this.replaceVariables(template.html, variables),
+              templateId: template.id,
+              variables,
+            },
+            recipientType: request.recipientType === 'individual' ? 'single' : request.recipientType,
+            recipientIds: request.recipientIds || [],
+            status: 'sent',
+            metadata: { messageId: emailResult.messageId, trackingUrl },
+          });
+
           result.sentCount++;
           deliveries.push({
             user: recipient.userId,
@@ -269,6 +307,27 @@ export class CommunicationsService {
             messageId: emailResult.messageId,
           });
         } else {
+          // Create communication log for failed emails
+          await CommunicationLogService.create({
+            userId: recipient.userId,
+            eventId: template.eventId,
+            groupId: recipient.groupId,
+            adminId: request.adminId,
+            type: 'email',
+            channel: 'email',
+            purpose: template.type === 'AUTHENTICATION' ? 'authentication' : 'communication',
+            subject: this.replaceVariables(template.subject, variables),
+            content: {
+              html: this.replaceVariables(template.html, variables),
+              templateId: template.id,
+              variables,
+            },
+            recipientType: request.recipientType === 'individual' ? 'single' : request.recipientType,
+            recipientIds: request.recipientIds || [],
+            status: 'failed',
+            metadata: { error: emailResult.error },
+          });
+
           result.failedCount++;
           deliveries.push({
             user: recipient.userId,
@@ -291,6 +350,31 @@ export class CommunicationsService {
           });
         }
       } catch (error: any) {
+        // Create communication log for general errors
+        try {
+          await CommunicationLogService.create({
+            userId: recipient.userId,
+            eventId: template.eventId,
+            groupId: recipient.groupId,
+            adminId: request.adminId,
+            type: 'email',
+            channel: 'email',
+            purpose: template.type === 'AUTHENTICATION' ? 'authentication' : 'communication',
+            subject: template.subject,
+            content: {
+              html: template.html,
+              templateId: template.id,
+              variables,
+            },
+            recipientType: request.recipientType === 'individual' ? 'single' : request.recipientType,
+            recipientIds: request.recipientIds || [],
+            status: 'failed',
+            metadata: { error: error.message },
+          });
+        } catch (logError) {
+          console.error('Failed to create communication log:', logError);
+        }
+
         result.failedCount++;
         deliveries.push({
           user: recipient.userId,
@@ -464,11 +548,24 @@ export class CommunicationsService {
     const both = users.items.filter(u => (u.communication as any)?.emailOptIn && (u.communication as any)?.whatsappOptIn).length;
     const neither = users.items.filter(u => !(u.communication as any)?.emailOptIn && !(u.communication as any)?.whatsappOptIn).length;
 
+    // Calculate opened messages from message tracking
+    const messages = await prisma.message.findMany({
+      where: { eventId },
+      include: {
+        emailTracking: true,
+      },
+    });
+    
+    const openedMessages = messages.reduce((count, message) => {
+      return count + message.emailTracking.filter(tracking => tracking.opened).length;
+    }, 0);
+
     return {
       totalMessages,
       emailMessages,
       deliveredMessages,
       failedMessages,
+      openedMessages,
       optInStats: {
         emailOnly,
         whatsappOnly,

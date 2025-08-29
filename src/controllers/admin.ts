@@ -4129,15 +4129,54 @@ app.openapi(getCommunicationHistoryRoute, async (c) => {
       }
     }
     
-    const result = await CommunicationLogService.findByEventId(
-      eventId,
-      { page: page || 1, limit: limit || 20 },
-      { type, status }
-    );
-    
+    // Get messages with delivery tracking
+    const messages = await prisma.message.findMany({
+      where: { eventId },
+      include: {
+        template: {
+          select: { name: true, type: true, subject: true },
+        },
+        emailTracking: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit || 20,
+      skip: ((page || 1) - 1) * (limit || 20),
+    });
+
+    // Transform messages to match frontend expected format
+    const transformedMessages = messages.map(message => ({
+      id: message.id,
+      type: message.type,
+      templateId: message.templateId,
+      template: message.template ? {
+        name: message.template.name,
+        type: message.template.type,
+        subject: message.template.subject,
+      } : null,
+      subject: message.emailSubject || 'Untitled', // emailSubject now contains processed subject
+      recipientType: message.recipientType,
+      recipientCount: message.recipientIds.length,
+      sentBy: message.sentBy,
+      sentAt: message.createdAt,
+      status: message.status,
+      deliveredCount: message.deliveries ? 
+        (message.deliveries as any[]).filter(d => d.email?.sent).length : 0,
+      openedCount: message.emailTracking.filter(t => t.opened).length,
+    }));
+
+    const totalCount = await prisma.message.count({
+      where: { eventId },
+    });
+
     return c.json({
       success: true,
-      data: result,
+      data: transformedMessages,
+      pagination: {
+        page: page || 1,
+        limit: limit || 20,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / (limit || 20)),
+      },
     });
   } catch (error: any) {
     return c.json({
