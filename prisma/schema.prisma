@@ -118,6 +118,7 @@ model Activity {
 
   // Scheduling (required)
   title         String
+  description   String?
   startDateTime DateTime
   endDateTime   DateTime
 
@@ -171,7 +172,7 @@ model User {
   communication Json // { emailOptIn, whatsappOptIn }
 
   // Travel & accommodation details
-  flight               Json? // { airline, number, arrival, departure, arrivalAirport, departureAirport }
+  flight               Json? // { inbound: { departureFrom, departureDate, departureTime, departureTerminal, flightNumber, arrivalDate, arrivalTime, arrivalTo }, outbound: { departureFrom, departureDate, departureTime, departureTerminal, flightNumber, arrivalDate, arrivalTime, arrivalTo } }
   accommodation        Json? // { required, hotel, checkIn, checkOut, specialRequests }
   transferRequirements String?
 

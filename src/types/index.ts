@@ -7,10 +7,22 @@ import { z } from 'zod';
 export const AdminRole = z.enum(['SUPER', 'STANDARD']);
 export type AdminRole = z.infer<typeof AdminRole>;
 
-export const ActivityCategory = z.enum(['TRANSPORT', 'HOSPITALITY', 'EXPERIENCE', 'MEETING', 'OTHER']);
+export const ActivityCategory = z.enum([
+  'TRANSPORT',
+  'HOSPITALITY',
+  'EXPERIENCE',
+  'MEETING',
+  'OTHER',
+]);
 export type ActivityCategory = z.infer<typeof ActivityCategory>;
 
-export const MessageType = z.enum(['WELCOME', 'ASSIGNMENT', 'ACTIVITY_UPDATE', 'ANNOUNCEMENT', 'MAGIC_LINK']);
+export const MessageType = z.enum([
+  'WELCOME',
+  'ASSIGNMENT',
+  'ACTIVITY_UPDATE',
+  'ANNOUNCEMENT',
+  'MAGIC_LINK',
+]);
 export type MessageType = z.infer<typeof MessageType>;
 
 export const RecipientType = z.enum(['INDIVIDUAL', 'GROUP', 'ALL']);
@@ -60,7 +72,9 @@ export const CreateGroupSchema = z.object({
 });
 export type CreateGroup = z.infer<typeof CreateGroupSchema>;
 
-export const UpdateGroupSchema = CreateGroupSchema.partial().omit({ eventId: true });
+export const UpdateGroupSchema = CreateGroupSchema.partial().omit({
+  eventId: true,
+});
 export type UpdateGroup = z.infer<typeof UpdateGroupSchema>;
 
 // ============================================================================
@@ -83,6 +97,7 @@ export const CreateActivitySchema = z.object({
   eventId: z.string(),
   groupId: z.string().optional(), // Now optional
   title: z.string().min(1),
+  description: z.string().optional(),
   startDateTime: z.coerce.date(),
   endDateTime: z.coerce.date(),
   thumbnail: z.string().url().optional(),
@@ -92,10 +107,10 @@ export const CreateActivitySchema = z.object({
 });
 export type CreateActivity = z.infer<typeof CreateActivitySchema>;
 
-export const UpdateActivitySchema = CreateActivitySchema.partial().omit({ 
-  eventId: true, 
-  groupId: true, 
-  createdBy: true 
+export const UpdateActivitySchema = CreateActivitySchema.partial().omit({
+  eventId: true,
+  groupId: true,
+  createdBy: true,
 });
 export type UpdateActivity = z.infer<typeof UpdateActivitySchema>;
 
@@ -133,28 +148,38 @@ export type RemoveExclusion = z.infer<typeof RemoveExclusionSchema>;
 // ============================================================================
 
 export const TemplateTypeEnum = z.enum(['COMMUNICATION', 'AUTHENTICATION']);
-export const TemplateCategoryEnum = z.enum(['WELCOME', 'ASSIGNMENT', 'ACTIVITY_UPDATE', 'ANNOUNCEMENT', 'MAGIC_LINK', 'CUSTOM']);
+export const TemplateCategoryEnum = z.enum([
+  'WELCOME',
+  'ASSIGNMENT',
+  'ACTIVITY_UPDATE',
+  'ANNOUNCEMENT',
+  'MAGIC_LINK',
+  'CUSTOM',
+]);
 
-export const CreateTemplateSchema = z.object({
-  eventId: z.string().min(1),
-  name: z.string().min(1).max(100),
-  type: TemplateTypeEnum,
-  category: TemplateCategoryEnum,
-  subject: z.string().min(1),
-  html: z.string().min(1),
-}).refine(
-  (data) => {
-    // Authentication templates must include magicLink variable
-    if (data.type === 'AUTHENTICATION' && data.category === 'MAGIC_LINK') {
-      return data.html.includes('{{magicLink}}');
+export const CreateTemplateSchema = z
+  .object({
+    eventId: z.string().min(1),
+    name: z.string().min(1).max(100),
+    type: TemplateTypeEnum,
+    category: TemplateCategoryEnum,
+    subject: z.string().min(1),
+    html: z.string().min(1),
+  })
+  .refine(
+    (data) => {
+      // Authentication templates must include magicLink variable
+      if (data.type === 'AUTHENTICATION' && data.category === 'MAGIC_LINK') {
+        return data.html.includes('{{magicLink}}');
+      }
+      return true;
+    },
+    {
+      message:
+        'Authentication templates must include {{magicLink}} variable in the content',
+      path: ['html'],
     }
-    return true;
-  },
-  {
-    message: 'Authentication templates must include {{magicLink}} variable in the content',
-    path: ['html']
-  }
-);
+  );
 export type CreateTemplate = z.infer<typeof CreateTemplateSchema>;
 
 export const UpdateTemplateSchema = z.object({
@@ -172,7 +197,7 @@ export const TestTemplateSchema = z.object({
 export type TestTemplate = z.infer<typeof TestTemplateSchema>;
 
 // ============================================================================
-// User Types  
+// User Types
 // ============================================================================
 
 export const UserProfileSchema = z.object({
@@ -190,35 +215,93 @@ export const UserCommunicationSchema = z.object({
 export type UserCommunication = z.infer<typeof UserCommunicationSchema>;
 
 export const UserFlightSchema = z.object({
-  airline: z.string().nullable().optional().transform(val => val === null ? undefined : val),
-  number: z.string().nullable().optional().transform(val => val === null ? undefined : val),
-  arrival: z.coerce.date().nullable().optional().transform(val => val === null ? undefined : val),
-  departure: z.coerce.date().nullable().optional().transform(val => val === null ? undefined : val),
-  arrivalAirport: z.string().nullable().optional().transform(val => val === null ? undefined : val),
-  departureAirport: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  inbound: z
+    .object({
+      departureFrom: z.string().optional(), // "Inbound Departure from [station/airport]"
+      departureDate: z.string().optional(), // "Inbound Departure date [dd/mm/yyyy]"
+      departureTime: z.string().optional(), // "Inbound Departure time [hh:mm]"
+      departureTerminal: z.string().optional(), // "Inbound Departure terminal"
+      flightNumber: z.string().optional(), // "Inbound Flight number"
+      arrivalDate: z.string().optional(), // "Inbound Arrival date [dd/mm/yyyy]"
+      arrivalTime: z.string().optional(), // "Inbound Arrival time [hh:mm]"
+      arrivalTo: z.string().optional(), // "Inbound Arrival to [station/airport]"
+    })
+    .optional(),
+  outbound: z
+    .object({
+      departureFrom: z.string().optional(), // "Outbound Departure from [station/airport]"
+      departureDate: z.string().optional(), // "Outbound Departure date [dd/mm/yyyy]"
+      departureTime: z.string().optional(), // "Outbound Departure time [hh:mm]"
+      departureTerminal: z.string().optional(), // "Outbound Departure Terminal"
+      flightNumber: z.string().optional(), // "Outbound Flight number"
+      arrivalDate: z.string().optional(), // "Outbound Arrival date [dd/mm/yyyy]"
+      arrivalTime: z.string().optional(), // "Outbound Arrival time [hh:mm]"
+      arrivalTo: z.string().optional(), // "Outbound Arrival to [station/airport]"
+    })
+    .optional(),
 });
 export type UserFlight = z.infer<typeof UserFlightSchema>;
 
 export const UserAccommodationSchema = z.object({
   required: z.boolean(),
-  hotel: z.string().nullable().optional().transform(val => val === null ? undefined : val),
-  checkIn: z.coerce.date().nullable().optional().transform(val => val === null ? undefined : val),
-  checkOut: z.coerce.date().nullable().optional().transform(val => val === null ? undefined : val),
+  hotel: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)),
+  checkIn: z.coerce
+    .date()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)),
+  checkOut: z.coerce
+    .date()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)),
 });
 export type UserAccommodation = z.infer<typeof UserAccommodationSchema>;
 
 export const UserRequirementsSchema = z.object({
-  dietary: z.string().nullable().optional().transform(val => val === null ? undefined : val),
-  medical: z.string().nullable().optional().transform(val => val === null ? undefined : val),
-  accessibility: z.string().nullable().optional().transform(val => val === null ? undefined : val),
-  specialRequests: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  dietary: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)),
+  medical: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)),
+  accessibility: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)),
+  specialRequests: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)),
 });
 export type UserRequirements = z.infer<typeof UserRequirementsSchema>;
 
 export const UserMerchandiseSizeSchema = z.object({
-  shirt: z.string().nullable().optional().transform(val => val === null ? undefined : val),
-  jacket: z.string().nullable().optional().transform(val => val === null ? undefined : val),
-  hat: z.string().nullable().optional().transform(val => val === null ? undefined : val),
+  shirt: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)),
+  jacket: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)),
+  hat: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)),
 });
 export type UserMerchandiseSize = z.infer<typeof UserMerchandiseSizeSchema>;
 
@@ -226,7 +309,12 @@ export const UserEmergencyContactSchema = z.object({
   name: z.string().min(1),
   relationship: z.string().min(1),
   phone: z.string().min(1),
-  email: z.string().email().nullable().optional().transform(val => val === null ? undefined : val),
+  email: z
+    .string()
+    .email()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)),
 });
 export type UserEmergencyContact = z.infer<typeof UserEmergencyContactSchema>;
 
@@ -264,7 +352,10 @@ export type CreateUser = z.infer<typeof CreateUserSchema>;
 export const PublicRegistrationSchema = z.object({
   eventId: z.string(),
   profile: UserProfileSchema, // Required: email, firstName, lastName, phone
-  communication: UserCommunicationSchema.default({ emailOptIn: true, whatsappOptIn: false }),
+  communication: UserCommunicationSchema.default({
+    emailOptIn: true,
+    whatsappOptIn: false,
+  }),
   transferRequirements: z.string().nullable().optional(),
   requirements: UserRequirementsSchema.optional(), // Optional: dietary, medical, accessibility, specialRequests
   merchandiseSize: UserMerchandiseSizeSchema.optional(), // Optional: shirt, jacket, hat
@@ -276,9 +367,9 @@ export const PublicRegistrationSchema = z.object({
 export type PublicRegistration = z.infer<typeof PublicRegistrationSchema>;
 
 // Admin User Update Schema - excludes communication preferences
-export const AdminUpdateUserSchema = CreateUserSchema.omit({ 
-  eventId: true, 
-  communication: true 
+export const AdminUpdateUserSchema = CreateUserSchema.omit({
+  eventId: true,
+  communication: true,
 }).partial();
 export type AdminUpdateUser = z.infer<typeof AdminUpdateUserSchema>;
 
@@ -312,7 +403,9 @@ export const MessageDeliveryChannelSchema = z.object({
   deliveredAt: z.coerce.date().optional(),
   error: z.string().optional(),
 });
-export type MessageDeliveryChannel = z.infer<typeof MessageDeliveryChannelSchema>;
+export type MessageDeliveryChannel = z.infer<
+  typeof MessageDeliveryChannelSchema
+>;
 
 export const MessageDeliverySchema = z.object({
   user: z.string(),

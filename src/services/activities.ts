@@ -1,5 +1,10 @@
 import { prisma } from '../config/database.js';
-import type { CreateActivity, UpdateActivity, Pagination, PaginatedResponse } from '../types/index.js';
+import type {
+  CreateActivity,
+  UpdateActivity,
+  Pagination,
+  PaginatedResponse,
+} from '../types/index.js';
 import type { Activity } from '@prisma/client';
 import { AdminService } from './admins.js';
 
@@ -10,8 +15,8 @@ export class ActivityService {
       where: { id: data.eventId },
       select: {
         dateRange: true,
-        location: true
-      }
+        location: true,
+      },
     });
 
     if (!event) {
@@ -25,18 +30,22 @@ export class ActivityService {
     // Convert activity dates to UTC for comparison
     const activityStart = new Date(data.startDateTime);
     const activityEnd = new Date(data.endDateTime);
-    
+
     // Event dates should already be in UTC in the database
     const eventStart = new Date(event.dateRange.start);
     const eventEnd = new Date(event.dateRange.end);
 
     // Validate activity dates are within event dates
     if (activityStart < eventStart || activityStart > eventEnd) {
-      throw new Error(`Activity start date must be within event dates (${eventStart.toISOString()} - ${eventEnd.toISOString()})`);
+      throw new Error(
+        `Activity start date must be within event dates (${eventStart.toISOString()} - ${eventEnd.toISOString()})`
+      );
     }
 
     if (activityEnd < eventStart || activityEnd > eventEnd) {
-      throw new Error(`Activity end date must be within event dates (${eventStart.toISOString()} - ${eventEnd.toISOString()})`);
+      throw new Error(
+        `Activity end date must be within event dates (${eventStart.toISOString()} - ${eventEnd.toISOString()})`
+      );
     }
 
     if (activityStart >= activityEnd) {
@@ -49,6 +58,7 @@ export class ActivityService {
         eventId: data.eventId,
         groupId: data.groupId || null, // Allow null groupId
         title: data.title,
+        description: data.description,
         startDateTime: activityStart, // Store in UTC
         endDateTime: activityEnd, // Store in UTC
         thumbnail: data.thumbnail,
@@ -57,7 +67,7 @@ export class ActivityService {
         content: data.content,
         createdBy: data.createdBy,
         lastModifiedBy: data.createdBy,
-      }
+      },
     });
   }
 
@@ -82,7 +92,10 @@ export class ActivityService {
   }
 
   // Check if admin can modify this activity
-  static async canAdminModifyActivity(activityId: string, adminId: string): Promise<{ canModify: boolean; reason?: string }> {
+  static async canAdminModifyActivity(
+    activityId: string,
+    adminId: string
+  ): Promise<{ canModify: boolean; reason?: string }> {
     const activity = await prisma.activity.findUnique({
       where: { id: activityId, deleted: false },
       select: { createdBy: true },
@@ -107,13 +120,18 @@ export class ActivityService {
       return { canModify: true };
     }
 
-    return { 
-      canModify: false, 
-      reason: 'You can only modify activities that you created. Contact a super admin if you need to modify this activity.' 
+    return {
+      canModify: false,
+      reason:
+        'You can only modify activities that you created. Contact a super admin if you need to modify this activity.',
     };
   }
 
-  static async assignToGroup(activityId: string, groupId: string, adminId: string): Promise<Activity> {
+  static async assignToGroup(
+    activityId: string,
+    groupId: string,
+    adminId: string
+  ): Promise<Activity> {
     // Check if activity exists and admin has permission
     const activity = await prisma.activity.findUnique({
       where: { id: activityId, deleted: false },
@@ -153,7 +171,10 @@ export class ActivityService {
     });
   }
 
-  static async unassignFromGroup(activityId: string, adminId: string): Promise<Activity> {
+  static async unassignFromGroup(
+    activityId: string,
+    adminId: string
+  ): Promise<Activity> {
     const activity = await prisma.activity.findUnique({
       where: { id: activityId, deleted: false },
       select: { id: true, groupId: true, title: true },
@@ -192,11 +213,11 @@ export class ActivityService {
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
 
-    const where: any = { 
-      groupId, 
-      deleted: false 
+    const where: any = {
+      groupId,
+      deleted: false,
     };
-    
+
     if (filters.active !== undefined) {
       where.active = filters.active;
     }
@@ -216,9 +237,7 @@ export class ActivityService {
     }
 
     if (filters.search) {
-      where.OR = [
-        { title: { contains: filters.search, mode: 'insensitive' } },
-      ];
+      where.OR = [{ title: { contains: filters.search, mode: 'insensitive' } }];
     }
 
     const [items, total] = await prisma.$transaction([
@@ -268,11 +287,11 @@ export class ActivityService {
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
 
-    const where: any = { 
-      eventId, 
-      deleted: false 
+    const where: any = {
+      eventId,
+      deleted: false,
     };
-    
+
     if (filters.active !== undefined) {
       where.active = filters.active;
     }
@@ -296,9 +315,7 @@ export class ActivityService {
     }
 
     if (filters.search) {
-      where.OR = [
-        { title: { contains: filters.search, mode: 'insensitive' } },
-      ];
+      where.OR = [{ title: { contains: filters.search, mode: 'insensitive' } }];
     }
 
     const [items, total] = await prisma.$transaction([
@@ -343,7 +360,7 @@ export class ActivityService {
           eventId: true,
           startDateTime: true,
           endDateTime: true,
-        }
+        },
       });
 
       if (!currentActivity) {
@@ -355,7 +372,7 @@ export class ActivityService {
         where: { id: currentActivity.eventId },
         select: {
           dateRange: true,
-        }
+        },
       });
 
       if (!event || !event.dateRange) {
@@ -363,19 +380,27 @@ export class ActivityService {
       }
 
       // Use updated dates or current dates
-      const activityStart = data.startDateTime ? new Date(data.startDateTime) : new Date(currentActivity.startDateTime);
-      const activityEnd = data.endDateTime ? new Date(data.endDateTime) : new Date(currentActivity.endDateTime);
-      
+      const activityStart = data.startDateTime
+        ? new Date(data.startDateTime)
+        : new Date(currentActivity.startDateTime);
+      const activityEnd = data.endDateTime
+        ? new Date(data.endDateTime)
+        : new Date(currentActivity.endDateTime);
+
       const eventStart = new Date(event.dateRange.start);
       const eventEnd = new Date(event.dateRange.end);
 
       // Validate dates are within event range
       if (activityStart < eventStart || activityStart > eventEnd) {
-        throw new Error(`Activity start date must be within event dates (${eventStart.toISOString()} - ${eventEnd.toISOString()})`);
+        throw new Error(
+          `Activity start date must be within event dates (${eventStart.toISOString()} - ${eventEnd.toISOString()})`
+        );
       }
 
       if (activityEnd < eventStart || activityEnd > eventEnd) {
-        throw new Error(`Activity end date must be within event dates (${eventStart.toISOString()} - ${eventEnd.toISOString()})`);
+        throw new Error(
+          `Activity end date must be within event dates (${eventStart.toISOString()} - ${eventEnd.toISOString()})`
+        );
       }
 
       if (activityStart >= activityEnd) {
@@ -388,7 +413,10 @@ export class ActivityService {
     };
 
     if (data.title) updateData.title = data.title;
-    if (data.startDateTime) updateData.startDateTime = new Date(data.startDateTime); // Ensure UTC
+    if (data.description !== undefined)
+      updateData.description = data.description;
+    if (data.startDateTime)
+      updateData.startDateTime = new Date(data.startDateTime); // Ensure UTC
     if (data.endDateTime) updateData.endDateTime = new Date(data.endDateTime); // Ensure UTC
     if (data.thumbnail !== undefined) updateData.thumbnail = data.thumbnail;
     if (data.category) updateData.category = data.category;
@@ -404,7 +432,7 @@ export class ActivityService {
   static async deactivate(id: string, adminId: string): Promise<Activity> {
     return prisma.activity.update({
       where: { id },
-      data: { 
+      data: {
         active: false,
         lastModifiedBy: adminId,
       },
@@ -414,7 +442,7 @@ export class ActivityService {
   static async activate(id: string, adminId: string): Promise<Activity> {
     return prisma.activity.update({
       where: { id },
-      data: { 
+      data: {
         active: true,
         lastModifiedBy: adminId,
       },
@@ -424,7 +452,7 @@ export class ActivityService {
   static async softDelete(id: string, adminId: string): Promise<Activity> {
     return prisma.activity.update({
       where: { id },
-      data: { 
+      data: {
         deleted: true,
         deletedAt: new Date(),
         active: false,
@@ -440,8 +468,8 @@ export class ActivityService {
       dateTo?: Date;
     } = {}
   ) {
-    const where: any = { 
-      groupId, 
+    const where: any = {
+      groupId,
       deleted: false,
       active: true,
     };
@@ -462,6 +490,7 @@ export class ActivityService {
       select: {
         id: true,
         title: true,
+        description: true,
         startDateTime: true,
         endDateTime: true,
         category: true,
@@ -475,8 +504,8 @@ export class ActivityService {
 
     // Group activities by date for better timeline presentation
     const timeline: Record<string, typeof activities> = {};
-    
-    activities.forEach(activity => {
+
+    activities.forEach((activity) => {
       const date = activity.startDateTime.toISOString().split('T')[0];
       if (!timeline[date]) {
         timeline[date] = [];
@@ -506,8 +535,8 @@ export class ActivityService {
     }
 
     // Get all activities for the group
-    const where: any = { 
-      groupId: user.groupId, 
+    const where: any = {
+      groupId: user.groupId,
       deleted: false,
       active: true,
     };
@@ -528,6 +557,7 @@ export class ActivityService {
       select: {
         id: true,
         title: true,
+        description: true,
         startDateTime: true,
         endDateTime: true,
         category: true,
@@ -545,17 +575,17 @@ export class ActivityService {
       select: { activityId: true },
     });
 
-    const excludedActivityIds = new Set(exclusions.map(e => e.activityId));
+    const excludedActivityIds = new Set(exclusions.map((e) => e.activityId));
 
     // Filter out excluded activities
-    const filteredActivities = activities.filter(activity => 
-      !excludedActivityIds.has(activity.id)
+    const filteredActivities = activities.filter(
+      (activity) => !excludedActivityIds.has(activity.id)
     );
 
     // Group activities by date for better timeline presentation
     const timeline: Record<string, typeof filteredActivities> = {};
-    
-    filteredActivities.forEach(activity => {
+
+    filteredActivities.forEach((activity) => {
       const date = activity.startDateTime.toISOString().split('T')[0];
       if (!timeline[date]) {
         timeline[date] = [];
@@ -566,7 +596,11 @@ export class ActivityService {
     return timeline;
   }
 
-  static async duplicate(id: string, adminId: string, newTitle?: string): Promise<Activity> {
+  static async duplicate(
+    id: string,
+    adminId: string,
+    newTitle?: string
+  ): Promise<Activity> {
     const original = await prisma.activity.findUnique({
       where: { id, deleted: false },
     });
@@ -592,12 +626,9 @@ export class ActivityService {
     });
   }
 
-  static async getUpcomingActivities(
-    groupId: string,
-    limit: number = 5
-  ) {
+  static async getUpcomingActivities(groupId: string, limit: number = 5) {
     const now = new Date();
-    
+
     return prisma.activity.findMany({
       where: {
         groupId,

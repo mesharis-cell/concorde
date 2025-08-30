@@ -2,7 +2,12 @@ import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { UserService } from '../../services/users.js';
 import { EventService } from '../../services/events.js';
 import { JwtService } from '../../utils/jwt.js';
-import { CreateUserSchema, PublicRegistrationSchema, ApiSuccessSchema, ApiErrorSchema } from '../../types/index.js';
+import {
+  CreateUserSchema,
+  PublicRegistrationSchema,
+  ApiSuccessSchema,
+  ApiErrorSchema,
+} from '../../types/index.js';
 import { authenticateUser } from '../../middleware/auth.js';
 import { EmailService } from '../../services/email.js';
 
@@ -35,31 +40,31 @@ const eventRegisterRoute = createRoute({
               email: 'john.doe@example.com',
               firstName: 'John',
               lastName: 'Doe',
-              phone: '+1-555-0123'
+              phone: '+1-555-0123',
             },
             communication: {
               emailOptIn: true,
-              whatsappOptIn: false
+              whatsappOptIn: false,
             },
             transferRequirements: 'Need wheelchair accessible vehicle',
             requirements: {
               dietary: 'Vegetarian, nut allergy',
               medical: 'Diabetic, requires refrigeration for insulin',
               accessibility: 'Wheelchair user, requires ramp access',
-              specialRequests: 'High floor, quiet room, early check-in'
+              specialRequests: 'High floor, quiet room, early check-in',
             },
             merchandiseSize: {
               shirt: 'L',
               jacket: 'XL',
-              hat: 'M'
+              hat: 'M',
             },
             emergencyContact: {
               name: 'Jane Doe',
               relationship: 'Spouse',
               phone: '+1-555-0124',
-              email: 'jane.doe@example.com'
-            }
-          }
+              email: 'jane.doe@example.com',
+            },
+          },
         },
       },
     },
@@ -77,13 +82,13 @@ const eventRegisterRoute = createRoute({
                 email: 'john.doe@example.com',
                 firstName: 'John',
                 lastName: 'Doe',
-                phone: '+1-555-0123'
+                phone: '+1-555-0123',
               },
               assigned: false,
-              eventId: '60f7b3b3b3b3b3b3b3b3b3b3'
+              eventId: '60f7b3b3b3b3b3b3b3b3b3b3',
             },
-            message: 'Registration completed successfully'
-          }
+            message: 'Registration completed successfully',
+          },
         },
       },
       description: 'User registered successfully',
@@ -97,16 +102,17 @@ const eventRegisterRoute = createRoute({
               value: {
                 success: false,
                 error: 'User already registered',
-                message: 'A user with this email is already registered for this event'
-              }
+                message:
+                  'A user with this email is already registered for this event',
+              },
             },
             'registration-closed': {
               value: {
                 success: false,
-                error: 'Registration is closed for this event'
-              }
-            }
-          }
+                error: 'Registration is closed for this event',
+              },
+            },
+          },
         },
       },
       description: 'Registration failed',
@@ -117,8 +123,8 @@ const eventRegisterRoute = createRoute({
           schema: ApiErrorSchema,
           example: {
             success: false,
-            error: 'Event not found'
-          }
+            error: 'Event not found',
+          },
         },
       },
       description: 'Event not found',
@@ -130,55 +136,74 @@ app.openapi(eventRegisterRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
     const data = c.req.valid('json');
-    
+
     // Check if event exists and registration is open
     const event = await EventService.findById(eventId);
     if (!event) {
-      return c.json({
-        success: false,
-        error: 'Event not found',
-      }, 404);
+      return c.json(
+        {
+          success: false,
+          error: 'Event not found',
+        },
+        404
+      );
     }
 
     if (!event.config?.registrationOpen) {
-      return c.json({
-        success: false,
-        error: 'Registration is closed for this event',
-      }, 400);
+      return c.json(
+        {
+          success: false,
+          error: 'Registration is closed for this event',
+        },
+        400
+      );
     }
 
     // Check if user already exists
-    const existingUser = await UserService.findByEmail(data.profile.email, eventId);
+    const existingUser = await UserService.findByEmail(
+      data.profile.email,
+      eventId
+    );
     if (existingUser) {
-      return c.json({
-        success: false,
-        error: 'User already registered',
-        message: 'A user with this email is already registered for this event',
-      }, 400);
+      return c.json(
+        {
+          success: false,
+          error: 'User already registered',
+          message:
+            'A user with this email is already registered for this event',
+        },
+        400
+      );
     }
 
     // Add eventId to registration data
     const registrationData = { ...data, eventId };
     const user = await UserService.create(registrationData);
-    
+
     // TODO: Send welcome message via opted-in channels
-    
-    return c.json({
-      success: true,
-      data: {
-        id: user.id,
-        profile: user.profile,
-        assigned: user.assigned,
-        eventId: user.eventId,
+
+    return c.json(
+      {
+        success: true,
+        data: {
+          id: user.id,
+          profile: user.profile,
+          assigned: user.assigned,
+          eventId: user.eventId,
+        },
+        message: 'Registration completed successfully',
       },
-      message: 'Registration completed successfully',
-    }, 201);
+      201
+    );
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Registration failed',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Registration failed',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -209,17 +234,17 @@ const eventInfoRoute = createRoute({
                 city: 'Monza',
                 country: 'Italy',
                 venue: 'Autodromo Nazionale Monza',
-                timezone: 'Europe/Rome'
+                timezone: 'Europe/Rome',
               },
               dateRange: {
                 start: '2025-09-05T00:00:00Z',
-                end: '2025-09-07T23:59:59Z'
+                end: '2025-09-07T23:59:59Z',
               },
               config: {
-                registrationOpen: true
-              }
-            }
-          }
+                registrationOpen: true,
+              },
+            },
+          },
         },
       },
       description: 'Event information retrieved successfully',
@@ -230,8 +255,8 @@ const eventInfoRoute = createRoute({
           schema: ApiErrorSchema,
           example: {
             success: false,
-            error: 'Event not found'
-          }
+            error: 'Event not found',
+          },
         },
       },
       description: 'Event not found',
@@ -242,15 +267,18 @@ const eventInfoRoute = createRoute({
 app.openapi(eventInfoRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
-    
+
     const event = await EventService.findById(eventId);
     if (!event || !event.active) {
-      return c.json({
-        success: false,
-        error: 'Event not found',
-      }, 404);
+      return c.json(
+        {
+          success: false,
+          error: 'Event not found',
+        },
+        404
+      );
     }
-    
+
     return c.json({
       success: true,
       data: {
@@ -265,11 +293,14 @@ app.openapi(eventInfoRoute, async (c) => {
       },
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve event information',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve event information',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -281,7 +312,8 @@ const requestMagicLinkRoute = createRoute({
   path: '/auth/request-magic-link',
   tags: ['Public - Auth'],
   summary: 'Request a magic link for authentication',
-  description: 'Send passwordless login link to user email (24-hour expiration)',
+  description:
+    'Send passwordless login link to user email (24-hour expiration)',
   request: {
     body: {
       content: {
@@ -292,8 +324,8 @@ const requestMagicLinkRoute = createRoute({
           }),
           example: {
             email: 'john.doe@example.com',
-            eventId: '60f7b3b3b3b3b3b3b3b3b3b3'
-          }
+            eventId: '60f7b3b3b3b3b3b3b3b3b3b3',
+          },
         },
       },
     },
@@ -304,24 +336,24 @@ const requestMagicLinkRoute = createRoute({
         'application/json': {
           schema: ApiSuccessSchema,
           examples: {
-            'production': {
-              value: {
-                success: true,
-                data: {
-                  message: 'Magic link sent to your email'
-                }
-              }
-            },
-            'development': {
+            production: {
               value: {
                 success: true,
                 data: {
                   message: 'Magic link sent to your email',
-                  token: 'ml_1a2b3c4d5e6f7g8h9i0j'
-                }
-              }
-            }
-          }
+                },
+              },
+            },
+            development: {
+              value: {
+                success: true,
+                data: {
+                  message: 'Magic link sent to your email',
+                  token: 'ml_1a2b3c4d5e6f7g8h9i0j',
+                },
+              },
+            },
+          },
         },
       },
       description: 'Magic link sent successfully',
@@ -333,8 +365,8 @@ const requestMagicLinkRoute = createRoute({
           example: {
             success: false,
             error: 'User not found',
-            message: 'No user found with this email for the specified event'
-          }
+            message: 'No user found with this email for the specified event',
+          },
         },
       },
       description: 'User not found',
@@ -345,32 +377,38 @@ const requestMagicLinkRoute = createRoute({
 app.openapi(requestMagicLinkRoute, async (c) => {
   try {
     const { email, eventId } = c.req.valid('json');
-    
+
     const user = await UserService.findByEmail(email, eventId);
     if (!user) {
-      return c.json({
-        success: false,
-        error: 'User not found',
-        message: 'No user found with this email for the specified event',
-      }, 404);
+      return c.json(
+        {
+          success: false,
+          error: 'User not found',
+          message: 'No user found with this email for the specified event',
+        },
+        404
+      );
     }
 
     // Get event details for the email
     const event = await EventService.findById(eventId);
     if (!event) {
-      return c.json({
-        success: false,
-        error: 'Event not found',
-      }, 404);
+      return c.json(
+        {
+          success: false,
+          error: 'Event not found',
+        },
+        404
+      );
     }
 
     const magicLink = await UserService.generateMagicLink(user.id);
-    
+
     // Get user profile for personalization
     const profile = user.profile as any;
     const firstName = profile?.firstName || '';
     const lastName = profile?.lastName || '';
-    
+
     if (process.env.NODE_ENV === 'development') {
       // In development, just log the magic link
       console.log('🔗 Magic Link Generated:');
@@ -381,7 +419,7 @@ app.openapi(requestMagicLinkRoute, async (c) => {
       console.log('---');
 
       const magicLinkUrl = `${event.config['micrositeUrl']}/auth/magic?token=${magicLink.token}&event=${eventId}`;
-      
+
       await EmailService.sendMagicLinkEmail(email, {
         eventName: event.name,
         firstName,
@@ -391,7 +429,7 @@ app.openapi(requestMagicLinkRoute, async (c) => {
     } else {
       // In production, send email via AWS SES
       const magicLinkUrl = `${event.config['micrositeUrl']}/auth/magic?token=${magicLink.token}&event=${eventId}`;
-      
+
       await EmailService.sendMagicLinkEmail(email, {
         eventName: event.name,
         firstName,
@@ -399,21 +437,26 @@ app.openapi(requestMagicLinkRoute, async (c) => {
         magicLink: magicLinkUrl,
       });
     }
-    
+
     return c.json({
       success: true,
-      data: { 
+      data: {
         message: 'Magic link sent to your email',
         // In development, return the token for testing
-        ...(process.env.NODE_ENV === 'development' && { token: magicLink.token })
+        ...(process.env.NODE_ENV === 'development' && {
+          token: magicLink.token,
+        }),
       },
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to send magic link',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to send magic link',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -423,7 +466,8 @@ const verifyMagicLinkRoute = createRoute({
   path: '/auth/validate-magic-link',
   tags: ['Public - Auth'],
   summary: 'Verify magic link and get user session',
-  description: 'Validate token from email link and return JWT for authenticated access',
+  description:
+    'Validate token from email link and return JWT for authenticated access',
   request: {
     body: {
       content: {
@@ -432,8 +476,8 @@ const verifyMagicLinkRoute = createRoute({
             token: z.string().describe('Magic link token from email'),
           }),
           example: {
-            token: 'ml_1a2b3c4d5e6f7g8h9i0j'
-          }
+            token: 'ml_1a2b3c4d5e6f7g8h9i0j',
+          },
         },
       },
     },
@@ -452,15 +496,15 @@ const verifyMagicLinkRoute = createRoute({
                 profile: {
                   email: 'john.doe@example.com',
                   firstName: 'John',
-                  lastName: 'Doe'
+                  lastName: 'Doe',
                 },
                 assigned: true,
                 groupId: '60f7b3b3b3b3b3b3b3b3b3b4',
-                eventId: '60f7b3b3b3b3b3b3b3b3b3b3'
-              }
+                eventId: '60f7b3b3b3b3b3b3b3b3b3b3',
+              },
             },
-            message: 'Authentication successful'
-          }
+            message: 'Authentication successful',
+          },
         },
       },
       description: 'Magic link verified successfully',
@@ -470,19 +514,19 @@ const verifyMagicLinkRoute = createRoute({
         'application/json': {
           schema: ApiErrorSchema,
           examples: {
-            'expired': {
+            expired: {
               value: {
                 success: false,
-                error: 'Invalid or expired magic link'
-              }
+                error: 'Invalid or expired magic link',
+              },
             },
             'already-used': {
               value: {
                 success: false,
-                error: 'Magic link already used'
-              }
-            }
-          }
+                error: 'Magic link already used',
+              },
+            },
+          },
         },
       },
       description: 'Invalid or expired magic link',
@@ -493,21 +537,27 @@ const verifyMagicLinkRoute = createRoute({
 app.openapi(verifyMagicLinkRoute, async (c) => {
   try {
     const { token } = c.req.valid('json');
-    
+
     const user = await UserService.verifyMagicLink(token);
     if (!user) {
-      return c.json({
-        success: false,
-        error: 'Invalid or expired magic link',
-      }, 400);
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid or expired magic link',
+        },
+        400
+      );
     }
 
     // Generate JWT session token using the utility method
-    const sessionToken = JwtService.generateUserAccessToken(user.id, user.eventId);
-    
+    const sessionToken = JwtService.generateUserAccessToken(
+      user.id,
+      user.eventId
+    );
+
     // Create session record
     await UserService.createSession(user.id);
-    
+
     return c.json({
       success: true,
       data: {
@@ -523,11 +573,14 @@ app.openapi(verifyMagicLinkRoute, async (c) => {
       message: 'Authentication successful',
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Authentication failed',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Authentication failed',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -541,7 +594,8 @@ const getUserItineraryRoute = createRoute({
   path: '/user/itinerary',
   tags: ['Public - User (Authenticated)'],
   summary: 'Get user assigned group activities',
-  description: 'Retrieve activities for the user\'s assigned group - requires JWT from magic link validation',
+  description:
+    "Retrieve activities for the user's assigned group - requires JWT from magic link validation",
   middleware: [authenticateUser] as const,
   security: [{ bearerAuth: [] }],
   responses: {
@@ -555,7 +609,7 @@ const getUserItineraryRoute = createRoute({
               group: {
                 id: '60f7b3b3b3b3b3b3b3b3b3b4',
                 name: 'VIP Group A',
-                eventId: '60f7b3b3b3b3b3b3b3b3b3b3'
+                eventId: '60f7b3b3b3b3b3b3b3b3b3b3',
               },
               timeline: [
                 {
@@ -564,11 +618,11 @@ const getUserItineraryRoute = createRoute({
                   startDateTime: '2025-09-05T19:00:00Z',
                   endDateTime: '2025-09-05T21:00:00Z',
                   content: '<p>Join us for cocktails and networking...</p>',
-                  groupId: '60f7b3b3b3b3b3b3b3b3b3b4'
-                }
-              ]
-            }
-          }
+                  groupId: '60f7b3b3b3b3b3b3b3b3b3b4',
+                },
+              ],
+            },
+          },
         },
       },
       description: 'Itinerary retrieved successfully',
@@ -579,8 +633,8 @@ const getUserItineraryRoute = createRoute({
           schema: ApiErrorSchema,
           example: {
             success: false,
-            error: 'Missing or invalid authorization header'
-          }
+            error: 'Missing or invalid authorization header',
+          },
         },
       },
       description: 'Unauthorized - JWT required',
@@ -591,8 +645,8 @@ const getUserItineraryRoute = createRoute({
           schema: ApiErrorSchema,
           example: {
             success: false,
-            error: 'Not assigned to any group yet'
-          }
+            error: 'Not assigned to any group yet',
+          },
         },
       },
       description: 'User not assigned to group',
@@ -609,25 +663,33 @@ app.openapi(getUserItineraryRoute, async (c) => {
 
   try {
     const userContext = c.get('user');
-    
+
     if (!userContext || !userContext.userData) {
-      return c.json({
-        success: false,
-        error: 'User not authenticated',
-      }, 401);
+      return c.json(
+        {
+          success: false,
+          error: 'User not authenticated',
+        },
+        401
+      );
     }
-    
+
     if (!userContext.userData?.groupId) {
-      return c.json({
-        success: false,
-        error: 'Not assigned to any group yet',
-      }, 404);
+      return c.json(
+        {
+          success: false,
+          error: 'Not assigned to any group yet',
+        },
+        404
+      );
     }
 
     // Get user-specific activities (filtered for exclusions)
     const { ActivityService } = await import('../../services/activities.js');
-    const activities = await ActivityService.getUserTimeline(userContext.userData.id);
-    
+    const activities = await ActivityService.getUserTimeline(
+      userContext.userData.id
+    );
+
     return c.json({
       success: true,
       data: {
@@ -636,11 +698,14 @@ app.openapi(getUserItineraryRoute, async (c) => {
       },
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve itinerary',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve itinerary',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -650,7 +715,8 @@ const getUserProfileRoute = createRoute({
   path: '/user/profile',
   tags: ['Public - User (Authenticated)'],
   summary: 'Get current user profile',
-  description: 'Retrieve complete user profile information - requires JWT from magic link validation',
+  description:
+    'Retrieve complete user profile information - requires JWT from magic link validation',
   middleware: [authenticateUser] as const,
   security: [{ bearerAuth: [] }],
   responses: {
@@ -666,11 +732,11 @@ const getUserProfileRoute = createRoute({
                 email: 'john.doe@example.com',
                 firstName: 'John',
                 lastName: 'Doe',
-                phone: '+1-555-0123'
+                phone: '+1-555-0123',
               },
               communication: {
                 emailOptIn: true,
-                whatsappOptIn: false
+                whatsappOptIn: false,
               },
               assigned: true,
               groupId: '60f7b3b3b3b3b3b3b3b3b3b4',
@@ -679,14 +745,14 @@ const getUserProfileRoute = createRoute({
                 airline: 'British Airways',
                 number: 'BA123',
                 arrival: '2024-09-15T14:30:00Z',
-                departure: '2024-09-18T16:45:00Z'
+                departure: '2024-09-18T16:45:00Z',
               },
               accommodation: {
                 required: true,
-                hotel: 'Grand Hotel Milano'
-              }
-            }
-          }
+                hotel: 'Grand Hotel Milano',
+              },
+            },
+          },
         },
       },
       description: 'Profile retrieved successfully',
@@ -697,8 +763,8 @@ const getUserProfileRoute = createRoute({
           schema: ApiErrorSchema,
           example: {
             success: false,
-            error: 'Missing or invalid authorization header'
-          }
+            error: 'Missing or invalid authorization header',
+          },
         },
       },
       description: 'Unauthorized - JWT required',
@@ -715,24 +781,30 @@ app.openapi(getUserProfileRoute, async (c) => {
 
   try {
     const userContext = c.get('user');
-    
+
     if (!userContext || !userContext.userData) {
-      return c.json({
-        success: false,
-        error: 'User not authenticated',
-      }, 401);
+      return c.json(
+        {
+          success: false,
+          error: 'User not authenticated',
+        },
+        401
+      );
     }
-    
+
     return c.json({
       success: true,
       data: userContext.userData,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve profile',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve profile',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -742,7 +814,8 @@ const updateCommunicationPreferencesRoute = createRoute({
   path: '/user/communication-preferences',
   tags: ['Public - User (Authenticated)'],
   summary: 'Update user communication preferences',
-  description: 'Update email and WhatsApp notification preferences - requires JWT from magic link validation',
+  description:
+    'Update email and WhatsApp notification preferences - requires JWT from magic link validation',
   middleware: [authenticateUser] as const,
   security: [{ bearerAuth: [] }],
   request: {
@@ -751,12 +824,14 @@ const updateCommunicationPreferencesRoute = createRoute({
         'application/json': {
           schema: z.object({
             emailOptIn: z.boolean().describe('Enable email notifications'),
-            whatsappOptIn: z.boolean().describe('Enable WhatsApp notifications'),
+            whatsappOptIn: z
+              .boolean()
+              .describe('Enable WhatsApp notifications'),
           }),
           example: {
             emailOptIn: true,
-            whatsappOptIn: false
-          }
+            whatsappOptIn: false,
+          },
         },
       },
     },
@@ -772,11 +847,11 @@ const updateCommunicationPreferencesRoute = createRoute({
               id: '60f7b3b3b3b3b3b3b3b3b3b3',
               communication: {
                 emailOptIn: true,
-                whatsappOptIn: false
-              }
+                whatsappOptIn: false,
+              },
             },
-            message: 'Communication preferences updated successfully'
-          }
+            message: 'Communication preferences updated successfully',
+          },
         },
       },
       description: 'Preferences updated successfully',
@@ -788,8 +863,8 @@ const updateCommunicationPreferencesRoute = createRoute({
           example: {
             success: false,
             error: 'Failed to update preferences',
-            details: 'Invalid request body'
-          }
+            details: 'Invalid request body',
+          },
         },
       },
       description: 'Invalid request',
@@ -800,8 +875,8 @@ const updateCommunicationPreferencesRoute = createRoute({
           schema: ApiErrorSchema,
           example: {
             success: false,
-            error: 'Missing or invalid authorization header'
-          }
+            error: 'Missing or invalid authorization header',
+          },
         },
       },
       description: 'Unauthorized - JWT required',
@@ -819,14 +894,17 @@ app.openapi(updateCommunicationPreferencesRoute, async (c) => {
   try {
     const userContext = c.get('user');
     const body = c.req.valid('json');
-    
+
     if (!userContext || !userContext.userData) {
-      return c.json({
-        success: false,
-        error: 'User not authenticated',
-      }, 401);
+      return c.json(
+        {
+          success: false,
+          error: 'User not authenticated',
+        },
+        401
+      );
     }
-    
+
     const updatedUser = await UserService.updateCommunicationPreferences(
       userContext.userData.id,
       {
@@ -834,18 +912,21 @@ app.openapi(updateCommunicationPreferencesRoute, async (c) => {
         whatsappOptIn: body.whatsappOptIn,
       }
     );
-    
+
     return c.json({
       success: true,
       data: updatedUser,
       message: 'Communication preferences updated successfully',
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to update preferences',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to update preferences',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -859,7 +940,8 @@ const getActivityInfoRoute = createRoute({
   path: '/activity/{activityId}/info',
   tags: ['Public - Activities'],
   summary: 'Get public activity information',
-  description: 'Retrieve activity details for public display (no authentication required)',
+  description:
+    'Retrieve activity details for public display (no authentication required)',
   request: {
     params: z.object({
       activityId: z.string().min(1).openapi({
@@ -883,23 +965,23 @@ const getActivityInfoRoute = createRoute({
               location: {
                 name: 'Grand Ballroom',
                 address: '123 Main St, City, State',
-                mapLink: 'https://maps.google.com/...'
+                mapLink: 'https://maps.google.com/...',
               },
               content: {
-                html: '<p>Join us for cocktails and networking...</p>'
+                html: '<p>Join us for cocktails and networking...</p>',
               },
               thumbnail: 'https://example.com/reception.jpg',
               group: {
                 id: '60f7b3b3b3b3b3b3b3b3b3b4',
-                name: 'VIP Group A'
+                name: 'VIP Group A',
               },
               event: {
                 id: '60f7b3b3b3b3b3b3b3b3b3b3',
                 name: 'Corporate Event 2025',
-                shortName: 'CE2025'
-              }
-            }
-          }
+                shortName: 'CE2025',
+              },
+            },
+          },
         },
       },
       description: 'Activity information retrieved successfully',
@@ -910,8 +992,8 @@ const getActivityInfoRoute = createRoute({
           schema: ApiErrorSchema,
           example: {
             success: false,
-            error: 'Activity not found'
-          }
+            error: 'Activity not found',
+          },
         },
       },
       description: 'Activity not found',
@@ -922,15 +1004,18 @@ const getActivityInfoRoute = createRoute({
 app.openapi(getActivityInfoRoute, async (c) => {
   try {
     const { activityId } = c.req.valid('param');
-    
+
     const { ActivityService } = await import('../../services/activities.js');
     const activity = await ActivityService.findById(activityId);
-    
+
     if (!activity) {
-      return c.json({
-        success: false,
-        error: 'Activity not found',
-      }, 404);
+      return c.json(
+        {
+          success: false,
+          error: 'Activity not found',
+        },
+        404
+      );
     }
 
     // Return public activity information
@@ -939,29 +1024,37 @@ app.openapi(getActivityInfoRoute, async (c) => {
       data: {
         id: activity.id,
         title: activity.title,
+        description: activity.description,
         startDateTime: activity.startDateTime,
         endDateTime: activity.endDateTime,
         category: activity.category,
         location: activity.location,
         content: activity.content,
         thumbnail: activity.thumbnail,
-        group: activity.group ? {
-          id: activity.group.id,
-          name: activity.group.name,
-        } : null,
-        event: activity.event ? {
-          id: activity.event.id,
-          name: activity.event.name,
-          shortName: activity.event.shortName,
-        } : null,
+        group: activity.group
+          ? {
+              id: activity.group.id,
+              name: activity.group.name,
+            }
+          : null,
+        event: activity.event
+          ? {
+              id: activity.event.id,
+              name: activity.event.name,
+              shortName: activity.event.shortName,
+            }
+          : null,
       },
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve activity information',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve activity information',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
