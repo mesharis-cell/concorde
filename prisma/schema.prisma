@@ -417,3 +417,13 @@ model Message {
   @@index([status])
   @@map("messages")
 }
+
+model Migration {
+  id    String   @id @default(auto()) @map("_id") @db.ObjectId
+  name  String   @unique
+  batch Int
+  runAt DateTime @default(now())
+
+  @@index([batch])
+  @@map("migrations")
+}
