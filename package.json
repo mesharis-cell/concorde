@@ -17,7 +17,11 @@
     "type-check": "tsc --noEmit",
     "setup": "bun run prisma:generate && bun run prisma:push && bun scripts/setup.js",
     "create-dummy-users": "bun scripts/create-dummy-users.js",
-    "reset-db": "bun run prisma:push --force-reset"
+    "reset-db": "bun run prisma:push --force-reset",
+    "migrate": "bun scripts/migrate.ts up",
+    "migrate:rollback": "bun scripts/migrate.ts down",
+    "migrate:status": "bun scripts/migrate.ts status",
+    "make:migration": "bun scripts/make-migration.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.864.0",
