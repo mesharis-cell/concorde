@@ -11,9 +11,9 @@ import { CommunicationLogService } from '../services/communication-logs.js';
 import { CommunicationsService } from '../services/communications.js';
 import { S3Service } from '../services/s3.js';
 import { JwtService } from '../utils/jwt.js';
-import { 
-  AdminLoginSchema, 
-  CreateGroupSchema, 
+import {
+  AdminLoginSchema,
+  CreateGroupSchema,
   UpdateGroupSchema,
   CreateEventSchema,
   CreateActivitySchema,
@@ -28,8 +28,8 @@ import {
   AdminUpdateUserSchema,
   CreateUserSchema,
   PaginationSchema,
-  ApiSuccessSchema, 
-  ApiErrorSchema 
+  ApiSuccessSchema,
+  ApiErrorSchema,
 } from '../types/index.js';
 
 const app = new OpenAPIHono();
@@ -76,19 +76,25 @@ app.openapi(adminLoginRoute, async (c) => {
   try {
     const credentials = c.req.valid('json');
     const admin = await AdminService.authenticate(credentials);
-    
+
     if (!admin) {
-      return c.json({
-        success: false,
-        error: 'Invalid email or password',
-      }, 401);
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid email or password',
+        },
+        401
+      );
     }
 
-    const accessToken = JwtService.generateAdminAccessToken(admin.id, admin.role);
-    
+    const accessToken = JwtService.generateAdminAccessToken(
+      admin.id,
+      admin.role
+    );
+
     // Get admin's assigned events for frontend
     const assignedEvents = await AdminService.getAssignedEvents(admin.id);
-    
+
     return c.json({
       success: true,
       data: {
@@ -99,7 +105,7 @@ app.openapi(adminLoginRoute, async (c) => {
           firstName: admin.firstName,
           lastName: admin.lastName,
           role: admin.role === 'SUPER' ? 'super' : 'standard',
-          events: assignedEvents.map(event => ({
+          events: assignedEvents.map((event) => ({
             id: event.id,
             name: event.name,
           })),
@@ -108,11 +114,14 @@ app.openapi(adminLoginRoute, async (c) => {
       message: 'Login successful',
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Login failed',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Login failed',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -159,46 +168,61 @@ app.openapi(adminRegisterUserRoute, async (c) => {
   try {
     const data = c.req.valid('json');
     const authUser = c.get('user');
-    
+
     // Verify admin has access to this event
     if (authUser.adminData.role !== 'SUPER') {
       // Standard admins can only create users for events they're assigned to
       const hasAccess = authUser.adminData.eventIds?.includes(data.eventId);
       if (!hasAccess) {
-        return c.json({
-          success: false,
-          error: 'Access denied to this event',
-        }, 403);
+        return c.json(
+          {
+            success: false,
+            error: 'Access denied to this event',
+          },
+          403
+        );
       }
     }
-    
+
     // Check if user already exists
-    const existingUser = await UserService.findByEmail(data.profile.email, data.eventId);
+    const existingUser = await UserService.findByEmail(
+      data.profile.email,
+      data.eventId
+    );
     if (existingUser) {
-      return c.json({
-        success: false,
-        error: 'User with this email already registered for this event',
-      }, 400);
+      return c.json(
+        {
+          success: false,
+          error: 'User with this email already registered for this event',
+        },
+        400
+      );
     }
 
     const user = await UserService.create(data);
-    
-    return c.json({
-      success: true,
-      data: {
-        id: user.id,
-        profile: user.profile,
-        communication: user.communication,
-        registeredAt: user.registeredAt,
+
+    return c.json(
+      {
+        success: true,
+        data: {
+          id: user.id,
+          profile: user.profile,
+          communication: user.communication,
+          registeredAt: user.registeredAt,
+        },
+        message: 'User registered successfully',
       },
-      message: 'User registered successfully',
-    }, 201);
+      201
+    );
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Registration failed',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Registration failed',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -232,53 +256,96 @@ const exportUsersRoute = createRoute({
 app.openapi(exportUsersRoute, async (c) => {
   try {
     const { eventId, format } = c.req.valid('query');
-    
+
     // Get all users for the event
-    const users = await UserService.findByEventId(eventId, { page: 1, limit: 10000 }, {});
-    
+    const users = await UserService.findByEventId(
+      eventId,
+      { page: 1, limit: 10000 },
+      {}
+    );
+
     if (format === 'csv') {
       // CSV headers matching import template exactly
       const headers = [
-        'firstName', 'lastName', 'email', 'phone', 'group',
-        'dietaryRequirements', 'medicalRequirements', 'accessibilityRequirements', 'specialRequests',
-        'accommodationRequired', 'hotel', 'checkInDate', 'checkOutDate',
-        'flightArrival', 'flightDeparture', 'arrivalAirport', 'departureAirport', 'airline', 'flightNumber',
-        'emergencyContactName', 'emergencyContactPhone', 'emergencyContactEmail', 'emergencyContactRelationship',
-        'transferRequirements', 'shirtSize', 'jacketSize', 'hatSize',
-        'emailOptIn', 'whatsappOptIn'
+        'firstName',
+        'lastName',
+        'email',
+        'phone',
+        'group',
+        'dietaryRequirements',
+        'medicalRequirements',
+        'accessibilityRequirements',
+        'specialRequests',
+        'accommodationRequired',
+        'hotel',
+        'checkInDate',
+        'checkOutDate',
+        'flightArrival',
+        'flightDeparture',
+        'arrivalAirport',
+        'departureAirport',
+        'airline',
+        'flightNumber',
+        'emergencyContactName',
+        'emergencyContactPhone',
+        'emergencyContactEmail',
+        'emergencyContactRelationship',
+        'transferRequirements',
+        'shirtSize',
+        'jacketSize',
+        'hatSize',
+        'emailOptIn',
+        'whatsappOptIn',
       ];
-      
+
       // Get groups for lookup
-      const groups = await GroupService.findByEventId(eventId, { page: 1, limit: 1000 });
-      const groupLookup = new Map(groups.items.map(g => [g.id, g.name]));
-      
+      const groups = await GroupService.findByEventId(eventId, {
+        page: 1,
+        limit: 1000,
+      });
+      const groupLookup = new Map(groups.items.map((g) => [g.id, g.name]));
+
       // Convert users to CSV rows
-      const rows = users.items.map(user => {
+      const rows = users.items.map((user) => {
         const profile = (user.profile as any) || {};
         const requirements = (user.requirements as any) || {};
         const accommodation = (user.accommodation as any) || {};
         const flight = (user.flight as any) || {};
         const emergency = (user.emergencyContact as any) || {};
-        
+
         const communication = (user.communication as any) || {};
         const merchandiseSize = (user.merchandiseSize as any) || {};
-        
+
         return [
           profile.firstName || '',
           profile.lastName || '',
           profile.email || '',
           profile.phone || '',
-          user.groupId ? (groupLookup.get(user.groupId) || user.groupId) : '',
+          user.groupId ? groupLookup.get(user.groupId) || user.groupId : '',
           requirements.dietary || '',
           requirements.medical || '',
           requirements.accessibility || '',
           requirements.specialRequests || '',
           accommodation.required ? 'Yes' : 'No',
           accommodation.hotel || '',
-          accommodation.checkIn ? new Date(accommodation.checkIn).toISOString().split('T')[0] : '',
-          accommodation.checkOut ? new Date(accommodation.checkOut).toISOString().split('T')[0] : '',
-          flight.arrival ? new Date(flight.arrival).toISOString().slice(0, 16).replace('T', ' ') : '',
-          flight.departure ? new Date(flight.departure).toISOString().slice(0, 16).replace('T', ' ') : '',
+          accommodation.checkIn
+            ? new Date(accommodation.checkIn).toISOString().split('T')[0]
+            : '',
+          accommodation.checkOut
+            ? new Date(accommodation.checkOut).toISOString().split('T')[0]
+            : '',
+          flight.arrival
+            ? new Date(flight.arrival)
+                .toISOString()
+                .slice(0, 16)
+                .replace('T', ' ')
+            : '',
+          flight.departure
+            ? new Date(flight.departure)
+                .toISOString()
+                .slice(0, 16)
+                .replace('T', ' ')
+            : '',
           flight.arrivalAirport || '',
           flight.departureAirport || '',
           flight.airline || '',
@@ -292,16 +359,21 @@ app.openapi(exportUsersRoute, async (c) => {
           merchandiseSize.jacket || '',
           merchandiseSize.hat || '',
           communication.emailOptIn ? 'Yes' : 'No',
-          communication.whatsappOptIn ? 'Yes' : 'No'
+          communication.whatsappOptIn ? 'Yes' : 'No',
         ];
       });
-      
+
       const csvContent = [headers, ...rows]
-        .map(row => row.map(field => `"${field}"`).join(','))
+        .map((row) => row.map((field) => `"${field}"`).join(','))
         .join('\n');
-        
+
       c.header('Content-Type', 'text/csv');
-      c.header('Content-Disposition', `attachment; filename="users-${eventId}-${new Date().toISOString().split('T')[0]}.csv"`);
+      c.header(
+        'Content-Disposition',
+        `attachment; filename="users-${eventId}-${
+          new Date().toISOString().split('T')[0]
+        }.csv"`
+      );
       return c.text(csvContent);
     } else {
       return c.json({
@@ -310,11 +382,14 @@ app.openapi(exportUsersRoute, async (c) => {
       });
     }
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Export failed',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Export failed',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -329,8 +404,12 @@ const getUsersRoute = createRoute({
       search: z.string().optional(),
       assigned: z.coerce.boolean().optional(),
       groupId: z.string().optional(),
-      requirementType: z.enum(['dietary', 'medical', 'accessibility', 'accommodation', 'any']).optional(),
-      communicationType: z.enum(['email-only', 'whatsapp-only', 'both', 'none', 'any']).optional(),
+      requirementType: z
+        .enum(['dietary', 'medical', 'accessibility', 'accommodation', 'any'])
+        .optional(),
+      communicationType: z
+        .enum(['email-only', 'whatsapp-only', 'both', 'none', 'any'])
+        .optional(),
       hasRequirements: z.coerce.boolean().optional(),
     }),
   },
@@ -348,41 +427,44 @@ const getUsersRoute = createRoute({
 
 app.openapi(getUsersRoute, async (c) => {
   try {
-    const { 
-      page, 
-      limit, 
-      eventId, 
+    const {
+      page,
+      limit,
+      eventId,
       search,
       assigned,
       groupId,
       requirementType,
       communicationType,
-      hasRequirements
+      hasRequirements,
     } = c.req.valid('query');
 
     const result = await UserService.findByEventId(
       eventId,
       { page: page || 1, limit: limit || 20 },
-      { 
+      {
         search,
         assigned,
         groupId,
         requirementType,
         communicationType,
-        hasRequirements
+        hasRequirements,
       }
     );
-    
+
     return c.json({
       success: true,
       data: result,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve users',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve users',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -420,24 +502,182 @@ app.openapi(getUserByIdRoute, async (c) => {
   try {
     const { userId } = c.req.valid('param');
     const user = await UserService.findById(userId);
-    
+
     if (!user) {
-      return c.json({
-        success: false,
-        error: 'User not found',
-      }, 404);
+      return c.json(
+        {
+          success: false,
+          error: 'User not found',
+        },
+        404
+      );
     }
-    
+
     return c.json({
       success: true,
       data: user,
     });
   } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve user',
+        details: error.message,
+      },
+      500
+    );
+  }
+});
+
+// Get User Itinerary (Timeline with Exclusions)
+const getUserItineraryRoute = createRoute({
+  method: 'get',
+  path: '/users/{userId}/itinerary',
+  tags: ['Admin - Users'],
+  summary: 'Get user itinerary timeline with exclusions',
+  description:
+    'Retrieve the exact timeline and excluded activities that a user sees, including user profile context',
+  request: {
+    params: z.object({
+      userId: z.string().min(1),
+    }),
+    query: z
+      .object({
+        dateFrom: z.string().datetime().optional(),
+        dateTo: z.string().datetime().optional(),
+      })
+      .optional(),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'User itinerary retrieved successfully',
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'User not found or not assigned to group',
+    },
+  },
+});
+
+app.openapi(getUserItineraryRoute, async (c) => {
+  try {
+    const { userId } = c.req.valid('param');
+    const query = c.req.valid('query');
+    const authUser = c.get('user');
+
+    // Get user details first
+    const user = await UserService.findById(userId);
+    if (!user) {
+      return c.json(
+        {
+          success: false,
+          error: 'User not found',
+        },
+        404
+      );
+    }
+
+    // Check if admin has access to this event
+    if (authUser.adminData?.role !== 'SUPER') {
+      const hasAccess = await AdminService.hasEventAccess(
+        authUser.id,
+        user.eventId
+      );
+      if (!hasAccess) {
+        return c.json(
+          {
+            success: false,
+            error: 'Access denied to this event',
+          },
+          403
+        );
+      }
+    }
+
+    // Check if user is assigned to a group
+    if (!user.assigned || !user.groupId) {
+      return c.json(
+        {
+          success: false,
+          error: 'User is not assigned to any group yet',
+          data: {
+            user: {
+              id: user.id,
+              profile: user.profile,
+              assigned: user.assigned,
+              groupId: user.groupId,
+            },
+          },
+        },
+        404
+      );
+    }
+
+    // Prepare filters for timeline query
+    const filters: any = {};
+    if (query?.dateFrom) {
+      filters.dateFrom = new Date(query.dateFrom);
+    }
+    if (query?.dateTo) {
+      filters.dateTo = new Date(query.dateTo);
+    }
+
+    // Get user's timeline using existing service method
+    const timeline = await ActivityService.getUserTimeline(userId, filters);
+
+    // Get user's exclusions for context
+    const exclusions = await UserActivityExclusionService.findByUserId(userId);
+
+    // Get group info for context
+    const group = await GroupService.findById(user.groupId);
+
+    // Get total activities in group for comparison
+    const allGroupActivities = await ActivityService.findByGroup(user.groupId, {
+      page: 1,
+      limit: 1000,
+    });
+
     return c.json({
-      success: false,
-      error: 'Failed to retrieve user',
-      details: error.message,
-    }, 500);
+      success: true,
+      data: {
+        user: {
+          id: user.id,
+          profile: user.profile,
+          assigned: user.assigned,
+          groupId: user.groupId,
+          group: user.group,
+          communication: user.communication,
+          requirements: user.requirements,
+          emergencyContact: user.emergencyContact,
+        },
+        timeline, // What user sees (filtered)
+        exclusions, // What's excluded
+        group,
+        stats: {
+          totalGroupActivities: allGroupActivities.pagination.total,
+          visibleActivities: Object.values(timeline).flat().length,
+          excludedActivities: exclusions.length,
+        },
+      },
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve user itinerary',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -467,47 +707,53 @@ app.openapi(getUserStatsRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
     const authUser = c.get('user');
-    
+
     // Check if admin has access to this event
     if (authUser.adminData?.role !== 'SUPER') {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
-        return c.json({
-          success: false,
-          error: 'Access denied to this event',
-        }, 403);
+        return c.json(
+          {
+            success: false,
+            error: 'Access denied to this event',
+          },
+          403
+        );
       }
     }
-    
+
     const { prisma } = await import('../config/database.js');
-    
-    const [
-      totalUsers,
-      assignedUsers,
-      unassignedUsers
-    ] = await prisma.$transaction([
-      prisma.user.count({ where: { eventId, active: true } }),
-      prisma.user.count({ where: { eventId, active: true, assigned: true } }),
-      prisma.user.count({ where: { eventId, active: true, assigned: false } }),
-    ]);
+
+    const [totalUsers, assignedUsers, unassignedUsers] =
+      await prisma.$transaction([
+        prisma.user.count({ where: { eventId, active: true } }),
+        prisma.user.count({ where: { eventId, active: true, assigned: true } }),
+        prisma.user.count({
+          where: { eventId, active: true, assigned: false },
+        }),
+      ]);
 
     const stats = {
       total: totalUsers,
       assigned: assignedUsers,
       unassigned: unassignedUsers,
-      registrationPercentage: totalUsers > 0 ? Math.round((assignedUsers / totalUsers) * 100) : 0,
+      registrationPercentage:
+        totalUsers > 0 ? Math.round((assignedUsers / totalUsers) * 100) : 0,
     };
-    
+
     return c.json({
       success: true,
       data: stats,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve user statistics',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve user statistics',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -552,64 +798,85 @@ app.openapi(updateUserRoute, async (c) => {
   try {
     const { userId } = c.req.valid('param');
     const updates = c.req.valid('json');
-    
+
     // Build the update payload for partial updates - only include changed fields
     const updatePayload: any = {};
-    
+
     // Handle profile fields - support both nested and flat structure
     const profileUpdates = updates.profile || {};
     const profileFields = ['firstName', 'lastName', 'email', 'phone'];
-    
+
     // Check for profile updates in nested structure or at root level
-    const hasProfileUpdates = profileFields.some(field => 
-      profileUpdates[field] !== undefined || updates[field] !== undefined
+    const hasProfileUpdates = profileFields.some(
+      (field) =>
+        profileUpdates[field] !== undefined || updates[field] !== undefined
     );
-    
+
     if (hasProfileUpdates) {
       // Get current user to merge with updates
       const currentUser = await UserService.findById(userId);
       if (!currentUser) {
         throw new Error('User not found');
       }
-      
-      const currentProfile = currentUser.profile as any || {};
+
+      const currentProfile = (currentUser.profile as any) || {};
       updatePayload.profile = {
         ...currentProfile,
         // Handle nested profile structure (preferred)
-        ...(profileUpdates.firstName !== undefined && { firstName: profileUpdates.firstName }),
-        ...(profileUpdates.lastName !== undefined && { lastName: profileUpdates.lastName }),
-        ...(profileUpdates.email !== undefined && { email: profileUpdates.email }),
-        ...(profileUpdates.phone !== undefined && { phone: profileUpdates.phone }),
+        ...(profileUpdates.firstName !== undefined && {
+          firstName: profileUpdates.firstName,
+        }),
+        ...(profileUpdates.lastName !== undefined && {
+          lastName: profileUpdates.lastName,
+        }),
+        ...(profileUpdates.email !== undefined && {
+          email: profileUpdates.email,
+        }),
+        ...(profileUpdates.phone !== undefined && {
+          phone: profileUpdates.phone,
+        }),
         // Handle flat structure for backward compatibility
-        ...(updates.firstName !== undefined && !profileUpdates.firstName && { firstName: updates.firstName }),
-        ...(updates.lastName !== undefined && !profileUpdates.lastName && { lastName: updates.lastName }),
-        ...(updates.email !== undefined && !profileUpdates.email && { email: updates.email }),
-        ...(updates.phone !== undefined && !profileUpdates.phone && { phone: updates.phone }),
+        ...(updates.firstName !== undefined &&
+          !profileUpdates.firstName && { firstName: updates.firstName }),
+        ...(updates.lastName !== undefined &&
+          !profileUpdates.lastName && { lastName: updates.lastName }),
+        ...(updates.email !== undefined &&
+          !profileUpdates.email && { email: updates.email }),
+        ...(updates.phone !== undefined &&
+          !profileUpdates.phone && { phone: updates.phone }),
       };
     }
-    
+
     // Handle other fields - only include if explicitly provided
     // Note: communication field excluded from admin updates for privacy/consent compliance
     if (updates.flight !== undefined) updatePayload.flight = updates.flight;
-    if (updates.accommodation !== undefined) updatePayload.accommodation = updates.accommodation;
-    if (updates.transferRequirements !== undefined) updatePayload.transferRequirements = updates.transferRequirements;
-    if (updates.requirements !== undefined) updatePayload.requirements = updates.requirements;
-    if (updates.merchandiseSize !== undefined) updatePayload.merchandiseSize = updates.merchandiseSize;
-    if (updates.emergencyContact !== undefined) updatePayload.emergencyContact = updates.emergencyContact;
-    
+    if (updates.accommodation !== undefined)
+      updatePayload.accommodation = updates.accommodation;
+    if (updates.transferRequirements !== undefined)
+      updatePayload.transferRequirements = updates.transferRequirements;
+    if (updates.requirements !== undefined)
+      updatePayload.requirements = updates.requirements;
+    if (updates.merchandiseSize !== undefined)
+      updatePayload.merchandiseSize = updates.merchandiseSize;
+    if (updates.emergencyContact !== undefined)
+      updatePayload.emergencyContact = updates.emergencyContact;
+
     const user = await UserService.update(userId, updatePayload);
-    
+
     return c.json({
       success: true,
       data: user,
       message: 'User updated successfully',
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to update user',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to update user',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -647,7 +914,7 @@ app.openapi(deleteUserRoute, async (c) => {
   try {
     const { userId } = c.req.valid('param');
     const user = await UserService.softDelete(userId);
-    
+
     return c.json({
       success: true,
       data: user,
@@ -655,11 +922,14 @@ app.openapi(deleteUserRoute, async (c) => {
     });
   } catch (error: any) {
     const statusCode = error.message.includes('not found') ? 404 : 400;
-    return c.json({
-      success: false,
-      error: 'Failed to delete user',
-      details: error.message,
-    }, statusCode);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to delete user',
+        details: error.message,
+      },
+      statusCode
+    );
   }
 });
 
@@ -707,20 +977,23 @@ app.openapi(assignUserRoute, async (c) => {
     const { userId } = c.req.valid('param');
     const { groupId } = c.req.valid('json');
     const authUser = c.get('user');
-    
+
     const user = await UserService.assignToGroup(userId, groupId, authUser.id);
-    
+
     return c.json({
       success: true,
       data: user,
       message: 'User assigned to group successfully',
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Assignment failed',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Assignment failed',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -757,20 +1030,23 @@ app.openapi(unassignUserRoute, async (c) => {
   try {
     const { userId } = c.req.valid('param');
     const authUser = c.get('user');
-    
+
     const user = await UserService.unassignFromGroup(userId, authUser.id);
-    
+
     return c.json({
       success: true,
       data: user,
       message: 'User unassigned successfully',
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Unassignment failed',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Unassignment failed',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -807,36 +1083,57 @@ const exportGroupsRoute = createRoute({
 app.openapi(exportGroupsRoute, async (c) => {
   try {
     const { eventId, format } = c.req.valid('query');
-    
-    const groups = await GroupService.findByEventId(eventId, { page: 1, limit: 10000 });
-    
+
+    const groups = await GroupService.findByEventId(eventId, {
+      page: 1,
+      limit: 10000,
+    });
+
     if (format === 'csv') {
       // CSV headers matching import template exactly
-      const headers = ['name', 'description', 'capacity', 'category', 'assignedMembers'];
-      
+      const headers = [
+        'name',
+        'description',
+        'capacity',
+        'category',
+        'assignedMembers',
+      ];
+
       // Get users to build member lists
-      const users = await UserService.findByEventId(eventId, { page: 1, limit: 10000 }, {});
-      
-      const rows = groups.items.map(group => {
+      const users = await UserService.findByEventId(
+        eventId,
+        { page: 1, limit: 10000 },
+        {}
+      );
+
+      const rows = groups.items.map((group) => {
         // Find users assigned to this group
-        const assignedUsers = users.items.filter(u => u.groupId === group.id);
-        const memberEmails = assignedUsers.map(u => (u.profile as any)?.email).filter(Boolean).join(',');
-        
+        const assignedUsers = users.items.filter((u) => u.groupId === group.id);
+        const memberEmails = assignedUsers
+          .map((u) => (u.profile as any)?.email)
+          .filter(Boolean)
+          .join(',');
+
         return [
           group.name,
           group.description || '',
           group.memberCount.toString(),
           'Standard', // category - default value
-          memberEmails
+          memberEmails,
         ];
       });
-      
+
       const csvContent = [headers, ...rows]
-        .map(row => row.map(field => `"${field}"`).join(','))
+        .map((row) => row.map((field) => `"${field}"`).join(','))
         .join('\n');
-        
+
       c.header('Content-Type', 'text/csv');
-      c.header('Content-Disposition', `attachment; filename="groups-${eventId}-${new Date().toISOString().split('T')[0]}.csv"`);
+      c.header(
+        'Content-Disposition',
+        `attachment; filename="groups-${eventId}-${
+          new Date().toISOString().split('T')[0]
+        }.csv"`
+      );
       return c.text(csvContent);
     } else {
       return c.json({
@@ -845,11 +1142,14 @@ app.openapi(exportGroupsRoute, async (c) => {
       });
     }
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Export failed',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Export failed',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -878,18 +1178,24 @@ const getGroupsRoute = createRoute({
 app.openapi(getGroupsRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('query');
-    const result = await GroupService.findByEventId(eventId, { page: 1, limit: 100 });
-    
+    const result = await GroupService.findByEventId(eventId, {
+      page: 1,
+      limit: 100,
+    });
+
     return c.json({
       success: true,
       data: result,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve groups',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve groups',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -927,24 +1233,30 @@ app.openapi(getGroupByIdRoute, async (c) => {
   try {
     const { groupId } = c.req.valid('param');
     const group = await GroupService.findById(groupId);
-    
+
     if (!group) {
-      return c.json({
-        success: false,
-        error: 'Group not found',
-      }, 404);
+      return c.json(
+        {
+          success: false,
+          error: 'Group not found',
+        },
+        404
+      );
     }
-    
+
     return c.json({
       success: true,
       data: group,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve group',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve group',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -979,21 +1291,24 @@ app.openapi(getGroupMembersRoute, async (c) => {
     const { groupId } = c.req.valid('param');
     const { page, limit, search, hasRequirements } = c.req.valid('query');
     const result = await GroupService.getMembers(
-      groupId, 
-      { page: page || 1, limit: limit || 20 }, 
+      groupId,
+      { page: page || 1, limit: limit || 20 },
       { search, hasRequirements }
     );
-    
+
     return c.json({
       success: true,
       data: result,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve group members',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve group members',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -1027,18 +1342,24 @@ app.openapi(createGroupRoute, async (c) => {
   try {
     const data = c.req.valid('json');
     const group = await GroupService.create(data);
-    
-    return c.json({
-      success: true,
-      data: group,
-      message: 'Group created successfully',
-    }, 201);
+
+    return c.json(
+      {
+        success: true,
+        data: group,
+        message: 'Group created successfully',
+      },
+      201
+    );
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to create group',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to create group',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -1076,18 +1397,21 @@ app.openapi(updateGroupRoute, async (c) => {
     const { groupId } = c.req.valid('param');
     const data = c.req.valid('json');
     const group = await GroupService.update(groupId, data);
-    
+
     return c.json({
       success: true,
       data: group,
       message: 'Group updated successfully',
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to update group',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to update group',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -1117,18 +1441,21 @@ app.openapi(deleteGroupRoute, async (c) => {
   try {
     const { groupId } = c.req.valid('param');
     const group = await GroupService.softDelete(groupId);
-    
+
     return c.json({
       success: true,
       data: group,
       message: 'Group deleted successfully',
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to delete group',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to delete group',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -1158,30 +1485,32 @@ app.openapi(getEventOverviewStatsRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
     const authUser = c.get('user');
-    
+
     // Check if admin has access to this event
     if (authUser.adminData?.role !== 'SUPER') {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
-        return c.json({
-          success: false,
-          error: 'Access denied to this event',
-        }, 403);
+        return c.json(
+          {
+            success: false,
+            error: 'Access denied to this event',
+          },
+          403
+        );
       }
     }
-    
+
     const { prisma } = await import('../config/database.js');
-    
+
     // Get user statistics
-    const [
-      totalUsers,
-      assignedUsers,
-      unassignedUsers
-    ] = await prisma.$transaction([
-      prisma.user.count({ where: { eventId, active: true } }),
-      prisma.user.count({ where: { eventId, active: true, assigned: true } }),
-      prisma.user.count({ where: { eventId, active: true, assigned: false } }),
-    ]);
+    const [totalUsers, assignedUsers, unassignedUsers] =
+      await prisma.$transaction([
+        prisma.user.count({ where: { eventId, active: true } }),
+        prisma.user.count({ where: { eventId, active: true, assigned: true } }),
+        prisma.user.count({
+          where: { eventId, active: true, assigned: false },
+        }),
+      ]);
 
     // Get group distribution
     const groups = await prisma.group.findMany({
@@ -1189,52 +1518,71 @@ app.openapi(getEventOverviewStatsRoute, async (c) => {
       include: {
         _count: {
           select: {
-            users: { where: { assigned: true, active: true } }
-          }
-        }
-      }
+            users: { where: { assigned: true, active: true } },
+          },
+        },
+      },
     });
 
-    const groupDistribution = groups.map(group => ({
+    const groupDistribution = groups.map((group) => ({
       id: group.id,
       name: group.name,
       count: group._count.users,
-      description: group.description
+      description: group.description,
     }));
 
     // Get communication preferences
     const users = await prisma.user.findMany({
       where: { eventId, active: true },
-      select: { communication: true }
+      select: { communication: true },
     });
 
-    const emailOptIns = users.filter((u: any) => u.communication?.emailOptIn).length;
-    const whatsappOptIns = users.filter((u: any) => u.communication?.whatsappOptIn).length;
-    const bothChannels = users.filter((u: any) => u.communication?.emailOptIn && u.communication?.whatsappOptIn).length;
-    const noCommunication = users.filter((u: any) => !u.communication?.emailOptIn && !u.communication?.whatsappOptIn).length;
+    const emailOptIns = users.filter(
+      (u: any) => u.communication?.emailOptIn
+    ).length;
+    const whatsappOptIns = users.filter(
+      (u: any) => u.communication?.whatsappOptIn
+    ).length;
+    const bothChannels = users.filter(
+      (u: any) => u.communication?.emailOptIn && u.communication?.whatsappOptIn
+    ).length;
+    const noCommunication = users.filter(
+      (u: any) =>
+        !u.communication?.emailOptIn && !u.communication?.whatsappOptIn
+    ).length;
 
     const communicationPreferences = {
       emailOnly: emailOptIns - bothChannels,
       whatsappOnly: whatsappOptIns - bothChannels,
       bothChannels,
       noCommunication,
-      total: users.length
+      total: users.length,
     };
 
     // Get special requirements breakdown
     const requirementsUsers = await prisma.user.findMany({
       where: { eventId, active: true },
-      select: { requirements: true, accommodation: true }
+      select: { requirements: true, accommodation: true },
     });
 
     const requirementStats = {
-      dietary: requirementsUsers.filter((u: any) => u.requirements?.dietary).length,
-      medical: requirementsUsers.filter((u: any) => u.requirements?.medical).length,
-      accessibility: requirementsUsers.filter((u: any) => u.requirements?.accessibility).length,
-      accommodation: requirementsUsers.filter((u: any) => u.accommodation?.required).length,
-      any: requirementsUsers.filter((u: any) => 
-        u.requirements?.dietary || u.requirements?.medical || u.requirements?.accessibility || u.accommodation?.required
-      ).length
+      dietary: requirementsUsers.filter((u: any) => u.requirements?.dietary)
+        .length,
+      medical: requirementsUsers.filter((u: any) => u.requirements?.medical)
+        .length,
+      accessibility: requirementsUsers.filter(
+        (u: any) => u.requirements?.accessibility
+      ).length,
+      accommodation: requirementsUsers.filter(
+        (u: any) => u.accommodation?.required
+      ).length,
+      any: requirementsUsers.filter(
+        (u: any) =>
+          u.requirements?.dietary ||
+          u.requirements?.medical ||
+          u.requirements?.accessibility ||
+          u.accommodation?.required
+      ).length,
     };
 
     const overviewStats = {
@@ -1242,30 +1590,34 @@ app.openapi(getEventOverviewStatsRoute, async (c) => {
         total: totalUsers,
         assigned: assignedUsers,
         unassigned: unassignedUsers,
-        assignmentPercentage: totalUsers > 0 ? Math.round((assignedUsers / totalUsers) * 100) : 0
+        assignmentPercentage:
+          totalUsers > 0 ? Math.round((assignedUsers / totalUsers) * 100) : 0,
       },
       groups: {
         total: groups.length,
-        distribution: groupDistribution
+        distribution: groupDistribution,
       },
       communication: communicationPreferences,
       requirements: requirementStats,
       messages: {
         thisWeek: 0, // TODO: Implement when messaging service exists
-        total: 0
-      }
+        total: 0,
+      },
     };
-    
+
     return c.json({
       success: true,
       data: overviewStats,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve overview statistics',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve overview statistics',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -1298,7 +1650,7 @@ const getMessageHistoryRoute = createRoute({
 app.openapi(getMessageHistoryRoute, async (c) => {
   try {
     const { page, limit, eventId } = c.req.valid('query');
-    
+
     // TODO: Implement messaging service - for now return empty data
     const result = {
       items: [],
@@ -1306,26 +1658,29 @@ app.openapi(getMessageHistoryRoute, async (c) => {
         page: page || 1,
         limit: limit || 20,
         total: 0,
-        totalPages: 0
+        totalPages: 0,
       },
       stats: {
         total: 0,
         sent: 0,
         pending: 0,
-        failed: 0
-      }
+        failed: 0,
+      },
     };
-    
+
     return c.json({
       success: true,
       data: result,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve message history',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve message history',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -1378,29 +1733,38 @@ const createEventRoute = createRoute({
 app.openapi(createEventRoute, async (c) => {
   try {
     const authUser = c.get('user');
-    
+
     // Check if user is a super admin
     if (!authUser || authUser.adminData?.role !== 'SUPER') {
-      return c.json({
-        success: false,
-        error: 'Super admin access required to create events',
-      }, 403);
+      return c.json(
+        {
+          success: false,
+          error: 'Super admin access required to create events',
+        },
+        403
+      );
     }
 
     const data = c.req.valid('json');
     const event = await EventService.create(data);
-    
-    return c.json({
-      success: true,
-      data: event,
-      message: 'Event created successfully',
-    }, 201);
+
+    return c.json(
+      {
+        success: true,
+        data: event,
+        message: 'Event created successfully',
+      },
+      201
+    );
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to create event',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to create event',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -1461,31 +1825,37 @@ app.openapi(updateEventRoute, async (c) => {
   try {
     const authUser = c.get('user');
     const { eventId } = c.req.valid('param');
-    
+
     // Check if admin has access to this event
     if (authUser.adminData?.role !== 'SUPER') {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
-        return c.json({
-          success: false,
-          error: 'Access denied to this event',
-        }, 403);
+        return c.json(
+          {
+            success: false,
+            error: 'Access denied to this event',
+          },
+          403
+        );
       }
     }
     const data = c.req.valid('json');
     const event = await EventService.update(eventId, data);
-    
+
     return c.json({
       success: true,
       data: event,
       message: 'Event updated successfully',
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to update event',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to update event',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -1539,31 +1909,37 @@ const toggleEventStatusRoute = createRoute({
 app.openapi(toggleEventStatusRoute, async (c) => {
   try {
     const authUser = c.get('user');
-    
+
     // Check if user is a super admin
     if (!authUser || authUser.adminData?.role !== 'SUPER') {
-      return c.json({
-        success: false,
-        error: 'Super admin access required to modify events',
-      }, 403);
+      return c.json(
+        {
+          success: false,
+          error: 'Super admin access required to modify events',
+        },
+        403
+      );
     }
 
     const { eventId } = c.req.valid('param');
     const { active } = c.req.valid('json');
-    
+
     const event = await EventService.update(eventId, { active });
-    
+
     return c.json({
       success: true,
       data: event,
       message: `Event ${active ? 'activated' : 'deactivated'} successfully`,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to update event status',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to update event status',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -1587,7 +1963,7 @@ const getEventsRoute = createRoute({
 app.openapi(getEventsRoute, async (c) => {
   try {
     const authUser = c.get('user');
-    
+
     let eventsResult;
     if (authUser.adminData?.role === 'SUPER') {
       // Super admins can see all events
@@ -1601,26 +1977,29 @@ app.openapi(getEventsRoute, async (c) => {
           page: 1,
           limit: 100,
           total: assignedEvents.length,
-          totalPages: 1
-        }
+          totalPages: 1,
+        },
       };
     }
-    
+
     return c.json({
       success: true,
       data: eventsResult,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve events',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve events',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
 // =============================================================================
-// 4. EVENT MANAGEMENT 
+// 4. EVENT MANAGEMENT
 // =============================================================================
 
 const getEventByIdRoute = createRoute({
@@ -1657,37 +2036,46 @@ app.openapi(getEventByIdRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
     const authUser = c.get('user');
-    
+
     // Check if admin has access to this event
     if (authUser.adminData?.role !== 'SUPER') {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
-        return c.json({
-          success: false,
-          error: 'Access denied to this event',
-        }, 403);
+        return c.json(
+          {
+            success: false,
+            error: 'Access denied to this event',
+          },
+          403
+        );
       }
     }
-    
+
     const event = await EventService.findById(eventId);
-    
+
     if (!event) {
-      return c.json({
-        success: false,
-        error: 'Event not found',
-      }, 404);
+      return c.json(
+        {
+          success: false,
+          error: 'Event not found',
+        },
+        404
+      );
     }
-    
+
     return c.json({
       success: true,
       data: event,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve event',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve event',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -1717,27 +2105,30 @@ app.openapi(getEventStatsRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
     const authUser = c.get('user');
-    
+
     // Check if admin has access to this event
     if (authUser.adminData?.role !== 'SUPER') {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
-        return c.json({
-          success: false,
-          error: 'Access denied to this event',
-        }, 403);
+        return c.json(
+          {
+            success: false,
+            error: 'Access denied to this event',
+          },
+          403
+        );
       }
     }
-    
+
     const { prisma } = await import('../config/database.js');
-    
+
     const [
       totalUsers,
       assignedUsers,
       unassignedUsers,
       registeredUsers,
       totalGroups,
-      totalActivities
+      totalActivities,
     ] = await prisma.$transaction([
       prisma.user.count({ where: { eventId, active: true } }),
       prisma.user.count({ where: { eventId, active: true, assigned: true } }),
@@ -1749,7 +2140,7 @@ app.openapi(getEventStatsRoute, async (c) => {
 
     // Handle non-Prisma values separately
     const waitlistCount = 0; // TODO: implement if needed
-    const activeAdmins = 0; // TODO: implement if needed  
+    const activeAdmins = 0; // TODO: implement if needed
     const totalMessages = 0; // TODO: implement when messaging exists
 
     const stats = {
@@ -1759,24 +2150,28 @@ app.openapi(getEventStatsRoute, async (c) => {
       registeredUsers,
       totalGroups,
       totalActivities,
-      registrationPercentage: totalUsers > 0 ? Math.round((registeredUsers / totalUsers) * 100) : 0,
+      registrationPercentage:
+        totalUsers > 0 ? Math.round((registeredUsers / totalUsers) * 100) : 0,
       waitlistCount,
       activeAdmins,
-      totalMessages
+      totalMessages,
     };
-    
+
     return c.json({
       success: true,
       data: {
-        stats: stats
+        stats: stats,
       },
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve event statistics',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve event statistics',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -1801,17 +2196,20 @@ app.openapi(getAdministratorsRoute, async (c) => {
   try {
     const authUser = c.get('user');
     const admins = await AdminService.findAll({ page: 1, limit: 100 });
-    
+
     return c.json({
       success: true,
       data: admins,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve administrators',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve administrators',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -1848,24 +2246,39 @@ const exportActivitiesRoute = createRoute({
 app.openapi(exportActivitiesRoute, async (c) => {
   try {
     const { eventId, format } = c.req.valid('query');
-    
-    const activities = await ActivityService.findByEventId(eventId, { page: 1, limit: 10000 }, {});
-    
+
+    const activities = await ActivityService.findByEventId(
+      eventId,
+      { page: 1, limit: 10000 },
+      {}
+    );
+
     if (format === 'csv') {
       // CSV headers matching import template exactly
       const headers = [
-        'title', 'group', 'startDateTime', 'endDateTime', 'location', 'address',
-        'category', 'description', 'thumbnail', 'mapLink'
+        'title',
+        'group',
+        'startDateTime',
+        'endDateTime',
+        'location',
+        'address',
+        'category',
+        'description',
+        'thumbnail',
+        'mapLink',
       ];
-      
+
       // Get groups for lookup
-      const groups = await GroupService.findByEventId(eventId, { page: 1, limit: 1000 });
-      const groupLookup = new Map(groups.items.map(g => [g.id, g.name]));
-      
-      const rows = activities.items.map(activity => {
+      const groups = await GroupService.findByEventId(eventId, {
+        page: 1,
+        limit: 1000,
+      });
+      const groupLookup = new Map(groups.items.map((g) => [g.id, g.name]));
+
+      const rows = activities.items.map((activity) => {
         const location = (activity.location as any) || {};
         const content = (activity.content as any) || {};
-        
+
         return [
           activity.title,
           groupLookup.get(activity.groupId) || activity.groupId,
@@ -1876,16 +2289,21 @@ app.openapi(exportActivitiesRoute, async (c) => {
           activity.category,
           content.html || '',
           activity.thumbnail || '',
-          location.mapLink || ''
+          location.mapLink || '',
         ];
       });
-      
+
       const csvContent = [headers, ...rows]
-        .map(row => row.map(field => `"${field}"`).join(','))
+        .map((row) => row.map((field) => `"${field}"`).join(','))
         .join('\n');
-        
+
       c.header('Content-Type', 'text/csv');
-      c.header('Content-Disposition', `attachment; filename="activities-${eventId}-${new Date().toISOString().split('T')[0]}.csv"`);
+      c.header(
+        'Content-Disposition',
+        `attachment; filename="activities-${eventId}-${
+          new Date().toISOString().split('T')[0]
+        }.csv"`
+      );
       return c.text(csvContent);
     } else {
       return c.json({
@@ -1894,11 +2312,14 @@ app.openapi(exportActivitiesRoute, async (c) => {
       });
     }
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Export failed',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Export failed',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -1929,26 +2350,38 @@ const getActivitiesRoute = createRoute({
 app.openapi(getActivitiesRoute, async (c) => {
   try {
     const { page, limit, eventId, groupId, status } = c.req.valid('query');
-    
+
     let result;
     if (eventId) {
-      result = await ActivityService.findByEventId(eventId, { page: page || 1, limit: limit || 20 });
+      result = await ActivityService.findByEventId(eventId, {
+        page: page || 1,
+        limit: limit || 20,
+      });
     } else if (groupId) {
-      result = await ActivityService.findByGroupId(groupId, { page: page || 1, limit: limit || 20 });
+      result = await ActivityService.findByGroupId(groupId, {
+        page: page || 1,
+        limit: limit || 20,
+      });
     } else {
-      result = { items: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } };
+      result = {
+        items: [],
+        pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+      };
     }
-    
+
     return c.json({
       success: true,
       data: result,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve activities',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve activities',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -1986,24 +2419,30 @@ app.openapi(getActivityByIdRoute, async (c) => {
   try {
     const { activityId } = c.req.valid('param');
     const activity = await ActivityService.findById(activityId);
-    
+
     if (!activity) {
-      return c.json({
-        success: false,
-        error: 'Activity not found',
-      }, 404);
+      return c.json(
+        {
+          success: false,
+          error: 'Activity not found',
+        },
+        404
+      );
     }
-    
+
     return c.json({
       success: true,
       data: activity,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve activity',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve activity',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -2033,31 +2472,40 @@ app.openapi(deleteActivityRoute, async (c) => {
   try {
     const { activityId } = c.req.valid('param');
     const authUser = c.get('user');
-    
+
     // Check if admin can modify this activity
-    const permissionCheck = await ActivityService.canAdminModifyActivity(activityId, authUser.id);
-    
+    const permissionCheck = await ActivityService.canAdminModifyActivity(
+      activityId,
+      authUser.id
+    );
+
     if (!permissionCheck.canModify) {
-      return c.json({
-        success: false,
-        error: 'Permission denied',
-        details: permissionCheck.reason,
-      }, 403);
+      return c.json(
+        {
+          success: false,
+          error: 'Permission denied',
+          details: permissionCheck.reason,
+        },
+        403
+      );
     }
-    
+
     const activity = await ActivityService.softDelete(activityId, authUser.id);
-    
+
     return c.json({
       success: true,
       data: activity,
       message: 'Activity deleted successfully',
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to delete activity',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to delete activity',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -2067,7 +2515,8 @@ const assignActivityToGroupRoute = createRoute({
   path: '/activities/{activityId}/assign',
   tags: ['Admin - Activities'],
   summary: 'Assign activity to group',
-  description: 'Assign an unassigned activity to a specific group - only creator or super admin can perform this operation',
+  description:
+    'Assign an unassigned activity to a specific group - only creator or super admin can perform this operation',
   request: {
     params: z.object({
       activityId: z.string().min(1),
@@ -2112,31 +2561,44 @@ app.openapi(assignActivityToGroupRoute, async (c) => {
   try {
     const { activityId } = c.req.valid('param');
     const { groupId, adminId } = c.req.valid('json');
-    
+
     // Check if admin can modify this activity
-    const permissionCheck = await ActivityService.canAdminModifyActivity(activityId, adminId);
-    
+    const permissionCheck = await ActivityService.canAdminModifyActivity(
+      activityId,
+      adminId
+    );
+
     if (!permissionCheck.canModify) {
-      return c.json({
-        success: false,
-        error: 'Permission denied',
-        details: permissionCheck.reason,
-      }, 403);
+      return c.json(
+        {
+          success: false,
+          error: 'Permission denied',
+          details: permissionCheck.reason,
+        },
+        403
+      );
     }
-    
-    const activity = await ActivityService.assignToGroup(activityId, groupId, adminId);
-    
+
+    const activity = await ActivityService.assignToGroup(
+      activityId,
+      groupId,
+      adminId
+    );
+
     return c.json({
       success: true,
       data: activity,
       message: 'Activity assigned to group successfully',
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to assign activity',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to assign activity',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -2146,7 +2608,8 @@ const unassignActivityFromGroupRoute = createRoute({
   path: '/activities/{activityId}/unassign',
   tags: ['Admin - Activities'],
   summary: 'Unassign activity from group',
-  description: 'Remove activity from its current group assignment - only creator or super admin can perform this operation',
+  description:
+    'Remove activity from its current group assignment - only creator or super admin can perform this operation',
   request: {
     params: z.object({
       activityId: z.string().min(1),
@@ -2191,31 +2654,43 @@ app.openapi(unassignActivityFromGroupRoute, async (c) => {
   try {
     const { activityId } = c.req.valid('param');
     const { adminId } = c.req.valid('json');
-    
+
     // Check if admin can modify this activity
-    const permissionCheck = await ActivityService.canAdminModifyActivity(activityId, adminId);
-    
+    const permissionCheck = await ActivityService.canAdminModifyActivity(
+      activityId,
+      adminId
+    );
+
     if (!permissionCheck.canModify) {
-      return c.json({
-        success: false,
-        error: 'Permission denied',
-        details: permissionCheck.reason,
-      }, 403);
+      return c.json(
+        {
+          success: false,
+          error: 'Permission denied',
+          details: permissionCheck.reason,
+        },
+        403
+      );
     }
-    
-    const activity = await ActivityService.unassignFromGroup(activityId, adminId);
-    
+
+    const activity = await ActivityService.unassignFromGroup(
+      activityId,
+      adminId
+    );
+
     return c.json({
       success: true,
       data: activity,
       message: 'Activity unassigned from group successfully',
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to unassign activity',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to unassign activity',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -2225,7 +2700,8 @@ const excludeUserFromActivityRoute = createRoute({
   path: '/groups/{groupId}/users/{userId}/exclude-activity',
   tags: ['Admin - User Activity Exclusions'],
   summary: 'Exclude user from specific activity',
-  description: 'Prevent a group member from seeing/participating in a specific activity',
+  description:
+    'Prevent a group member from seeing/participating in a specific activity',
   request: {
     params: z.object({
       groupId: z.string().min(1),
@@ -2263,40 +2739,50 @@ app.openapi(excludeUserFromActivityRoute, async (c) => {
   try {
     const { groupId, userId } = c.req.valid('param');
     const { activityId, adminId, reason } = c.req.valid('json');
-    
+
     // Get eventId from the group
     const group = await prisma.group.findUnique({
       where: { id: groupId },
       select: { eventId: true },
     });
-    
+
     if (!group) {
-      return c.json({
-        success: false,
-        error: 'Group not found',
-      }, 404);
+      return c.json(
+        {
+          success: false,
+          error: 'Group not found',
+        },
+        404
+      );
     }
-    
-    const exclusion = await UserActivityExclusionService.excludeUserFromActivity({
-      userId,
-      activityId,
-      groupId,
-      eventId: group.eventId,
-      excludedBy: adminId,
-      reason,
-    });
-    
-    return c.json({
-      success: true,
-      data: exclusion,
-      message: 'User excluded from activity successfully',
-    }, 201);
+
+    const exclusion =
+      await UserActivityExclusionService.excludeUserFromActivity({
+        userId,
+        activityId,
+        groupId,
+        eventId: group.eventId,
+        excludedBy: adminId,
+        reason,
+      });
+
+    return c.json(
+      {
+        success: true,
+        data: exclusion,
+        message: 'User excluded from activity successfully',
+      },
+      201
+    );
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to exclude user from activity',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to exclude user from activity',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -2306,7 +2792,8 @@ const includeUserInActivityRoute = createRoute({
   path: '/groups/{groupId}/users/{userId}/include-activity/{activityId}',
   tags: ['Admin - User Activity Exclusions'],
   summary: 'Include user in activity (remove exclusion)',
-  description: 'Remove exclusion so user can see/participate in the activity again',
+  description:
+    'Remove exclusion so user can see/participate in the activity again',
   request: {
     params: z.object({
       groupId: z.string().min(1),
@@ -2347,19 +2834,25 @@ app.openapi(includeUserInActivityRoute, async (c) => {
   try {
     const { userId, activityId } = c.req.valid('param');
     const { adminId } = c.req.valid('json');
-    
-    await UserActivityExclusionService.includeUserInActivity(userId, activityId);
-    
+
+    await UserActivityExclusionService.includeUserInActivity(
+      userId,
+      activityId
+    );
+
     return c.json({
       success: true,
       message: 'User included in activity successfully',
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to include user in activity',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to include user in activity',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -2369,7 +2862,8 @@ const getGroupUserExclusionsRoute = createRoute({
   path: '/groups/{groupId}/user-exclusions',
   tags: ['Admin - User Activity Exclusions'],
   summary: 'Get all user exclusions for a group',
-  description: 'Retrieve list of users and their excluded activities within a group',
+  description:
+    'Retrieve list of users and their excluded activities within a group',
   request: {
     params: z.object({
       groupId: z.string().min(1),
@@ -2390,19 +2884,23 @@ const getGroupUserExclusionsRoute = createRoute({
 app.openapi(getGroupUserExclusionsRoute, async (c) => {
   try {
     const { groupId } = c.req.valid('param');
-    
-    const exclusions = await UserActivityExclusionService.getGroupUserExclusions(groupId);
-    
+
+    const exclusions =
+      await UserActivityExclusionService.getGroupUserExclusions(groupId);
+
     return c.json({
       success: true,
       data: exclusions,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve user exclusions',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve user exclusions',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -2428,12 +2926,12 @@ const createActivityRoute = createRoute({
             location: {
               name: 'Grand Ballroom',
               address: '123 Hotel Drive, Monza, Italy',
-              mapLink: 'https://maps.google.com/place/grand-ballroom'
+              mapLink: 'https://maps.google.com/place/grand-ballroom',
             },
             content: {
-              html: '<h1>Welcome to F1 Italian Grand Prix</h1><p>Join us for an elegant gala dinner featuring <strong>local Italian cuisine</strong> and networking opportunities.</p><ul><li>Cocktail reception: 7:00 PM</li><li>Dinner service: 8:00 PM</li><li>Networking: 9:30 PM</li></ul>'
-            }
-          }
+              html: '<h1>Welcome to F1 Italian Grand Prix</h1><p>Join us for an elegant gala dinner featuring <strong>local Italian cuisine</strong> and networking opportunities.</p><ul><li>Cocktail reception: 7:00 PM</li><li>Dinner service: 8:00 PM</li><li>Networking: 9:30 PM</li></ul>',
+            },
+          },
         },
       },
     },
@@ -2462,26 +2960,32 @@ app.openapi(createActivityRoute, async (c) => {
   try {
     const data = c.req.valid('json');
     const authUser = c.get('user');
-    
+
     // Add createdBy from authenticated user
     const activityData = {
       ...data,
-      createdBy: authUser.id
+      createdBy: authUser.id,
     };
-    
+
     const activity = await ActivityService.create(activityData);
-    
-    return c.json({
-      success: true,
-      data: activity,
-      message: 'Activity created successfully',
-    }, 201);
+
+    return c.json(
+      {
+        success: true,
+        data: activity,
+        message: 'Activity created successfully',
+      },
+      201
+    );
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to create activity',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to create activity',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -2527,37 +3031,46 @@ app.openapi(updateActivityRoute, async (c) => {
     const { activityId } = c.req.valid('param');
     const data = c.req.valid('json');
     const authUser = c.get('user');
-    
+
     // Check if admin can modify this activity
-    const permissionCheck = await ActivityService.canAdminModifyActivity(activityId, authUser.id);
-    
+    const permissionCheck = await ActivityService.canAdminModifyActivity(
+      activityId,
+      authUser.id
+    );
+
     if (!permissionCheck.canModify) {
-      return c.json({
-        success: false,
-        error: 'Permission denied',
-        details: permissionCheck.reason,
-      }, 403);
+      return c.json(
+        {
+          success: false,
+          error: 'Permission denied',
+          details: permissionCheck.reason,
+        },
+        403
+      );
     }
-    
+
     // Add lastModifiedBy from authenticated user
     const activityData = {
       ...data,
-      lastModifiedBy: authUser.id
+      lastModifiedBy: authUser.id,
     };
-    
+
     const activity = await ActivityService.update(activityId, activityData);
-    
+
     return c.json({
       success: true,
       data: activity,
       message: 'Activity updated successfully',
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to update activity',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to update activity',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -2588,19 +3101,24 @@ const getUserExclusionsRoute = createRoute({
 app.openapi(getUserExclusionsRoute, async (c) => {
   try {
     const { userId } = c.req.valid('param');
-    
-    const exclusions = await UserActivityExclusionService.getUserExclusions(userId);
-    
+
+    const exclusions = await UserActivityExclusionService.getUserExclusions(
+      userId
+    );
+
     return c.json({
       success: true,
       data: exclusions,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve user exclusions',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve user exclusions',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -2614,7 +3132,8 @@ const createTemplateRoute = createRoute({
   path: '/templates',
   tags: ['Admin - Email Templates'],
   summary: 'Create email template (Super Admin only)',
-  description: 'Create a new email template for communication or authentication',
+  description:
+    'Create a new email template for communication or authentication',
   request: {
     body: {
       content: {
@@ -2656,24 +3175,32 @@ app.openapi(createTemplateRoute, async (c) => {
   try {
     const data = c.req.valid('json');
     const authUser = c.get('user');
-    
+
     const template = await TemplateService.create({
       ...data,
       createdBy: authUser.id,
     });
-    
-    return c.json({
-      success: true,
-      data: template,
-      message: 'Email template created successfully',
-    }, 201);
+
+    return c.json(
+      {
+        success: true,
+        data: template,
+        message: 'Email template created successfully',
+      },
+      201
+    );
   } catch (error: any) {
-    const statusCode = error.message.includes('Only super administrators') ? 403 : 400;
-    return c.json({
-      success: false,
-      error: 'Failed to create template',
-      details: error.message,
-    }, statusCode);
+    const statusCode = error.message.includes('Only super administrators')
+      ? 403
+      : 400;
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to create template',
+        details: error.message,
+      },
+      statusCode
+    );
   }
 });
 
@@ -2683,7 +3210,8 @@ const getTemplatesRoute = createRoute({
   path: '/events/{eventId}/templates',
   tags: ['Admin - Email Templates'],
   summary: 'Get event templates with role-based filtering',
-  description: 'Retrieve templates for an event - authentication templates only visible to super admin',
+  description:
+    'Retrieve templates for an event - authentication templates only visible to super admin',
   request: {
     params: z.object({
       eventId: z.string().min(1),
@@ -2710,25 +3238,33 @@ app.openapi(getTemplatesRoute, async (c) => {
     const { eventId } = c.req.valid('param');
     const { type, category } = c.req.valid('query');
     const authUser = c.get('user');
-    
+
     // Get all templates for the event
-    let templates = await TemplateService.findByEventId(eventId, { type, category });
-    
+    let templates = await TemplateService.findByEventId(eventId, {
+      type,
+      category,
+    });
+
     // Filter based on admin role - only super admin sees authentication templates
     if (authUser.role !== 'superadmin') {
-      templates = templates.filter(template => template.type === 'COMMUNICATION');
+      templates = templates.filter(
+        (template) => template.type === 'COMMUNICATION'
+      );
     }
-    
+
     return c.json({
       success: true,
       data: templates,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve templates',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve templates',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -2776,21 +3312,30 @@ app.openapi(updateTemplateRoute, async (c) => {
     const { templateId } = c.req.valid('param');
     const data = c.req.valid('json');
     const authUser = c.get('user');
-    
-    const template = await TemplateService.update(templateId, data, authUser.id);
-    
+
+    const template = await TemplateService.update(
+      templateId,
+      data,
+      authUser.id
+    );
+
     return c.json({
       success: true,
       data: template,
       message: 'Template updated successfully',
     });
   } catch (error: any) {
-    const statusCode = error.message.includes('Only super administrators') ? 403 : 400;
-    return c.json({
-      success: false,
-      error: 'Failed to update template',
-      details: error.message,
-    }, statusCode);
+    const statusCode = error.message.includes('Only super administrators')
+      ? 403
+      : 400;
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to update template',
+        details: error.message,
+      },
+      statusCode
+    );
   }
 });
 
@@ -2830,20 +3375,25 @@ app.openapi(deleteTemplateRoute, async (c) => {
   try {
     const { templateId } = c.req.valid('param');
     const authUser = c.get('user');
-    
+
     await TemplateService.delete(templateId, authUser.id);
-    
+
     return c.json({
       success: true,
       message: 'Template deleted successfully',
     });
   } catch (error: any) {
-    const statusCode = error.message.includes('Only super administrators') ? 403 : 400;
-    return c.json({
-      success: false,
-      error: 'Failed to delete template',
-      details: error.message,
-    }, statusCode);
+    const statusCode = error.message.includes('Only super administrators')
+      ? 403
+      : 400;
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to delete template',
+        details: error.message,
+      },
+      statusCode
+    );
   }
 });
 
@@ -2891,50 +3441,68 @@ app.openapi(testTemplateRoute, async (c) => {
     const { templateId } = c.req.valid('param');
     const { recipientEmail, variables = {} } = c.req.valid('json');
     const authUser = c.get('user');
-    
+
     // Check if admin can access this template
-    const accessCheck = await TemplateService.checkAccess(templateId, authUser.id);
+    const accessCheck = await TemplateService.checkAccess(
+      templateId,
+      authUser.id
+    );
     if (!accessCheck.canAccess) {
-      return c.json({
-        success: false,
-        error: 'Access denied',
-        details: 'You do not have permission to access this template',
-      }, 403);
+      return c.json(
+        {
+          success: false,
+          error: 'Access denied',
+          details: 'You do not have permission to access this template',
+        },
+        403
+      );
     }
-    
+
     const template = await TemplateService.findById(templateId);
     if (!template) {
-      return c.json({
-        success: false,
-        error: 'Template not found',
-      }, 404);
+      return c.json(
+        {
+          success: false,
+          error: 'Template not found',
+        },
+        404
+      );
     }
 
     // Send test email
     const { EmailService } = await import('../services/email.js');
-    const emailResult = await EmailService.sendEmail(recipientEmail, {
-      subject: template.subject,
-      html: template.html,
-    }, {
-      ...variables,
-      // Default test variables
-      firstName: 'Test',
-      lastName: 'User',
-      eventName: 'Test Event',
-      magicLink: 'https://example.com/test-link',
-    });
-    
+    const emailResult = await EmailService.sendEmail(
+      recipientEmail,
+      {
+        subject: template.subject,
+        html: template.html,
+      },
+      {
+        ...variables,
+        // Default test variables
+        firstName: 'Test',
+        lastName: 'User',
+        eventName: 'Test Event',
+        magicLink: 'https://example.com/test-link',
+      }
+    );
+
     return c.json({
       success: emailResult.success,
-      message: emailResult.success ? 'Test email sent successfully' : 'Test email failed',
+      message: emailResult.success
+        ? 'Test email sent successfully'
+        : 'Test email failed',
       details: emailResult.error,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to send test email',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to send test email',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -2983,20 +3551,23 @@ const sendTemplateCommunicationRoute = createRoute({
 app.openapi(sendTemplateCommunicationRoute, async (c) => {
   try {
     const data = c.req.valid('json');
-    
+
     const result = await CommunicationsService.sendTemplateEmail(data);
-    
+
     return c.json({
       success: true,
       data: result,
       message: `Message sent successfully to ${result.sentCount} recipients`,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to send message',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to send message',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -3045,28 +3616,34 @@ app.openapi(sendAuthenticationRoute, async (c) => {
   try {
     const { templateId, userId, variables, adminId } = c.req.valid('json');
     const authUser = c.get('user');
-    
+
     // Only super admin can send authentication emails
     if (authUser.role !== 'superadmin') {
-      return c.json({
-        success: false,
-        error: 'Access denied',
-        details: 'Only super administrators can send authentication emails',
-      }, 403);
+      return c.json(
+        {
+          success: false,
+          error: 'Access denied',
+          details: 'Only super administrators can send authentication emails',
+        },
+        403
+      );
     }
-    
+
     // Generate magic link for the user
     const { UserService } = await import('../services/users.js');
     const user = await UserService.findById(userId);
     if (!user) {
-      return c.json({
-        success: false,
-        error: 'User not found',
-      }, 404);
+      return c.json(
+        {
+          success: false,
+          error: 'User not found',
+        },
+        404
+      );
     }
 
     const magicLink = await UserService.generateMagicLink(userId);
-    
+
     // Send using template with magic link variable
     const result = await CommunicationsService.sendTemplateEmail({
       templateId,
@@ -3074,22 +3651,27 @@ app.openapi(sendAuthenticationRoute, async (c) => {
       recipientIds: [userId],
       variables: {
         ...variables,
-        magicLink: `${process.env.FRONTEND_URL || 'https://your-frontend.com'}/auth/magic?token=${magicLink.token}&event=${user.eventId}`,
+        magicLink: `${
+          process.env.FRONTEND_URL || 'https://your-frontend.com'
+        }/auth/magic?token=${magicLink.token}&event=${user.eventId}`,
       },
       adminId,
     });
-    
+
     return c.json({
       success: true,
       data: result,
       message: 'Magic link sent successfully',
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to send magic link',
-      details: error.message,
-    }, 400);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to send magic link',
+        details: error.message,
+      },
+      400
+    );
   }
 });
 
@@ -3111,7 +3693,9 @@ const generateUploadUrlRoute = createRoute({
             contentType: z.string().min(1),
             eventId: z.string().min(1),
             activityId: z.string().optional(),
-            folder: z.enum(['activities', 'events', 'assets']).default('activities'),
+            folder: z
+              .enum(['activities', 'events', 'assets'])
+              .default('activities'),
           }),
         },
       },
@@ -3139,21 +3723,28 @@ const generateUploadUrlRoute = createRoute({
 
 app.openapi(generateUploadUrlRoute, async (c) => {
   try {
-    const { fileName, contentType, eventId, activityId, folder } = c.req.valid('json');
-    
+    const { fileName, contentType, eventId, activityId, folder } =
+      c.req.valid('json');
+
     // Validate file type for images
     if (!S3Service.isValidImageType(contentType)) {
-      return c.json({
-        success: false,
-        error: 'Invalid file type. Only JPEG, PNG, WebP, and GIF images are allowed.',
-      }, 400);
+      return c.json(
+        {
+          success: false,
+          error:
+            'Invalid file type. Only JPEG, PNG, WebP, and GIF images are allowed.',
+        },
+        400
+      );
     }
-    
+
     // Generate the appropriate folder path
     let folderPath: string;
     switch (folder) {
       case 'activities':
-        folderPath = `events/${eventId}/activities${activityId ? `/${activityId}` : ''}`;
+        folderPath = `events/${eventId}/activities${
+          activityId ? `/${activityId}` : ''
+        }`;
         break;
       case 'events':
         folderPath = `events/${eventId}/assets`;
@@ -3164,21 +3755,24 @@ app.openapi(generateUploadUrlRoute, async (c) => {
       default:
         folderPath = `events/${eventId}/activities`;
     }
-    
+
     const result = await S3Service.generatePresignedUploadUrl(
       fileName,
       contentType,
       folderPath,
       3600 // 1 hour expiry
     );
-    
+
     if (!result.success) {
-      return c.json({
-        success: false,
-        error: result.error || 'Failed to generate upload URL',
-      }, 500);
+      return c.json(
+        {
+          success: false,
+          error: result.error || 'Failed to generate upload URL',
+        },
+        500
+      );
     }
-    
+
     return c.json({
       success: true,
       data: {
@@ -3189,11 +3783,14 @@ app.openapi(generateUploadUrlRoute, async (c) => {
       message: 'Presigned URL generated successfully',
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to generate upload URL',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to generate upload URL',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -3246,20 +3843,26 @@ app.openapi(importUsersRoute, async (c) => {
     const { eventId } = c.req.valid('query');
     const body = await c.req.parseBody();
     const file = body.file as File;
-    
+
     if (!file) {
-      return c.json({
-        success: false,
-        error: 'No file provided',
-      }, 400);
+      return c.json(
+        {
+          success: false,
+          error: 'No file provided',
+        },
+        400
+      );
     }
 
     const csvText = await file.text();
-    const lines = csvText.split(/\r?\n/).filter(line => line.trim());
-    const headers = lines[0]?.split(',').map(h => h.replace(/"/g, '').trim()) || [];
-    const dataRows = lines.slice(1).map(line => 
-      line.split(',').map(cell => cell.replace(/"/g, '').trim())
-    );
+    const lines = csvText.split(/\r?\n/).filter((line) => line.trim());
+    const headers =
+      lines[0]?.split(',').map((h) => h.replace(/"/g, '').trim()) || [];
+    const dataRows = lines
+      .slice(1)
+      .map((line) =>
+        line.split(',').map((cell) => cell.replace(/"/g, '').trim())
+      );
 
     let imported = 0;
     const errors: string[] = [];
@@ -3275,7 +3878,7 @@ app.openapi(importUsersRoute, async (c) => {
           accommodation: {},
           requirements: {},
           merchandiseSize: {},
-          emergencyContact: {}
+          emergencyContact: {},
         };
 
         // Map CSV data to user object structure
@@ -3306,7 +3909,8 @@ app.openapi(importUsersRoute, async (c) => {
               userData.requirements.accessibility = value;
               break;
             case 'accommodationRequired':
-              userData.accommodation.required = value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
+              userData.accommodation.required =
+                value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
               break;
             case 'hotel':
               userData.accommodation.hotel = value;
@@ -3363,17 +3967,25 @@ app.openapi(importUsersRoute, async (c) => {
               userData.merchandiseSize.hat = value;
               break;
             case 'emailOptIn':
-              userData.communication.emailOptIn = value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
+              userData.communication.emailOptIn =
+                value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
               break;
             case 'whatsappOptIn':
-              userData.communication.whatsappOptIn = value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
+              userData.communication.whatsappOptIn =
+                value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
               break;
           }
         });
 
         // Validate required fields
-        if (!userData.profile.email || !userData.profile.firstName || !userData.profile.lastName) {
-          errors.push(`Row ${i + 2}: Missing required fields (firstName, lastName, email)`);
+        if (
+          !userData.profile.email ||
+          !userData.profile.firstName ||
+          !userData.profile.lastName
+        ) {
+          errors.push(
+            `Row ${i + 2}: Missing required fields (firstName, lastName, email)`
+          );
           continue;
         }
 
@@ -3382,12 +3994,27 @@ app.openapi(importUsersRoute, async (c) => {
           eventId,
           profile: userData.profile,
           communication: userData.communication,
-          flight: Object.keys(userData.flight).length > 0 ? userData.flight : undefined,
-          accommodation: Object.keys(userData.accommodation).length > 0 ? userData.accommodation : undefined,
+          flight:
+            Object.keys(userData.flight).length > 0
+              ? userData.flight
+              : undefined,
+          accommodation:
+            Object.keys(userData.accommodation).length > 0
+              ? userData.accommodation
+              : undefined,
           transferRequirements: userData.transferRequirements,
-          requirements: Object.keys(userData.requirements).length > 0 ? userData.requirements : undefined,
-          merchandiseSize: Object.keys(userData.merchandiseSize).length > 0 ? userData.merchandiseSize : undefined,
-          emergencyContact: Object.keys(userData.emergencyContact).length > 0 ? userData.emergencyContact : undefined,
+          requirements:
+            Object.keys(userData.requirements).length > 0
+              ? userData.requirements
+              : undefined,
+          merchandiseSize:
+            Object.keys(userData.merchandiseSize).length > 0
+              ? userData.merchandiseSize
+              : undefined,
+          emergencyContact:
+            Object.keys(userData.emergencyContact).length > 0
+              ? userData.emergencyContact
+              : undefined,
         };
 
         await UserService.create(createUserData);
@@ -3407,11 +4034,14 @@ app.openapi(importUsersRoute, async (c) => {
       message: `Import completed. ${imported}/${dataRows.length} users imported successfully.`,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Import failed',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Import failed',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -3460,20 +4090,26 @@ app.openapi(importGroupsRoute, async (c) => {
     const { eventId } = c.req.valid('query');
     const body = await c.req.parseBody();
     const file = body.file as File;
-    
+
     if (!file) {
-      return c.json({
-        success: false,
-        error: 'No file provided',
-      }, 400);
+      return c.json(
+        {
+          success: false,
+          error: 'No file provided',
+        },
+        400
+      );
     }
 
     const csvText = await file.text();
-    const lines = csvText.split(/\r?\n/).filter(line => line.trim());
-    const headers = lines[0]?.split(',').map(h => h.replace(/"/g, '').trim()) || [];
-    const dataRows = lines.slice(1).map(line => 
-      line.split(',').map(cell => cell.replace(/"/g, '').trim())
-    );
+    const lines = csvText.split(/\r?\n/).filter((line) => line.trim());
+    const headers =
+      lines[0]?.split(',').map((h) => h.replace(/"/g, '').trim()) || [];
+    const dataRows = lines
+      .slice(1)
+      .map((line) =>
+        line.split(',').map((cell) => cell.replace(/"/g, '').trim())
+      );
 
     let imported = 0;
     const errors: string[] = [];
@@ -3501,7 +4137,9 @@ app.openapi(importGroupsRoute, async (c) => {
               groupData.category = value;
               break;
             case 'assignedMembers':
-              groupData.assignedMembers = value.split(',').map(email => email.trim());
+              groupData.assignedMembers = value
+                .split(',')
+                .map((email) => email.trim());
               break;
           }
         });
@@ -3534,11 +4172,14 @@ app.openapi(importGroupsRoute, async (c) => {
       message: `Import completed. ${imported}/${dataRows.length} groups imported successfully.`,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Import failed',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Import failed',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -3588,24 +4229,35 @@ app.openapi(importActivitiesRoute, async (c) => {
     const body = await c.req.parseBody();
     const file = body.file as File;
     const authUser = c.get('user');
-    
+
     if (!file) {
-      return c.json({
-        success: false,
-        error: 'No file provided',
-      }, 400);
+      return c.json(
+        {
+          success: false,
+          error: 'No file provided',
+        },
+        400
+      );
     }
 
     const csvText = await file.text();
-    const lines = csvText.split(/\r?\n/).filter(line => line.trim());
-    const headers = lines[0]?.split(',').map(h => h.replace(/"/g, '').trim()) || [];
-    const dataRows = lines.slice(1).map(line => 
-      line.split(',').map(cell => cell.replace(/"/g, '').trim())
-    );
+    const lines = csvText.split(/\r?\n/).filter((line) => line.trim());
+    const headers =
+      lines[0]?.split(',').map((h) => h.replace(/"/g, '').trim()) || [];
+    const dataRows = lines
+      .slice(1)
+      .map((line) =>
+        line.split(',').map((cell) => cell.replace(/"/g, '').trim())
+      );
 
     // Get existing groups for lookup
-    const groups = await GroupService.findByEventId(eventId, { page: 1, limit: 1000 });
-    const groupLookup = new Map(groups.items.map(g => [g.name.toLowerCase(), g.id]));
+    const groups = await GroupService.findByEventId(eventId, {
+      page: 1,
+      limit: 1000,
+    });
+    const groupLookup = new Map(
+      groups.items.map((g) => [g.name.toLowerCase(), g.id])
+    );
 
     let imported = 0;
     const errors: string[] = [];
@@ -3614,7 +4266,7 @@ app.openapi(importActivitiesRoute, async (c) => {
       try {
         const rowData = dataRows[i];
         const activityData: any = {
-          location: {}
+          location: {},
         };
 
         headers.forEach((header, index) => {
@@ -3661,8 +4313,17 @@ app.openapi(importActivitiesRoute, async (c) => {
           }
         });
 
-        if (!activityData.title || !activityData.groupId || !activityData.startDateTime || !activityData.endDateTime) {
-          errors.push(`Row ${i + 2}: Missing required fields (title, group, startDateTime, endDateTime)`);
+        if (
+          !activityData.title ||
+          !activityData.groupId ||
+          !activityData.startDateTime ||
+          !activityData.endDateTime
+        ) {
+          errors.push(
+            `Row ${
+              i + 2
+            }: Missing required fields (title, group, startDateTime, endDateTime)`
+          );
           continue;
         }
 
@@ -3674,7 +4335,10 @@ app.openapi(importActivitiesRoute, async (c) => {
           endDateTime: activityData.endDateTime,
           thumbnail: activityData.thumbnail,
           category: activityData.category || 'OTHER',
-          location: Object.keys(activityData.location).length > 0 ? activityData.location : undefined,
+          location:
+            Object.keys(activityData.location).length > 0
+              ? activityData.location
+              : undefined,
           content: activityData.content || { html: '' },
           createdBy: authUser.id,
         };
@@ -3696,11 +4360,14 @@ app.openapi(importActivitiesRoute, async (c) => {
       message: `Import completed. ${imported}/${dataRows.length} activities imported successfully.`,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Import failed',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Import failed',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -3719,7 +4386,9 @@ const getCommunicationLogsRoute = createRoute({
     }),
     query: PaginationSchema.extend({
       type: z.enum(['email', 'whatsapp']).optional(),
-      purpose: z.enum(['group_assignment', 'event_reminder', 'custom', 'announcement']).optional(),
+      purpose: z
+        .enum(['group_assignment', 'event_reminder', 'custom', 'announcement'])
+        .optional(),
       status: z.enum(['sent', 'delivered', 'failed', 'pending']).optional(),
     }),
   },
@@ -3739,23 +4408,26 @@ app.openapi(getCommunicationLogsRoute, async (c) => {
   try {
     const { userId } = c.req.valid('param');
     const { page, limit, type, purpose, status } = c.req.valid('query');
-    
+
     const result = await CommunicationLogService.findByUserId(
       userId,
       { page: page || 1, limit: limit || 20 },
       { type, purpose, status }
     );
-    
+
     return c.json({
       success: true,
       data: result,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve communication logs',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve communication logs',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -3784,18 +4456,23 @@ const getGroupNotificationStatsRoute = createRoute({
 app.openapi(getGroupNotificationStatsRoute, async (c) => {
   try {
     const { groupId } = c.req.valid('param');
-    const stats = await CommunicationLogService.getGroupNotificationStats(groupId);
-    
+    const stats = await CommunicationLogService.getGroupNotificationStats(
+      groupId
+    );
+
     return c.json({
       success: true,
       data: stats,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve notification stats',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve notification stats',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -3837,30 +4514,40 @@ app.openapi(sendGroupNotificationsRoute, async (c) => {
     const { groupId } = c.req.valid('param');
     const { userIds, channel, customMessage } = c.req.valid('json');
     const authUser = c.get('user');
-    
+
     // Get group info for the message
     const group = await GroupService.findById(groupId);
     if (!group) {
-      return c.json({
-        success: false,
-        error: 'Group not found',
-      }, 404);
+      return c.json(
+        {
+          success: false,
+          error: 'Group not found',
+        },
+        404
+      );
     }
-    
+
     const event = await EventService.findById(group.eventId);
     if (!event) {
-      return c.json({
-        success: false,
-        error: 'Event not found',
-      }, 404);
+      return c.json(
+        {
+          success: false,
+          error: 'Event not found',
+        },
+        404
+      );
     }
 
     // Create message content
     const content = {
-      html: customMessage || `<p>You have been assigned to the group: <strong>${group.name}</strong></p><p>Event: ${event.name}</p>`,
-      text: customMessage || `You have been assigned to the group: ${group.name}. Event: ${event.name}`,
+      html:
+        customMessage ||
+        `<p>You have been assigned to the group: <strong>${group.name}</strong></p><p>Event: ${event.name}</p>`,
+      text:
+        customMessage ||
+        `You have been assigned to the group: ${group.name}. Event: ${event.name}`,
     };
-    
+
     // Log the communications and mark users as notified
     const logs = await CommunicationLogService.logGroupAssignmentNotification(
       userIds,
@@ -3870,21 +4557,28 @@ app.openapi(sendGroupNotificationsRoute, async (c) => {
       channel,
       content
     );
-    
+
     return c.json({
       success: true,
       data: {
         sent: logs.length,
-        logs: logs.map(log => ({ id: log.id, userId: log.userId, status: log.status })),
+        logs: logs.map((log) => ({
+          id: log.id,
+          userId: log.userId,
+          status: log.status,
+        })),
       },
       message: `Notifications sent to ${logs.length} users`,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to send notifications',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to send notifications',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -3906,7 +4600,8 @@ const getGroupMembersWithNotificationStatusRoute = createRoute({
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Group members with notification status retrieved successfully',
+      description:
+        'Group members with notification status retrieved successfully',
     },
   },
 });
@@ -3915,22 +4610,25 @@ app.openapi(getGroupMembersWithNotificationStatusRoute, async (c) => {
   try {
     const { groupId } = c.req.valid('param');
     const { page, limit } = c.req.valid('query');
-    
-    const result = await UserService.getUsersWithNotificationStatus(
-      groupId,
-      { page: page || 1, limit: limit || 20 }
-    );
-    
+
+    const result = await UserService.getUsersWithNotificationStatus(groupId, {
+      page: page || 1,
+      limit: limit || 20,
+    });
+
     return c.json({
       success: true,
       data: result,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve group members with status',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve group members with status',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -3953,7 +4651,15 @@ const sendCommunicationRoute = createRoute({
             recipientIds: z.array(z.string()).optional(),
             subject: z.string().min(1),
             content: z.string().min(1),
-            templateType: z.enum(['welcome', 'assignment', 'activity_update', 'announcement', 'custom']).optional(),
+            templateType: z
+              .enum([
+                'welcome',
+                'assignment',
+                'activity_update',
+                'announcement',
+                'custom',
+              ])
+              .optional(),
             variables: z.record(z.any()).optional(),
           }),
         },
@@ -3976,26 +4682,29 @@ app.openapi(sendCommunicationRoute, async (c) => {
   try {
     const body = c.req.valid('json');
     const authUser = c.get('user');
-    
+
     const request = {
       ...body,
       adminId: authUser.id,
       channel: 'email' as const,
     };
-    
+
     const result = await CommunicationsService.sendCommunication(request);
-    
+
     return c.json({
       success: true,
       data: result,
       message: `Communication sent successfully. ${result.sentCount} sent, ${result.skippedCount} skipped, ${result.failedCount} failed.`,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to send communication',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to send communication',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -4025,30 +4734,36 @@ app.openapi(getCommunicationStatsRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
     const authUser = c.get('user');
-    
+
     // Check if admin has access to this event
     if (authUser.adminData?.role !== 'SUPER') {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
-        return c.json({
-          success: false,
-          error: 'Access denied to this event',
-        }, 403);
+        return c.json(
+          {
+            success: false,
+            error: 'Access denied to this event',
+          },
+          403
+        );
       }
     }
-    
+
     const stats = await CommunicationsService.getCommunicationStats(eventId);
-    
+
     return c.json({
       success: true,
       data: stats,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve communication stats',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve communication stats',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -4072,17 +4787,20 @@ const getEmailTemplatesRoute = createRoute({
 app.openapi(getEmailTemplatesRoute, async (c) => {
   try {
     const templates = CommunicationsService.getEmailTemplates();
-    
+
     return c.json({
       success: true,
       data: { templates },
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve email templates',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve email templates',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -4117,18 +4835,21 @@ app.openapi(getCommunicationHistoryRoute, async (c) => {
     const { eventId } = c.req.valid('param');
     const { page, limit, type, status } = c.req.valid('query');
     const authUser = c.get('user');
-    
+
     // Check if admin has access to this event
     if (authUser.adminData?.role !== 'SUPER') {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
-        return c.json({
-          success: false,
-          error: 'Access denied to this event',
-        }, 403);
+        return c.json(
+          {
+            success: false,
+            error: 'Access denied to this event',
+          },
+          403
+        );
       }
     }
-    
+
     // Get messages with delivery tracking
     const messages = await prisma.message.findMany({
       where: { eventId },
@@ -4144,24 +4865,27 @@ app.openapi(getCommunicationHistoryRoute, async (c) => {
     });
 
     // Transform messages to match frontend expected format
-    const transformedMessages = messages.map(message => ({
+    const transformedMessages = messages.map((message) => ({
       id: message.id,
       type: message.type,
       templateId: message.templateId,
-      template: message.template ? {
-        name: message.template.name,
-        type: message.template.type,
-        subject: message.template.subject,
-      } : null,
+      template: message.template
+        ? {
+            name: message.template.name,
+            type: message.template.type,
+            subject: message.template.subject,
+          }
+        : null,
       subject: message.emailSubject || 'Untitled', // emailSubject now contains processed subject
       recipientType: message.recipientType,
       recipientCount: message.recipientIds.length,
       sentBy: message.sentBy,
       sentAt: message.createdAt,
       status: message.status,
-      deliveredCount: message.deliveries ? 
-        (message.deliveries as any[]).filter(d => d.email?.sent).length : 0,
-      openedCount: message.emailTracking.filter(t => t.opened).length,
+      deliveredCount: message.deliveries
+        ? (message.deliveries as any[]).filter((d) => d.email?.sent).length
+        : 0,
+      openedCount: message.emailTracking.filter((t) => t.opened).length,
     }));
 
     const totalCount = await prisma.message.count({
@@ -4179,11 +4903,14 @@ app.openapi(getCommunicationHistoryRoute, async (c) => {
       },
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve communication history',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve communication history',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 

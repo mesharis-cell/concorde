@@ -1,0 +1,605 @@
+[{
+  "_id": {
+    "$oid": "689a1b1ae83b77cd37b9e774"
+  },
+  "event": {
+    "$oid": "689a1b18e83b77cd37b9e751"
+  },
+  "group": null,
+  "title": "[EXAMPLE] Welcome Reception",
+  "startDateTime": {
+    "$date": "2025-09-04T14:00:00.000Z"
+  },
+  "endDateTime": {
+    "$date": "2025-09-04T16:00:00.000Z"
+  },
+  "thumbnail": "https://stage-event-platform-bucket.s3.me-south-1.amazonaws.com/files/activity/689a1b18e83b77cd37b9e751/thumbnails/1bcc92db-4725-40fd-98cf-504d371cc4da.jpg",
+  "category": "hospitality",
+  "location": {
+    "name": "Grand Hotel Milano",
+    "address": "Via del Corso, 123, Monza, Italy",
+    "mapLink": "https://maps.google.com/?q=Grand+Hotel+Monza"
+  },
+  "content": {
+    "html": "<h1 style=\"font-size: 2em; font-weight: bold; color: #1f2937; margin: 1em 0; line-height: 1.5; font-family: inherit\">Welcome Reception</h1>\n<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit\">\n  Join us for an <strong style=\"font-weight: bold\">exclusive welcome reception</strong> to kick off our event. This elegant evening brings together distinguished guests, industry leaders, and valued\n  participants for an <em style=\"font-style: italic\">unforgettable networking experience</em> in a sophisticated setting.\n</p>\n<img\n  style=\"max-width: 100%; height: auto; display: block; margin: 20px auto; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1)\"\n  src=\"https://stage-event-platform-bucket.s3.me-south-1.amazonaws.com/files/activity/689a1b18e83b77cd37b9e751/thumbnails/1bcc92db-4725-40fd-98cf-504d371cc4da.jpg\"\n  alt=\"Welcome Reception Venue\"\n  title=\"Welcome Reception Venue\"\n/>\n<h2 style=\"font-size: 1.5em; font-weight: 600; color: #1f2937; margin: calc(1em * 0.8) 0; line-height: 1.5; font-family: inherit\">Reception Details & Schedule</h2>\n<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit\">\n  Our carefully orchestrated reception features distinguished guests and\n  <mark style=\"background-color: rgba(255, 235, 59, 0.3); padding: 2px 4px; border-radius: 3px\">premium networking opportunities</mark>. Every element is designed to create meaningful connections and\n  lasting impressions among our valued attendees.\n</p>\n<h3 style=\"font-size: 1.17em; font-weight: 500; color: #1f2937; margin: calc(1em * 0.6) 0; line-height: 1.5; font-family: inherit\">Reception Highlights</h3>\n<ul style=\"margin: 1em 0; padding-left: 32px; color: #1f2937; font-family: inherit\">\n  <li style=\"margin: calc(1em * 0.5) 0; line-height: 1.5; color: #1f2937; font-family: inherit\">Welcome cocktails and premium refreshments</li>\n  <li style=\"margin: calc(1em * 0.5) 0; line-height: 1.5; color: #1f2937; font-family: inherit\">Live entertainment and ambient music</li>\n  <li style=\"margin: calc(1em * 0.5) 0; line-height: 1.5; color: #1f2937; font-family: inherit\">Curated <strong style=\"font-weight: bold\">networking zones</strong> for different industries</li>\n  <li style=\"margin: calc(1em * 0.5) 0; line-height: 1.5; color: #1f2937; font-family: inherit\">\n    Special <a style=\"color: #2563eb; text-decoration: underline; transition: opacity 0.2s ease\" href=\"https://www.google.com/search?q=welcome+reception+venues\">venue tour</a> available\n  </li>\n</ul>\n<table style=\"border-collapse: collapse; width: 100%; margin: 20px 0; font-family: inherit; border: 1px solid #d1d5db\">\n  <thead>\n    <tr style=\"border: 1px solid #d1d5db\">\n      <th style=\"border: 1px solid #d1d5db; padding: 12px 16px; background: #f9fafb; font-weight: 600; text-align: left; color: #1f2937; font-family: inherit\">Time</th>\n      <th style=\"border: 1px solid #d1d5db; padding: 12px 16px; background: #f9fafb; font-weight: 600; text-align: left; color: #1f2937; font-family: inherit\">Activity</th>\n      <th style=\"border: 1px solid #d1d5db; padding: 12px 16px; background: #f9fafb; font-weight: 600; text-align: left; color: #1f2937; font-family: inherit\">Host</th>\n      <th style=\"border: 1px solid #d1d5db; padding: 12px 16px; background: #f9fafb; font-weight: 600; text-align: left; color: #1f2937; font-family: inherit\">Location</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr style=\"border: 1px solid #d1d5db\">\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">6:00 PM</td>\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">Guest Check-in & Welcome Drinks</td>\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">Event Staff</td>\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">Main Lobby</td>\n    </tr>\n    <tr style=\"border: 1px solid #d1d5db\">\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">6:30 PM</td>\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">Opening Remarks</td>\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">Event Director</td>\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">Reception Hall</td>\n    </tr>\n    <tr style=\"border: 1px solid #d1d5db\">\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">7:00 PM</td>\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">Networking & Cocktails</td>\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">All Guests</td>\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">Garden Terrace</td>\n    </tr>\n    <tr style=\"border: 1px solid #d1d5db\">\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">8:30 PM</td>\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">Dinner & Entertainment</td>\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">Live Band</td>\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">Main Dining Area</td>\n    </tr>\n    <tr style=\"border: 1px solid #d1d5db\">\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">10:00 PM</td>\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">Closing Reception</td>\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">Organizing Committee</td>\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">VIP Lounge</td>\n    </tr>\n  </tbody>\n</table>\n<h3 style=\"font-size: 1.17em; font-weight: 500; color: #1f2937; margin: calc(1em * 0.6) 0; line-height: 1.5; font-family: inherit\">Special Message</h3>\n<blockquote style=\"margin: 1em 40px; padding: 16px; border-left: 4px solid #2563eb; background-color: #f9fafb; font-style: italic; color: #1f2937; font-family: inherit\">\n  \"This welcome reception sets the tone for an extraordinary event. We've thoughtfully designed every detail to create memorable first impressions and foster meaningful connections among our\n  distinguished guests.\" - Event Organizing Committee\n</blockquote>\n<h3 style=\"font-size: 1.17em; font-weight: 500; color: #1f2937; margin: calc(1em * 0.6) 0; line-height: 1.5; font-family: inherit\">What to Expect</h3>\n<ol style=\"margin: 1em 0; padding-left: 32px; color: #1f2937; font-family: inherit\">\n  <li style=\"margin: calc(1em * 0.5) 0; line-height: 1.5; color: #1f2937; font-family: inherit\">\n    <strong style=\"font-weight: bold\">Premium Catering:</strong> Gourmet appetizers and signature cocktails\n  </li>\n  <li style=\"margin: calc(1em * 0.5) 0; line-height: 1.5; color: #1f2937; font-family: inherit\">\n    <strong style=\"font-weight: bold\">Live Entertainment:</strong> Professional musicians and ambient performances\n  </li>\n  <li style=\"margin: calc(1em * 0.5) 0; line-height: 1.5; color: #1f2937; font-family: inherit\">\n    <strong style=\"font-weight: bold\">Networking Opportunities:</strong> Connect with fellow attendees and industry professionals\n  </li>\n  <li style=\"margin: calc(1em * 0.5) 0; line-height: 1.5; color: #1f2937; font-family: inherit\">\n    <strong style=\"font-weight: bold\">Welcome Gifts:</strong> Exclusive branded items and information packets\n  </li>\n  <li style=\"margin: calc(1em * 0.5) 0; line-height: 1.5; color: #1f2937; font-family: inherit\">\n    <strong style=\"font-weight: bold\">Photo Opportunities:</strong> Professional photography and designated photo areas\n  </li>\n</ol>\n<h3 style=\"font-size: 1.17em; font-weight: 500; color: #1f2937; margin: calc(1em * 0.6) 0; line-height: 1.5; font-family: inherit\">Event Resources & Information</h3>\n<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit\">\n  To enhance your reception experience, we recommend downloading our event app for the latest updates and networking features:\n</p>\n<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit\">\n  <code style=\"font-family: 'Courier New', monospace; background-color: #f9fafb; color: #2563eb; padding: 2px 6px; border-radius: 4px; font-size: 0.9em\">Event Connect Mobile App</code> available for\n  download, and access to our\n  <a style=\"color: #2563eb; text-decoration: underline; transition: opacity 0.2s ease\" href=\"https://www.google.com/search?q=event+networking+platform\">digital networking platform</a> for connecting\n  with other attendees.\n</p>\n<h3 style=\"font-size: 1.17em; font-weight: 500; color: #1f2937; margin: calc(1em * 0.6) 0; line-height: 1.5; font-family: inherit\">Dress Code & Etiquette</h3>\n<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit\">\n  As this is a <em style=\"font-style: italic\">formal welcome reception</em>, we maintain a <strong style=\"font-weight: bold\">cocktail attire</strong> dress code. Smart business casual is also\n  <u style=\"text-decoration: underline\">acceptable</u> for networking portions. Please note that <s style=\"text-decoration: line-through\">overly casual wear</s> may not be appropriate for the main\n  reception areas.\n</p>\n<h2 style=\"font-size: 1.5em; font-weight: 600; color: #1f2937; margin: calc(1em * 0.8) 0; line-height: 1.5; font-family: inherit\">Venue Information & Access</h2>\n<table style=\"border-collapse: collapse; width: 100%; margin: 20px 0; font-family: inherit; border: 1px solid #d1d5db\">\n  <thead>\n    <tr style=\"border: 1px solid #d1d5db\">\n      <th style=\"border: 1px solid #d1d5db; padding: 12px 16px; background: #f9fafb; font-weight: 600; text-align: left; color: #1f2937; font-family: inherit\">Service</th>\n      <th style=\"border: 1px solid #d1d5db; padding: 12px 16px; background: #f9fafb; font-weight: 600; text-align: left; color: #1f2937; font-family: inherit\">Details</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr style=\"border: 1px solid #d1d5db\">\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">Valet Parking</td>\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">Complimentary valet service available at main entrance</td>\n    </tr>\n    <tr style=\"border: 1px solid #d1d5db\">\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">Shuttle Service</td>\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">Every 15 minutes from designated pickup points</td>\n    </tr>\n    <tr style=\"border: 1px solid #d1d5db\">\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">Public Transport</td>\n      <td style=\"border: 1px solid #d1d5db; padding: 12px 16px; color: #1f2937; font-family: inherit\">Central Station within walking distance (8-minute walk)</td>\n    </tr>\n  </tbody>\n</table>\n<h3 style=\"font-size: 1.17em; font-weight: 500; color: #1f2937; margin: calc(1em * 0.6) 0; line-height: 1.5; font-family: inherit\">Contact Information</h3>\n<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit\">\n  For any inquiries or assistance during the reception, please reach out to our event staff. You can also find additional resources on\n  <a style=\"color: #2563eb; text-decoration: underline; transition: opacity 0.2s ease\" href=\"https://www.google.com/search?q=welcome+reception+planning\">Google</a> or visit our comprehensive\n  <a style=\"color: #2563eb; text-decoration: underline; transition: opacity 0.2s ease\" href=\"https://www.google.com/search?q=event+networking+tips\">networking guide portal</a>.\n</p>\n<blockquote style=\"margin: 1em 40px; padding: 16px; border-left: 4px solid #2563eb; background-color: #f9fafb; font-style: italic; color: #1f2937; font-family: inherit\">\n  <strong style=\"font-weight: bold\">Important:</strong> All attendees must present their invitation or QR code confirmation upon arrival. Digital check-in is available through our event app,\n  downloadable from the <a style=\"color: #2563eb; text-decoration: underline; transition: opacity 0.2s ease\" href=\"https://www.google.com/search?q=event+registration+app\">official event website</a>.\n</blockquote>\n<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit\">\n  We look forward to welcoming you to this <mark style=\"background-color: rgba(255, 235, 59, 0.3); padding: 2px 4px; border-radius: 3px\">memorable welcome reception</mark> and the beginning of an\n  exceptional event experience.\n</p>\n"
+  },
+  "active": false,
+  "deleted": false,
+  "createdBy": {
+    "$oid": "689a1b19e83b77cd37b9e762"
+  },
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-08-11T16:32:26.061Z"
+  },
+  "updatedAt": {
+    "$date": "2025-08-29T12:16:04.926Z"
+  },
+  "lastModifiedBy": {
+    "$oid": "689a1b18e83b77cd37b9e74b"
+  }
+},
+{
+  "_id": {
+    "$oid": "68b19c090188da5c93a75696"
+  },
+  "event": {
+    "$oid": "689a1b18e83b77cd37b9e751"
+  },
+  "group": null,
+  "title": "Greatness Belongs to the Team: Celebrating I Rise We Rise.",
+  "startDateTime": {
+    "$date": "2025-09-03T22:00:00.000Z"
+  },
+  "endDateTime": {
+    "$date": "2025-09-04T21:59:59.999Z"
+  },
+  "thumbnail": "",
+  "category": "other",
+  "location": {
+    "name": "TBD",
+    "address": "TBD",
+    "mapLink": "Sports Luxe"
+  },
+  "content": {
+    "html": "<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><span style=\"color: rgb(0, 0, 0);\">The weekend begins with a powerful reveal, as Chivas Regal raises a glass to the unsung heroes of Scuderia Ferrari HP.</span></p><p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><span style=\"color: rgb(0, 0, 0);\">&nbsp;</span></p><p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><span style=\"color: rgb(0, 0, 0);\">Thursday sets the tone for <em style=\"font-style: italic;\">I Rise We Rise</em> — a celebration of those who build together to make greatness possible.</span></p><p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><span style=\"color: rgb(0, 0, 0);\">&nbsp;</span></p><p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><span style=\"color: rgb(0, 0, 0);\">Let’s raise a glass to tenacious teams.</span></p>"
+  },
+  "active": true,
+  "deleted": false,
+  "createdBy": {
+    "$oid": "689a1b19e83b77cd37b9e762"
+  },
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-08-11T16:32:26.061Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-01T13:40:43.585Z"
+  },
+  "lastModifiedBy": {
+    "$oid": "68b58bdf47b9529d069402e9"
+  }
+},
+{
+  "_id": {
+    "$oid": "68b19d3d0188da5c93a75697"
+  },
+  "event": {
+    "$oid": "689a1b18e83b77cd37b9e751"
+  },
+  "group": null,
+  "title": " ATMosfera Historic Tram Tour of Milan",
+  "startDateTime": {
+    "$date": "2025-09-04T22:00:00.000Z"
+  },
+  "endDateTime": {
+    "$date": "2025-09-05T21:59:59.999Z"
+  },
+  "thumbnail": "",
+  "category": "other",
+  "location": {
+    "name": "TBD",
+    "address": "TBD",
+    "mapLink": "Sports Luxe:https://maps.app.goo.gl/m4Z1V2qkpRNVa9zU9"
+  },
+  "content": {
+    "html": "<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><span style=\"color: rgb(0, 0, 0);\">Step aboard Milan’s historic ATMosfera tram for an aperitivo with a Regal twist. An iconic journey through the city that kicks off the weekend by celebrating unsung heroes. Just as Chivas and Ferrari come together through precision and motion, this experience blends heritage, craft and momentum to set the tone for what’s ahead.</span></p>"
+  },
+  "active": true,
+  "deleted": false,
+  "createdBy": {
+    "$oid": "689a1b19e83b77cd37b9e762"
+  },
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-08-11T16:32:26.061Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-01T12:32:31.099Z"
+  },
+  "lastModifiedBy": {
+    "$oid": "68b58bdf47b9529d069402e9"
+  }
+},
+{
+  "_id": {
+    "$oid": "68b19d5d0188da5c93a75698"
+  },
+  "event": {
+    "$oid": "689a1b18e83b77cd37b9e751"
+  },
+  "group": null,
+  "title": "Chef Cracco Dinner: A Toast To the Unsung Heroes",
+  "startDateTime": {
+    "$date": "2025-09-04T22:00:00.000Z"
+  },
+  "endDateTime": {
+    "$date": "2025-09-05T21:59:59.999Z"
+  },
+  "thumbnail": "",
+  "category": "other",
+  "location": {
+    "name": "TBD",
+    "address": "TBD",
+    "mapLink": "Elevated & Maximalist :https://maps.app.goo.gl/sBHwPseTWS693qUWA"
+  },
+  "content": {
+    "html": "<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\">We all come together at shared tables to celebrate that excellence is never solo, its always collective: I Rise, We Rise. This evening will be a moment where we bring to life precision, creativity and tenacity, expressed through culture and cuisine.</p>"
+  },
+  "active": true,
+  "deleted": false,
+  "createdBy": {
+    "$oid": "689a1b19e83b77cd37b9e762"
+  },
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-08-11T16:32:26.061Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-01T12:41:39.827Z"
+  },
+  "lastModifiedBy": {
+    "$oid": "68b58bdf47b9529d069402e9"
+  }
+},
+{
+  "_id": {
+    "$oid": "68b19d640188da5c93a75699"
+  },
+  "event": {
+    "$oid": "689a1b18e83b77cd37b9e751"
+  },
+  "group": null,
+  "title": "The Paddock Club",
+  "startDateTime": {
+    "$date": "2025-09-04T22:00:00.000Z"
+  },
+  "endDateTime": {
+    "$date": "2025-09-05T21:59:59.999Z"
+  },
+  "thumbnail": "",
+  "category": "other",
+  "location": {
+    "name": "TBD",
+    "address": "TBD",
+    "mapLink": "Sports Luxe"
+  },
+  "content": {
+    "html": "<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><span style=\"color: rgb(0, 0, 0);\">The Paddock Club at Monza offers the ultimate Grand Prix hospitality experience, with trackside views above the pit lane, gourmet dining and premium Chivas Regal expressions.</span></p>"
+  },
+  "active": true,
+  "deleted": false,
+  "createdBy": {
+    "$oid": "689a1b19e83b77cd37b9e762"
+  },
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-08-11T16:32:26.061Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-01T13:12:59.676Z"
+  },
+  "lastModifiedBy": {
+    "$oid": "68b58bdf47b9529d069402e9"
+  }
+},
+{
+  "_id": {
+    "$oid": "68b19d740188da5c93a7569a"
+  },
+  "event": {
+    "$oid": "689a1b18e83b77cd37b9e751"
+  },
+  "group": null,
+  "title": "The Regal Club, On Track Hospitality",
+  "startDateTime": {
+    "$date": "2025-09-04T20:00:00.000Z"
+  },
+  "endDateTime": {
+    "$date": "2025-09-05T19:59:59.999Z"
+  },
+  "thumbnail": "",
+  "category": "other",
+  "location": {
+    "name": "TBD",
+    "address": "TBD",
+    "mapLink": "Sports Luxe"
+  },
+  "content": {
+    "html": "<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><strong style=\"font-weight: bold;\">Art History Pairing</strong>&nbsp;<br>Discover the rich artistic heritage of Italy as a Milanese art historian guides you through Italian masterpieces that link with our crafted cocktails. You’ll take home a premium postcard pack featuring the artworks and some of our cocktail recipes, a keepsake to recreate the magic at home.&nbsp;</p><p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\">&nbsp;</p><p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\">&nbsp;</p><p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><strong style=\"font-weight: bold;\">Parmigiano Reggiano &amp; Mini Chivas Rosso </strong>&nbsp;<br>Watch pasta perfection come to life in a wheel of Parmigiano Reggiano, paired with miniature Chivas Rosso cocktails, where bold whisky meets Italian culinary theatre.&nbsp; &nbsp;</p>"
+  },
+  "active": false,
+  "deleted": true,
+  "createdBy": {
+    "$oid": "689a1b19e83b77cd37b9e762"
+  },
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-08-11T16:32:26.061Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-01T13:39:50.345Z"
+  },
+  "lastModifiedBy": {
+    "$oid": "689a1b18e83b77cd37b9e74b"
+  }
+},
+{
+  "_id": {
+    "$oid": "68b19d820188da5c93a7569b"
+  },
+  "event": {
+    "$oid": "689a1b18e83b77cd37b9e751"
+  },
+  "group": null,
+  "title": "Vesta Fiori Chiari Dinner",
+  "startDateTime": {
+    "$date": "2025-09-04T22:00:00.000Z"
+  },
+  "endDateTime": {
+    "$date": "2025-09-05T21:59:59.999Z"
+  },
+  "thumbnail": "",
+  "category": "other",
+  "location": {
+    "name": "TBD",
+    "address": "TBD",
+    "mapLink": "Playful & Elevated:https"
+  },
+  "content": {
+    "html": "<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><span style=\"color: rgb(0, 0, 0);\">In the heart of Brera, discover Vesta’s private dining room where craft and creativity meet, with Mediterranean plates paired with innovative Chivas Regal cocktails. The evening then continues with after-dinner drinks set to a soundtrack of soulful beats.</span></p>"
+  },
+  "active": true,
+  "deleted": false,
+  "createdBy": {
+    "$oid": "689a1b19e83b77cd37b9e762"
+  },
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-08-11T16:32:26.061Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-01T12:52:41.571Z"
+  },
+  "lastModifiedBy": {
+    "$oid": "68b58bdf47b9529d069402e9"
+  }
+},
+{
+  "_id": {
+    "$oid": "68b19d8e0188da5c93a7569c"
+  },
+  "event": {
+    "$oid": "689a1b18e83b77cd37b9e751"
+  },
+  "group": null,
+  "title": "A Moment With Charles Leclerc",
+  "startDateTime": {
+    "$date": "2025-09-06T22:00:00.000Z"
+  },
+  "endDateTime": {
+    "$date": "2025-09-07T21:59:59.999Z"
+  },
+  "thumbnail": "",
+  "category": "other",
+  "location": {
+    "name": "TBD",
+    "address": "TBD",
+    "mapLink": "Sports Luxe:https://maps.app.goo.gl/niqxDAGe2RMTg3Hw8"
+  },
+  "content": {
+    "html": "<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\">An exclusive interview with Charles Leclerc held in The Affresco Room at Hotel de la Ville, Monza, followed by a reception of light refreshments.</p>"
+  },
+  "active": true,
+  "deleted": true,
+  "createdBy": {
+    "$oid": "689a1b19e83b77cd37b9e762"
+  },
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-08-11T16:32:26.061Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-01T13:01:18.801Z"
+  },
+  "lastModifiedBy": {
+    "$oid": "68b58bdf47b9529d069402e9"
+  }
+},
+{
+  "_id": {
+    "$oid": "68b19d980188da5c93a7569d"
+  },
+  "event": {
+    "$oid": "689a1b18e83b77cd37b9e751"
+  },
+  "group": null,
+  "title": "The Paddock Club",
+  "startDateTime": {
+    "$date": "2025-09-06T22:00:00.000Z"
+  },
+  "endDateTime": {
+    "$date": "2025-09-07T21:59:59.999Z"
+  },
+  "thumbnail": "",
+  "category": "other",
+  "location": {
+    "name": "TBD",
+    "address": "TBD",
+    "mapLink": "Sports Luxe"
+  },
+  "content": {
+    "html": "<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><span style=\"color: rgb(0, 0, 0);\">The Paddock Club at Monza offers the ultimate Grand Prix hospitality experience, with trackside views above the pit lane, gourmet dining and premium Chivas Regal expressions.</span></p>"
+  },
+  "active": true,
+  "deleted": false,
+  "createdBy": {
+    "$oid": "689a1b19e83b77cd37b9e762"
+  },
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-08-11T16:32:26.061Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-01T13:12:46.025Z"
+  },
+  "lastModifiedBy": {
+    "$oid": "68b58bdf47b9529d069402e9"
+  }
+},
+{
+  "_id": {
+    "$oid": "68b19d9e0188da5c93a7569e"
+  },
+  "event": {
+    "$oid": "689a1b18e83b77cd37b9e751"
+  },
+  "group": null,
+  "title": "The Regal Club, On Track Hospitality",
+  "startDateTime": {
+    "$date": "2025-09-06T22:00:00.000Z"
+  },
+  "endDateTime": {
+    "$date": "2025-09-07T21:59:59.999Z"
+  },
+  "thumbnail": "",
+  "category": "other",
+  "location": {
+    "name": "TBD",
+    "address": "TBD",
+    "mapLink": "Sports Luxe"
+  },
+  "content": {
+    "html": "<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><strong style=\"font-weight: bold;\">Monza Mixology &amp; Monologues</strong>&nbsp;</p><p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\">Join Chivas Global Brand Ambassador Rhys Wilson and Giorgio Bargiani of London’s Connaught Bar for an interactive masterclass where craft, creativity, and a touch of theatre collide in every pour.&nbsp;</p><p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\">&nbsp;</p><p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><strong style=\"font-weight: bold;\">Merch Personalisation</strong>&nbsp;<br>On race day pick up your personalised Scuderia Ferrari HP cap from our merch station, a one-of-a-kind keepsake from your weekend in Monza.&nbsp;</p>"
+  },
+  "active": true,
+  "deleted": false,
+  "createdBy": {
+    "$oid": "689a1b19e83b77cd37b9e762"
+  },
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-08-11T16:32:26.061Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-01T13:35:53.954Z"
+  },
+  "lastModifiedBy": {
+    "$oid": "68b58bdf47b9529d069402e9"
+  }
+},
+{
+  "_id": {
+    "$oid": "68b19da80188da5c93a7569f"
+  },
+  "event": {
+    "$oid": "689a1b18e83b77cd37b9e751"
+  },
+  "group": null,
+  "title": "Trattoria del Ciumbia Dinner & After-Party",
+  "startDateTime": {
+    "$date": "2025-09-06T22:00:00.000Z"
+  },
+  "endDateTime": {
+    "$date": "2025-09-07T21:59:59.999Z"
+  },
+  "thumbnail": "",
+  "category": "other",
+  "location": {
+    "name": "TBD",
+    "address": "TBD",
+    "mapLink": "Playful & Elevated:https://maps.app.goo.gl/dtHb1eJWHJjejtvM6"
+  },
+  "content": {
+    "html": "<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><span style=\"color: rgb(0, 0, 0);\">Step into Brera’s golden age at Trattoria del Ciumbia for a nostalgic yet modern trattoria experience, where classic Milanese dishes are reimagined alongside Chivas Regal cocktails. After dinner, retreat downstairs to The Regal Lounge for the final toast of the weekend – raising a glass to the unsung heroes whose passion and tenacity inspire us all.</span></p>"
+  },
+  "active": true,
+  "deleted": false,
+  "createdBy": {
+    "$oid": "689a1b19e83b77cd37b9e762"
+  },
+  "__v": 0,
+  "createdAt": {
+    "$date": "2025-08-11T16:32:26.061Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-01T12:54:06.512Z"
+  },
+  "lastModifiedBy": {
+    "$oid": "68b58bdf47b9529d069402e9"
+  }
+},
+{
+  "_id": {
+    "$oid": "68b596c047b9529d06940351"
+  },
+  "event": {
+    "$oid": "689a1b18e83b77cd37b9e751"
+  },
+  "title": "Vesta Fiori Chiari Secret Room Dinner",
+  "startDateTime": {
+    "$date": "2025-09-04T22:00:00.000Z"
+  },
+  "endDateTime": {
+    "$date": "2025-09-05T21:59:59.999Z"
+  },
+  "thumbnail": "",
+  "category": "other",
+  "location": {
+    "name": "TBD",
+    "address": "TBD",
+    "mapLink": "Playful & Elevated:https"
+  },
+  "content": {
+    "html": "<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><span style=\"color: rgb(0, 0, 0);\">In the heart of Brera, discover Vesta’s Secret Room where craft and creativity meet, with Mediterranean plates paired with innovative Chivas Regal cocktails. The evening then continues with after-dinner drinks set to a soundtrack of soulful beats.</span></p>"
+  },
+  "active": true,
+  "deleted": false,
+  "createdBy": {
+    "$oid": "68b58bdf47b9529d069402e9"
+  },
+  "createdAt": {
+    "$date": "2025-09-01T12:51:12.519Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-01T12:52:59.755Z"
+  },
+  "__v": 0,
+  "lastModifiedBy": {
+    "$oid": "68b58bdf47b9529d069402e9"
+  }
+},
+{
+  "_id": {
+    "$oid": "68b5970547b9529d0694035e"
+  },
+  "event": {
+    "$oid": "689a1b18e83b77cd37b9e751"
+  },
+  "title": "Casa Fiori Chiari Dinner",
+  "startDateTime": {
+    "$date": "2025-09-04T22:00:00.000Z"
+  },
+  "endDateTime": {
+    "$date": "2025-09-05T21:59:59.999Z"
+  },
+  "thumbnail": "",
+  "category": "other",
+  "location": {
+    "name": "TBD",
+    "address": "TBD",
+    "mapLink": "Playful & Elevated :https"
+  },
+  "content": {
+    "html": "<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><span style=\"color: rgb(0, 0, 0);\">Casa Fiori Chiari offers a contemporary setting for an evening of modern Milanese hospitality. Experience refined Italian cuisine elevated with bespoke Chivas Regal cocktails.</span></p>"
+  },
+  "active": true,
+  "deleted": false,
+  "createdBy": {
+    "$oid": "68b58bdf47b9529d069402e9"
+  },
+  "createdAt": {
+    "$date": "2025-09-01T12:52:21.648Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-01T12:52:31.700Z"
+  },
+  "__v": 0,
+  "lastModifiedBy": {
+    "$oid": "68b58bdf47b9529d069402e9"
+  }
+},
+{
+  "_id": {
+    "$oid": "68b5a16047b9529d069403f5"
+  },
+  "event": {
+    "$oid": "689a1b18e83b77cd37b9e751"
+  },
+  "title": "The Regal Club, On-Track Hospitality",
+  "startDateTime": {
+    "$date": "2025-09-05T22:00:00.000Z"
+  },
+  "endDateTime": {
+    "$date": "2025-09-06T21:59:59.999Z"
+  },
+  "thumbnail": "",
+  "category": "other",
+  "location": {
+    "name": "TBD",
+    "address": "TBD",
+    "mapLink": "Sports Luxe"
+  },
+  "content": {
+    "html": "<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><strong style=\"font-weight: bold;\">Art History Pairing</strong>&nbsp;<br>Discover Italy’s rich artistic heritage with a Milanese art historian, who will chat with you about the stories behind masterpieces paired with our Chivas Regal crafted cocktails. Guests take home a premium postcard pack featuring the artworks and cocktail recipes — a keepsake to relive and recreate the magic at</p><p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\">&nbsp;</p><p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><strong style=\"font-weight: bold;\">Parmigiano Reggiano &amp; Mini Chivas Rosso </strong>&nbsp;<br>Experience pasta perfection as it’s crafted in a wheel of Parmigiano Reggiano, paired with miniature Chivas Rosso cocktails — where bold whisky meets the artistry of Italian culinary theatre.</p>"
+  },
+  "active": true,
+  "deleted": false,
+  "createdBy": {
+    "$oid": "68b58bdf47b9529d069402e9"
+  },
+  "createdAt": {
+    "$date": "2025-09-01T13:36:32.470Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-01T13:36:32.470Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68b5a20b47b9529d06940426"
+  },
+  "event": {
+    "$oid": "689a1b18e83b77cd37b9e751"
+  },
+  "title": "The Regal Club On-Track Hospitality",
+  "startDateTime": {
+    "$date": "2025-09-04T22:00:00.000Z"
+  },
+  "endDateTime": {
+    "$date": "2025-09-05T21:59:59.999Z"
+  },
+  "thumbnail": "",
+  "category": "other",
+  "location": {
+    "name": "TBD",
+    "address": "TBD",
+    "mapLink": "Sports Luxe"
+  },
+  "content": {
+    "html": "<p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><strong style=\"font-weight: bold;\">The Icon Tasting</strong>&nbsp;</p><p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\">A unique opportunity to experience both the most exclusive whisky in the Chivas Regal family, and the pinnacle of flavour – The Icon. </p><p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\">&nbsp;</p><p style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\" style=\"margin: 1em 0; line-height: 1.5; color: #1f2937; font-family: inherit;\"><strong style=\"font-weight: bold;\">Behind the Helmet with Marc Gené</strong>&nbsp;<br>Get closer to the action as F1 legend and Scuderia Ferrari HP ambassador Marc Gené shares candid stories, bold insights, and moments from life both on and off the track. In this conversation, guests uncover the untold stories of the pit crews, engineers, and makers who embody true tenacity and relentless pursuit of excellence.</p>"
+  },
+  "active": true,
+  "deleted": false,
+  "createdBy": {
+    "$oid": "68b58bdf47b9529d069402e9"
+  },
+  "createdAt": {
+    "$date": "2025-09-01T13:39:23.356Z"
+  },
+  "updatedAt": {
+    "$date": "2025-09-01T13:39:23.356Z"
+  },
+  "__v": 0
+}]

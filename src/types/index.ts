@@ -84,7 +84,7 @@ export type UpdateGroup = z.infer<typeof UpdateGroupSchema>;
 export const ActivityLocationSchema = z.object({
   name: z.string(),
   address: z.string(),
-  mapLink: z.string().url().optional(),
+  mapLink: z.string().optional(), // Allow any string content including iframe embeds
 });
 export type ActivityLocation = z.infer<typeof ActivityLocationSchema>;
 
@@ -201,9 +201,9 @@ export type TestTemplate = z.infer<typeof TestTemplateSchema>;
 // ============================================================================
 
 export const UserProfileSchema = z.object({
-  email: z.string().email(),
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
+  email: z.string().optional(), // Allow empty during seeding - no email validation
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
   phone: z.string().optional(),
 });
 export type UserProfile = z.infer<typeof UserProfileSchema>;
@@ -306,15 +306,14 @@ export const UserMerchandiseSizeSchema = z.object({
 export type UserMerchandiseSize = z.infer<typeof UserMerchandiseSizeSchema>;
 
 export const UserEmergencyContactSchema = z.object({
-  name: z.string().min(1),
-  relationship: z.string().min(1),
-  phone: z.string().min(1),
+  name: z.string().optional(),
+  relationship: z.string().optional(),
+  phone: z.string().optional(),
   email: z
     .string()
-    .email()
-    .nullable()
     .optional()
-    .transform((val) => (val === null ? undefined : val)),
+    .nullable()
+    .transform((val) => (val === null || val === '' ? undefined : val)),
 });
 export type UserEmergencyContact = z.infer<typeof UserEmergencyContactSchema>;
 

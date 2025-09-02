@@ -100,10 +100,13 @@ model Group {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
+  
+  // Many-to-many with activities (MongoDB array approach)
+  activityIds String[]   @db.ObjectId
 
   // Relations
   event      Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  activities Activity[]
+  activities Activity[] @relation(fields: [activityIds], references: [id])
   users      User[]
   communicationLogs CommunicationLog[]
   userActivityExclusions UserActivityExclusion[]
@@ -114,7 +117,7 @@ model Group {
 model Activity {
   id      String  @id @default(auto()) @map("_id") @db.ObjectId
   eventId String  @db.ObjectId
-  groupId String? @db.ObjectId
+  groupIds String[] @db.ObjectId  // Multiple groups per activity
 
   // Scheduling (required)
   title         String
@@ -142,15 +145,15 @@ model Activity {
 
   // Relations
   event                 Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  group                 Group? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  groups                Group[] @relation(fields: [groupIds], references: [id])
   createdByAdmin        Admin  @relation("ActivityCreator", fields: [createdBy], references: [id])
   lastModifiedByAdmin   Admin  @relation("ActivityModifier", fields: [lastModifiedBy], references: [id])
   userExclusions        UserActivityExclusion[]
 
   // Prisma v6 optimized indexes for timeline queries
-  @@index([groupId, startDateTime])
+  @@index([groupIds, startDateTime])
   @@index([eventId, active, deleted])
-  @@index([groupId, active, deleted])
+  @@index([groupIds, active, deleted])
   @@index([createdBy])
   @@index([lastModifiedBy])
   @@map("activities")
