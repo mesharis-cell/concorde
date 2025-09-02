@@ -30,7 +30,7 @@ const envSchema = z.object({
   TWILIO_WHATSAPP_FROM: z.string().min(1),
 
   // App
-  APP_URL: z.string().url().default('http://localhost:3000'),
+  APP_URL: z.string().url().default('https://chivasregalmonza.com'),
   PORT: z.string().default('3000'),
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
