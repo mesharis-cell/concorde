@@ -11,6 +11,48 @@ import {
 import { authenticateUser } from '../../middleware/auth.js';
 import { EmailService } from '../../services/email.js';
 
+// Helper function to send magic link using branded template if available
+async function sendMagicLinkWithTemplate(
+  email: string,
+  variables: {
+    eventName: string;
+    firstName: string;
+    lastName: string;
+    magicLink: string;
+    eventId: string;
+  }
+) {
+  try {
+    // Try to find a branded MAGIC_LINK template for this event
+    const { TemplateService } = await import('../../services/templates.js');
+    const templates = await TemplateService.findByEventId(variables.eventId, {
+      type: 'AUTHENTICATION',
+      category: 'MAGIC_LINK',
+      active: true,
+    });
+
+    if (templates.length > 0) {
+      // Use the first available branded template
+      const brandedTemplate = templates[0];
+
+      const template = {
+        subject: brandedTemplate.subject,
+        html: brandedTemplate.html,
+      };
+
+      return await EmailService.sendEmail(email, template, variables);
+    }
+  } catch (error) {
+    console.warn(
+      'Failed to load branded template, falling back to generic:',
+      error
+    );
+  }
+
+  // Fallback to generic template
+  return await EmailService.sendMagicLinkEmail(email, variables);
+}
+
 const app = new OpenAPIHono();
 
 // Register Bearer Auth security scheme for authenticated endpoints
@@ -420,21 +462,25 @@ app.openapi(requestMagicLinkRoute, async (c) => {
 
       const magicLinkUrl = `${event.config['micrositeUrl']}/auth/magic?token=${magicLink.token}&event=${eventId}`;
 
-      await EmailService.sendMagicLinkEmail(email, {
+      // Try to use branded template first, fall back to generic
+      await sendMagicLinkWithTemplate(email, {
         eventName: event.name,
         firstName,
         lastName,
         magicLink: magicLinkUrl,
+        eventId,
       });
     } else {
       // In production, send email via AWS SES
       const magicLinkUrl = `${event.config['micrositeUrl']}/auth/magic?token=${magicLink.token}&event=${eventId}`;
 
-      await EmailService.sendMagicLinkEmail(email, {
+      // Try to use branded template first, fall back to generic
+      await sendMagicLinkWithTemplate(email, {
         eventName: event.name,
         firstName,
         lastName,
         magicLink: magicLinkUrl,
+        eventId,
       });
     }
 
