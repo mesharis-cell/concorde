@@ -1,4 +1,5 @@
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import { Resend } from 'resend';
 import { env } from '../config/env.js';
 
 const sesClient = new SESClient({
@@ -8,6 +9,8 @@ const sesClient = new SESClient({
     secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
   },
 });
+
+const resend = new Resend(env.RESEND_API_KEY);
 
 export interface EmailTemplate {
   subject: string;
@@ -23,43 +26,70 @@ export class EmailService {
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
       const recipients = Array.isArray(to) ? to : [to];
-      
+
       // Replace variables in template
       const subject = this.replaceVariables(template.subject, variables);
       const htmlBody = this.replaceVariables(template.html, variables);
-      const textBody = template.text ? this.replaceVariables(template.text, variables) : undefined;
+      const textBody = template.text
+        ? this.replaceVariables(template.text, variables)
+        : undefined;
 
-      const command = new SendEmailCommand({
-        Source: `${env.SES_FROM_NAME} <${env.SES_FROM_EMAIL}>`,
-        Destination: {
-          ToAddresses: recipients,
-        },
-        Message: {
-          Subject: {
-            Data: subject,
-            Charset: 'UTF-8',
+      if (env.EMAIL_PROVIDER === 'resend') {
+        // Use Resend (new and improved!)
+        const { data, error } = await resend.emails.send({
+          from: `${env.SES_FROM_NAME} <${env.SES_FROM_EMAIL}>`,
+          to: recipients,
+          subject,
+          html: htmlBody,
+          ...(textBody && { text: textBody }),
+        });
+
+        if (error) {
+          console.error('Failed to send email via Resend:', error);
+          return {
+            success: false,
+            error: error.message,
+          };
+        }
+
+        return {
+          success: true,
+          messageId: data?.id,
+        };
+      } else {
+        // Fallback to AWS SES
+        const command = new SendEmailCommand({
+          Source: `${env.SES_FROM_NAME} <${env.SES_FROM_EMAIL}>`,
+          Destination: {
+            ToAddresses: recipients,
           },
-          Body: {
-            Html: {
-              Data: htmlBody,
+          Message: {
+            Subject: {
+              Data: subject,
               Charset: 'UTF-8',
             },
-            ...(textBody && {
-              Text: {
-                Data: textBody,
+            Body: {
+              Html: {
+                Data: htmlBody,
                 Charset: 'UTF-8',
               },
-            }),
+              ...(textBody && {
+                Text: {
+                  Data: textBody,
+                  Charset: 'UTF-8',
+                },
+              }),
+            },
           },
-        },
-      });
+        });
 
-      const result = await sesClient.send(command);
-      
-      return {
-        success: true,
-        messageId: result.MessageId,
-      };
+        const result = await sesClient.send(command);
+
+        return {
+          success: true,
+          messageId: result.MessageId,
+        };
+      }
     } catch (error: any) {
       console.error('Failed to send email:', error);
       return {
@@ -263,14 +293,17 @@ export class EmailService {
     return this.sendEmail(email, template, variables);
   }
 
-  private static replaceVariables(template: string, variables: Record<string, any>): string {
+  private static replaceVariables(
+    template: string,
+    variables: Record<string, any>
+  ): string {
     let result = template;
-    
+
     Object.entries(variables).forEach(([key, value]) => {
       const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
       result = result.replace(regex, String(value));
     });
-    
+
     return result;
   }
 }
