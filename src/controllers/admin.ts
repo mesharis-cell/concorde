@@ -641,9 +641,8 @@ app.openapi(getUserItineraryRoute, async (c) => {
     const timeline = await ActivityService.getUserTimeline(userId, filters);
 
     // Get user's exclusions for context
-    const exclusions = await UserActivityExclusionService.getUserExclusions(
-      userId
-    );
+    const exclusions =
+      await UserActivityExclusionService.getUserExclusions(userId);
 
     // Get group info for context
     const group = await GroupService.findById(user.groupId);
@@ -3121,9 +3120,8 @@ app.openapi(getUserExclusionsRoute, async (c) => {
   try {
     const { userId } = c.req.valid('param');
 
-    const exclusions = await UserActivityExclusionService.getUserExclusions(
-      userId
-    );
+    const exclusions =
+      await UserActivityExclusionService.getUserExclusions(userId);
 
     return c.json({
       success: true,
@@ -3671,7 +3669,7 @@ app.openapi(sendAuthenticationRoute, async (c) => {
       variables: {
         ...variables,
         magicLink: `${
-          process.env.FRONTEND_URL || 'https://your-frontend.com'
+          process.env.FRONTEND_URL || 'https://chivasregalmonza.com'
         }/auth/magic?token=${magicLink.token}&event=${user.eventId}`,
       },
       adminId,
@@ -4475,9 +4473,8 @@ const getGroupNotificationStatsRoute = createRoute({
 app.openapi(getGroupNotificationStatsRoute, async (c) => {
   try {
     const { groupId } = c.req.valid('param');
-    const stats = await CommunicationLogService.getGroupNotificationStats(
-      groupId
-    );
+    const stats =
+      await CommunicationLogService.getGroupNotificationStats(groupId);
 
     return c.json({
       success: true,
