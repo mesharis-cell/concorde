@@ -56,7 +56,7 @@ export class ActivityService {
     return prisma.activity.create({
       data: {
         eventId: data.eventId,
-        groupId: data.groupId || null, // Allow null groupId
+        groupIds: data.groupIds || [], // Array of group IDs
         title: data.title,
         description: data.description,
         startDateTime: activityStart, // Store in UTC
@@ -78,7 +78,7 @@ export class ActivityService {
         event: {
           select: { id: true, name: true, shortName: true },
         },
-        group: {
+        groups: {
           select: { id: true, name: true, memberCount: true },
         },
         createdByAdmin: {
@@ -135,15 +135,15 @@ export class ActivityService {
     // Check if activity exists and admin has permission
     const activity = await prisma.activity.findUnique({
       where: { id: activityId, deleted: false },
-      select: { id: true, groupId: true, eventId: true, title: true },
+      select: { id: true, groupIds: true, eventId: true, title: true },
     });
 
     if (!activity) {
       throw new Error('Activity not found');
     }
 
-    if (activity.groupId) {
-      throw new Error('Activity is already assigned to a group');
+    if (activity.groupIds?.includes(groupId)) {
+      throw new Error('Activity is already assigned to this group');
     }
 
     // Verify group exists and belongs to same event
@@ -160,11 +160,13 @@ export class ActivityService {
       throw new Error('Activity and group must belong to the same event');
     }
 
-    // Update activity assignment
+    // Add group to activity's groupIds array
+    const updatedGroupIds = [...(activity.groupIds || []), groupId];
+
     return await prisma.activity.update({
       where: { id: activityId },
       data: {
-        groupId,
+        groupIds: updatedGroupIds,
         lastModifiedBy: adminId,
         updatedAt: new Date(),
       },
@@ -177,22 +179,54 @@ export class ActivityService {
   ): Promise<Activity> {
     const activity = await prisma.activity.findUnique({
       where: { id: activityId, deleted: false },
-      select: { id: true, groupId: true, title: true },
+      select: { id: true, groupIds: true, title: true },
     });
 
     if (!activity) {
       throw new Error('Activity not found');
     }
 
-    if (!activity.groupId) {
-      throw new Error('Activity is not assigned to any group');
+    if (!activity.groupIds || activity.groupIds.length === 0) {
+      throw new Error('Activity is not assigned to any groups');
     }
 
-    // Update activity assignment
+    // Clear all group assignments
     return await prisma.activity.update({
       where: { id: activityId },
       data: {
-        groupId: null,
+        groupIds: [],
+        lastModifiedBy: adminId,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  // New method: Remove from specific group
+  static async removeFromGroup(
+    activityId: string,
+    groupId: string,
+    adminId: string
+  ): Promise<Activity> {
+    const activity = await prisma.activity.findUnique({
+      where: { id: activityId, deleted: false },
+      select: { id: true, groupIds: true, eventId: true, title: true },
+    });
+
+    if (!activity) {
+      throw new Error('Activity not found');
+    }
+
+    if (!activity.groupIds?.includes(groupId)) {
+      throw new Error('Activity is not assigned to this group');
+    }
+
+    // Remove specific group from groupIds array
+    const updatedGroupIds = activity.groupIds.filter((id) => id !== groupId);
+
+    return await prisma.activity.update({
+      where: { id: activityId },
+      data: {
+        groupIds: updatedGroupIds,
         lastModifiedBy: adminId,
         updatedAt: new Date(),
       },
@@ -214,7 +248,7 @@ export class ActivityService {
     const skip = (page - 1) * limit;
 
     const where: any = {
-      groupId,
+      groupIds: { has: groupId }, // MongoDB array contains check
       deleted: false,
     };
 
@@ -247,7 +281,7 @@ export class ActivityService {
         take: limit,
         orderBy: { startDateTime: 'asc' },
         include: {
-          group: {
+          groups: {
             select: { id: true, name: true },
           },
           createdByAdmin: {
@@ -301,7 +335,7 @@ export class ActivityService {
     }
 
     if (filters.groupId) {
-      where.groupId = filters.groupId;
+      where.groupIds = { has: filters.groupId }; // MongoDB array contains
     }
 
     if (filters.dateFrom || filters.dateTo) {
@@ -325,7 +359,7 @@ export class ActivityService {
         take: limit,
         orderBy: { startDateTime: 'asc' },
         include: {
-          group: {
+          groups: {
             select: { id: true, name: true },
           },
           createdByAdmin: {
@@ -422,6 +456,7 @@ export class ActivityService {
     if (data.category) updateData.category = data.category;
     if (data.location !== undefined) updateData.location = data.location;
     if (data.content) updateData.content = data.content;
+    if (data.groupIds !== undefined) updateData.groupIds = data.groupIds; // Handle group assignments
 
     return prisma.activity.update({
       where: { id },
@@ -469,7 +504,7 @@ export class ActivityService {
     } = {}
   ) {
     const where: any = {
-      groupId,
+      groupIds: { has: groupId }, // MongoDB array contains check
       deleted: false,
       active: true,
     };
@@ -536,7 +571,7 @@ export class ActivityService {
 
     // Get all activities for the group
     const where: any = {
-      groupId: user.groupId,
+      groupIds: { has: user.groupId }, // MongoDB array contains check
       deleted: false,
       active: true,
     };
@@ -612,7 +647,7 @@ export class ActivityService {
     return prisma.activity.create({
       data: {
         eventId: original.eventId,
-        groupId: original.groupId,
+        groupIds: original.groupIds || [], // Copy group assignments
         title: newTitle || `${original.title} (Copy)`,
         startDateTime: original.startDateTime,
         endDateTime: original.endDateTime,
@@ -631,7 +666,7 @@ export class ActivityService {
 
     return prisma.activity.findMany({
       where: {
-        groupId,
+        groupIds: { has: groupId }, // MongoDB array contains check
         deleted: false,
         active: true,
         startDateTime: {

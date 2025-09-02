@@ -95,7 +95,7 @@ export type ActivityContent = z.infer<typeof ActivityContentSchema>;
 
 export const CreateActivitySchema = z.object({
   eventId: z.string(),
-  groupId: z.string().optional(), // Now optional
+  groupIds: z.array(z.string()).default([]), // Array of group IDs
   title: z.string().min(1),
   description: z.string().optional(),
   startDateTime: z.coerce.date(),
@@ -109,7 +109,6 @@ export type CreateActivity = z.infer<typeof CreateActivitySchema>;
 
 export const UpdateActivitySchema = CreateActivitySchema.partial().omit({
   eventId: true,
-  groupId: true,
   createdBy: true,
 });
 export type UpdateActivity = z.infer<typeof UpdateActivitySchema>;

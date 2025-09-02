@@ -11,7 +11,9 @@ export interface CreateExclusion {
 }
 
 export class UserActivityExclusionService {
-  static async excludeUserFromActivity(data: CreateExclusion): Promise<UserActivityExclusion> {
+  static async excludeUserFromActivity(
+    data: CreateExclusion
+  ): Promise<UserActivityExclusion> {
     // Validate that user is in the group and activity belongs to same group
     const user = await prisma.user.findUnique({
       where: { id: data.userId },
@@ -23,25 +25,27 @@ export class UserActivityExclusionService {
     }
 
     if (!user.assigned || user.groupId !== data.groupId) {
-      throw new Error('User must be assigned to the same group as the activity');
+      throw new Error(
+        'User must be assigned to the same group as the activity'
+      );
     }
 
     if (user.eventId !== data.eventId) {
       throw new Error('User and activity must belong to the same event');
     }
 
-    // Validate activity exists and belongs to the same group/event
+    // Validate activity exists and is assigned to the group
     const activity = await prisma.activity.findUnique({
       where: { id: data.activityId },
-      select: { groupId: true, eventId: true, deleted: true, active: true },
+      select: { groupIds: true, eventId: true, deleted: true, active: true },
     });
 
     if (!activity || activity.deleted || !activity.active) {
       throw new Error('Activity not found or inactive');
     }
 
-    if (activity.groupId !== data.groupId) {
-      throw new Error('Activity must belong to the same group as the user');
+    if (!activity.groupIds?.includes(data.groupId)) {
+      throw new Error('Activity is not assigned to the user group');
     }
 
     if (activity.eventId !== data.eventId) {
@@ -75,7 +79,10 @@ export class UserActivityExclusionService {
     });
   }
 
-  static async includeUserInActivity(userId: string, activityId: string): Promise<void> {
+  static async includeUserInActivity(
+    userId: string,
+    activityId: string
+  ): Promise<void> {
     const exclusion = await prisma.userActivityExclusion.findUnique({
       where: {
         userId_activityId: {
@@ -99,7 +106,9 @@ export class UserActivityExclusionService {
     });
   }
 
-  static async getUserExclusions(userId: string): Promise<UserActivityExclusion[]> {
+  static async getUserExclusions(
+    userId: string
+  ): Promise<UserActivityExclusion[]> {
     return await prisma.userActivityExclusion.findMany({
       where: { userId },
       include: {
@@ -131,7 +140,12 @@ export class UserActivityExclusionService {
       user: { id: string; profile: any; firstName?: string; lastName?: string };
       exclusions: Array<{
         activityId: string;
-        activity: { id: string; title: string; startDateTime: Date; endDateTime: Date };
+        activity: {
+          id: string;
+          title: string;
+          startDateTime: Date;
+          endDateTime: Date;
+        };
         reason?: string;
         excludedBy: string;
         admin: { firstName: string; lastName: string };
@@ -180,7 +194,7 @@ export class UserActivityExclusionService {
           exclusions: [],
         };
       }
-      
+
       acc[userId].exclusions.push({
         activityId: exclusion.activityId,
         activity: exclusion.activity,
@@ -189,14 +203,16 @@ export class UserActivityExclusionService {
         admin: exclusion.admin,
         createdAt: exclusion.createdAt,
       });
-      
+
       return acc;
     }, {} as Record<string, any>);
 
     return Object.values(grouped);
   }
 
-  static async getActivityExclusions(activityId: string): Promise<UserActivityExclusion[]> {
+  static async getActivityExclusions(
+    activityId: string
+  ): Promise<UserActivityExclusion[]> {
     return await prisma.userActivityExclusion.findMany({
       where: { activityId },
       include: {

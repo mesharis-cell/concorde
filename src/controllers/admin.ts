@@ -402,7 +402,10 @@ const getUsersRoute = createRoute({
     query: PaginationSchema.extend({
       eventId: z.string(),
       search: z.string().optional(),
-      assigned: z.coerce.boolean().optional(),
+      assigned: z
+        .string()
+        .transform((val) => val === 'true' || val === '1')
+        .optional(),
       groupId: z.string().optional(),
       requirementType: z
         .enum(['dietary', 'medical', 'accessibility', 'accommodation', 'any'])
@@ -410,7 +413,10 @@ const getUsersRoute = createRoute({
       communicationType: z
         .enum(['email-only', 'whatsapp-only', 'both', 'none', 'any'])
         .optional(),
-      hasRequirements: z.coerce.boolean().optional(),
+      hasRequirements: z
+        .string()
+        .transform((val) => val === 'true' || val === '1')
+        .optional(),
     }),
   },
   responses: {
@@ -635,16 +641,21 @@ app.openapi(getUserItineraryRoute, async (c) => {
     const timeline = await ActivityService.getUserTimeline(userId, filters);
 
     // Get user's exclusions for context
-    const exclusions = await UserActivityExclusionService.findByUserId(userId);
+    const exclusions = await UserActivityExclusionService.getUserExclusions(
+      userId
+    );
 
     // Get group info for context
     const group = await GroupService.findById(user.groupId);
 
     // Get total activities in group for comparison
-    const allGroupActivities = await ActivityService.findByGroup(user.groupId, {
-      page: 1,
-      limit: 1000,
-    });
+    const allGroupActivities = await ActivityService.findByGroupId(
+      user.groupId,
+      {
+        page: 1,
+        limit: 1000,
+      }
+    );
 
     return c.json({
       success: true,
@@ -654,7 +665,6 @@ app.openapi(getUserItineraryRoute, async (c) => {
           profile: user.profile,
           assigned: user.assigned,
           groupId: user.groupId,
-          group: user.group,
           communication: user.communication,
           requirements: user.requirements,
           emergencyContact: user.emergencyContact,
@@ -1271,7 +1281,10 @@ const getGroupMembersRoute = createRoute({
     }),
     query: PaginationSchema.extend({
       search: z.string().optional(),
-      hasRequirements: z.coerce.boolean().optional(),
+      hasRequirements: z
+        .string()
+        .transform((val) => val === 'true' || val === '1')
+        .optional(),
     }),
   },
   responses: {
@@ -2353,10 +2366,16 @@ app.openapi(getActivitiesRoute, async (c) => {
 
     let result;
     if (eventId) {
-      result = await ActivityService.findByEventId(eventId, {
-        page: page || 1,
-        limit: limit || 20,
-      });
+      result = await ActivityService.findByEventId(
+        eventId,
+        {
+          page: page || 1,
+          limit: limit || 20,
+        },
+        {
+          groupId, // ✅ FIX: Pass groupId as filter
+        }
+      );
     } else if (groupId) {
       result = await ActivityService.findByGroupId(groupId, {
         page: page || 1,
