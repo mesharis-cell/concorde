@@ -4930,4 +4930,123 @@ app.openapi(getCommunicationHistoryRoute, async (c) => {
   }
 });
 
+// Generate Silent Magic Link for Admin Preview (NO EMAIL SENT)
+const generateAdminPreviewTokenRoute = createRoute({
+  method: 'post',
+  path: '/users/{userId}/admin-preview-token',
+  tags: ['Admin - Users'],
+  summary:
+    'Generate silent magic link token for admin to preview user experience',
+  description:
+    'Creates a magic link token for admin preview without sending any email notifications to the user',
+  security: [{ bearerAuth: [] }],
+  request: {
+    params: z.object({
+      userId: z.string().describe('User ID to generate preview token for'),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+          example: {
+            success: true,
+            data: {
+              token: 'ml_abc123...',
+              micrositeUrl: 'https://chivasregalmonza.com',
+              previewUrl:
+                'https://chivasregalmonza.com/auth/magic?token=ml_abc123...',
+              expiresAt: '2025-01-03T10:00:00Z',
+            },
+            message: 'Admin preview token generated successfully',
+          },
+        },
+      },
+      description: 'Preview token generated successfully',
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+          example: {
+            success: false,
+            error: 'User not found',
+          },
+        },
+      },
+      description: 'User not found',
+    },
+  },
+});
+
+app.openapi(generateAdminPreviewTokenRoute, async (c) => {
+  try {
+    const { userId } = c.req.valid('param');
+    const authUser = c.get('user');
+
+    // Find the user
+    const user = await UserService.findById(userId);
+    if (!user) {
+      return c.json(
+        {
+          success: false,
+          error: 'User not found',
+        },
+        404
+      );
+    }
+
+    // Get event to retrieve microsite URL
+    const event = await EventService.findById(user.eventId);
+    if (!event) {
+      return c.json(
+        {
+          success: false,
+          error: 'Event not found',
+        },
+        404
+      );
+    }
+
+    // Generate magic link token (SILENTLY - no email sent)
+    const magicLink = await UserService.generateMagicLink(userId);
+
+    // Get microsite URL from event config
+    const micrositeUrl =
+      (event.config as any)?.micrositeUrl || 'https://localhost:3000';
+    const previewUrl = `${micrositeUrl}/auth/magic?token=${magicLink.token}`;
+
+    // Calculate expiration time (24 hours from now)
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    return c.json({
+      success: true,
+      data: {
+        token: magicLink.token,
+        micrositeUrl,
+        previewUrl,
+        expiresAt: expiresAt.toISOString(),
+        user: {
+          id: user.id,
+          email: (user.profile as any)?.email,
+          firstName: (user.profile as any)?.firstName,
+          lastName: (user.profile as any)?.lastName,
+        },
+      },
+      message: 'Admin preview token generated successfully (no email sent)',
+    });
+  } catch (error: any) {
+    console.error('Failed to generate admin preview token:', error);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to generate preview token',
+        details: error.message,
+      },
+      500
+    );
+  }
+});
+
 export default app;

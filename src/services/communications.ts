@@ -51,13 +51,19 @@ export interface CommunicationResult {
 }
 
 export class CommunicationsService {
-  static async sendCommunication(request: SendCommunicationRequest): Promise<CommunicationResult> {
-    const recipients = await this.getRecipients(request.eventId, request.recipientType, request.recipientIds);
-    
+  static async sendCommunication(
+    request: SendCommunicationRequest
+  ): Promise<CommunicationResult> {
+    const recipients = await this.getRecipients(
+      request.eventId,
+      request.recipientType,
+      request.recipientIds
+    );
+
     // Filter to only email opt-in users
-    const eligibleRecipients = recipients.filter(r => r.emailOptIn);
+    const eligibleRecipients = recipients.filter((r) => r.emailOptIn);
     const skippedCount = recipients.length - eligibleRecipients.length;
-    
+
     const result: CommunicationResult = {
       totalRecipients: recipients.length,
       sentCount: 0,
@@ -78,11 +84,16 @@ export class CommunicationsService {
         const variables = {
           firstName: recipient.firstName,
           lastName: recipient.lastName,
+          unsubscribeLink: `${env.APP_URL || 'http://localhost:3001'}/api/unsubscribe/${recipient.userId}/${request.eventId}`,
           ...request.variables,
         };
 
-        const emailResult = await EmailService.sendEmail(recipient.email, template, variables);
-        
+        const emailResult = await EmailService.sendEmail(
+          recipient.email,
+          template,
+          variables
+        );
+
         if (emailResult.success) {
           // Log successful communication
           await CommunicationLogService.create({
@@ -97,7 +108,10 @@ export class CommunicationsService {
             content: {
               html: this.replaceVariables(request.content, variables),
             },
-            recipientType: request.recipientType === 'individual' ? 'single' : request.recipientType,
+            recipientType:
+              request.recipientType === 'individual'
+                ? 'single'
+                : request.recipientType,
             recipientIds: request.recipientIds,
             status: 'sent',
             metadata: { messageId: emailResult.messageId },
@@ -124,7 +138,10 @@ export class CommunicationsService {
             content: {
               html: request.content,
             },
-            recipientType: request.recipientType === 'individual' ? 'single' : request.recipientType,
+            recipientType:
+              request.recipientType === 'individual'
+                ? 'single'
+                : request.recipientType,
             recipientIds: request.recipientIds,
             status: 'failed',
             metadata: { error: emailResult.error },
@@ -150,7 +167,7 @@ export class CommunicationsService {
     }
 
     // Add skipped recipients to deliveries
-    const skippedRecipients = recipients.filter(r => !r.emailOptIn);
+    const skippedRecipients = recipients.filter((r) => !r.emailOptIn);
     for (const recipient of skippedRecipients) {
       result.deliveries.push({
         userId: recipient.userId,
@@ -164,7 +181,9 @@ export class CommunicationsService {
   }
 
   // Template-based email sending with tracking and monitoring
-  static async sendTemplateEmail(request: SendTemplateEmailRequest): Promise<CommunicationResult> {
+  static async sendTemplateEmail(
+    request: SendTemplateEmailRequest
+  ): Promise<CommunicationResult> {
     // Get template and validate access
     const template = await TemplateService.findById(request.templateId);
     if (!template) {
@@ -172,30 +191,48 @@ export class CommunicationsService {
     }
 
     // Check admin access to template
-    const accessCheck = await TemplateService.checkAccess(request.templateId, request.adminId);
+    const accessCheck = await TemplateService.checkAccess(
+      request.templateId,
+      request.adminId
+    );
     if (!accessCheck.canAccess) {
-      throw new Error('Access denied - insufficient permissions for this template type');
+      throw new Error(
+        'Access denied - insufficient permissions for this template type'
+      );
     }
 
     // Authentication templates can only be sent to single users
-    if (template.type === 'AUTHENTICATION' && request.recipientType !== 'individual') {
-      throw new Error('Authentication templates can only be sent to single users');
+    if (
+      template.type === 'AUTHENTICATION' &&
+      request.recipientType !== 'individual'
+    ) {
+      throw new Error(
+        'Authentication templates can only be sent to single users'
+      );
     }
 
-    if (template.type === 'AUTHENTICATION' && (!request.recipientIds || request.recipientIds.length !== 1)) {
+    if (
+      template.type === 'AUTHENTICATION' &&
+      (!request.recipientIds || request.recipientIds.length !== 1)
+    ) {
       throw new Error('Authentication templates require exactly one recipient');
     }
 
     // Get recipients
-    const recipients = await this.getRecipients(template.eventId, request.recipientType, request.recipientIds);
-    
+    const recipients = await this.getRecipients(
+      template.eventId,
+      request.recipientType,
+      request.recipientIds
+    );
+
     // Filter to only email opt-in users (except for authentication emails which bypass opt-in)
-    const eligibleRecipients = template.type === 'AUTHENTICATION' 
-      ? recipients.filter(r => r.email)
-      : recipients.filter(r => r.emailOptIn);
-    
+    const eligibleRecipients =
+      template.type === 'AUTHENTICATION'
+        ? recipients.filter((r) => r.email)
+        : recipients.filter((r) => r.emailOptIn);
+
     const skippedCount = recipients.length - eligibleRecipients.length;
-    
+
     const result: CommunicationResult = {
       totalRecipients: recipients.length,
       sentCount: 0,
@@ -214,14 +251,18 @@ export class CommunicationsService {
     const baseVariables = {
       eventName: event?.name || 'Event',
       eventLocation: (event?.location as any)?.city || 'TBD',
-      eventDate: event?.dateRange ? 
-        new Date((event.dateRange as any).start).toLocaleDateString() : 'TBD',
+      eventDate: event?.dateRange
+        ? new Date((event.dateRange as any).start).toLocaleDateString()
+        : 'TBD',
       ...request.variables,
     };
 
     // Create message record with processed subject
-    const processedSubject = this.replaceVariables(template.subject, baseVariables);
-    
+    const processedSubject = this.replaceVariables(
+      template.subject,
+      baseVariables
+    );
+
     const message = await prisma.message.create({
       data: {
         eventId: template.eventId,
@@ -243,27 +284,38 @@ export class CommunicationsService {
     for (const recipient of eligibleRecipients) {
       try {
         // Generate tracking URL
-        const trackingUrl = await TemplateService.generateTrackingUrl(message.id, recipient.userId);
-        
+        const trackingUrl = await TemplateService.generateTrackingUrl(
+          message.id,
+          recipient.userId
+        );
+
         // Build variables for template substitution (combine base + recipient-specific)
         const variables = {
           ...baseVariables,
           firstName: recipient.firstName,
           lastName: recipient.lastName,
           email: recipient.email,
+          unsubscribeLink: `${env.APP_URL || 'http://localhost:3001'}/api/unsubscribe/${recipient.userId}/${template.eventId}`,
         };
 
         // Inject tracking pixel into HTML
         const trackingPixel = `<img src="${env.APP_URL || 'http://localhost:3001'}${trackingUrl}" width="1" height="1" style="display:none;" alt="" />`;
-        const htmlWithTracking = template.html.replace('</body>', `${trackingPixel}</body>`);
-        
+        const htmlWithTracking = template.html.replace(
+          '</body>',
+          `${trackingPixel}</body>`
+        );
+
         const emailTemplate: EmailTemplate = {
           subject: this.replaceVariables(template.subject, variables),
           html: this.replaceVariables(htmlWithTracking, variables),
         };
 
-        const emailResult = await EmailService.sendEmail(recipient.email, emailTemplate, {});
-        
+        const emailResult = await EmailService.sendEmail(
+          recipient.email,
+          emailTemplate,
+          {}
+        );
+
         if (emailResult.success) {
           // Create communication log for statistics and user tracking
           await CommunicationLogService.create({
@@ -273,14 +325,20 @@ export class CommunicationsService {
             adminId: request.adminId,
             type: 'email',
             channel: 'email',
-            purpose: template.type === 'AUTHENTICATION' ? 'authentication' : 'communication',
+            purpose:
+              template.type === 'AUTHENTICATION'
+                ? 'authentication'
+                : 'communication',
             subject: this.replaceVariables(template.subject, variables),
             content: {
               html: this.replaceVariables(template.html, variables),
               templateId: template.id,
               variables,
             },
-            recipientType: request.recipientType === 'individual' ? 'single' : request.recipientType,
+            recipientType:
+              request.recipientType === 'individual'
+                ? 'single'
+                : request.recipientType,
             recipientIds: request.recipientIds || [],
             status: 'sent',
             metadata: { messageId: emailResult.messageId, trackingUrl },
@@ -315,14 +373,20 @@ export class CommunicationsService {
             adminId: request.adminId,
             type: 'email',
             channel: 'email',
-            purpose: template.type === 'AUTHENTICATION' ? 'authentication' : 'communication',
+            purpose:
+              template.type === 'AUTHENTICATION'
+                ? 'authentication'
+                : 'communication',
             subject: this.replaceVariables(template.subject, variables),
             content: {
               html: this.replaceVariables(template.html, variables),
               templateId: template.id,
               variables,
             },
-            recipientType: request.recipientType === 'individual' ? 'single' : request.recipientType,
+            recipientType:
+              request.recipientType === 'individual'
+                ? 'single'
+                : request.recipientType,
             recipientIds: request.recipientIds || [],
             status: 'failed',
             metadata: { error: emailResult.error },
@@ -359,14 +423,20 @@ export class CommunicationsService {
             adminId: request.adminId,
             type: 'email',
             channel: 'email',
-            purpose: template.type === 'AUTHENTICATION' ? 'authentication' : 'communication',
+            purpose:
+              template.type === 'AUTHENTICATION'
+                ? 'authentication'
+                : 'communication',
             subject: template.subject,
             content: {
               html: template.html,
               templateId: template.id,
               variables,
             },
-            recipientType: request.recipientType === 'individual' ? 'single' : request.recipientType,
+            recipientType:
+              request.recipientType === 'individual'
+                ? 'single'
+                : request.recipientType,
             recipientIds: request.recipientIds || [],
             status: 'failed',
             metadata: { error: error.message },
@@ -415,11 +485,15 @@ export class CommunicationsService {
             </table>
           </div>
         `;
-        
-        await EmailService.sendEmail(monitoringEmail, {
-          subject: monitoringSubject,
-          html: monitoringContent,
-        }, {});
+
+        await EmailService.sendEmail(
+          monitoringEmail,
+          {
+            subject: monitoringSubject,
+            html: monitoringContent,
+          },
+          {}
+        );
 
         await prisma.message.update({
           where: { id: message.id },
@@ -434,7 +508,12 @@ export class CommunicationsService {
     await prisma.message.update({
       where: { id: message.id },
       data: {
-        status: result.failedCount === 0 ? 'sent' : (result.sentCount > 0 ? 'partial' : 'failed'),
+        status:
+          result.failedCount === 0
+            ? 'sent'
+            : result.sentCount > 0
+              ? 'partial'
+              : 'failed',
         deliveries,
       },
     });
@@ -444,21 +523,31 @@ export class CommunicationsService {
 
   private static getMessageTypeFromCategory(category: string): any {
     switch (category) {
-      case 'WELCOME': return 'WELCOME';
-      case 'ASSIGNMENT': return 'ASSIGNMENT';
-      case 'ACTIVITY_UPDATE': return 'ACTIVITY_UPDATE';
-      case 'ANNOUNCEMENT': return 'ANNOUNCEMENT';
-      case 'MAGIC_LINK': return 'MAGIC_LINK';
-      default: return 'ANNOUNCEMENT';
+      case 'WELCOME':
+        return 'WELCOME';
+      case 'ASSIGNMENT':
+        return 'ASSIGNMENT';
+      case 'ACTIVITY_UPDATE':
+        return 'ACTIVITY_UPDATE';
+      case 'ANNOUNCEMENT':
+        return 'ANNOUNCEMENT';
+      case 'MAGIC_LINK':
+        return 'MAGIC_LINK';
+      default:
+        return 'ANNOUNCEMENT';
     }
   }
 
   private static convertRecipientType(type: string): any {
     switch (type) {
-      case 'individual': return 'INDIVIDUAL';
-      case 'group': return 'GROUP';
-      case 'all': return 'ALL';
-      default: return 'INDIVIDUAL';
+      case 'individual':
+        return 'INDIVIDUAL';
+      case 'group':
+        return 'GROUP';
+      case 'all':
+        return 'ALL';
+      default:
+        return 'INDIVIDUAL';
     }
   }
 
@@ -471,48 +560,66 @@ export class CommunicationsService {
 
     switch (recipientType) {
       case 'individual':
-        if (!recipientIds?.length) throw new Error('User IDs required for individual recipients');
+        if (!recipientIds?.length)
+          throw new Error('User IDs required for individual recipients');
         users = await Promise.all(
-          recipientIds.map(userId => UserService.findById(userId))
+          recipientIds.map((userId) => UserService.findById(userId))
         );
         users = users.filter(Boolean);
         break;
 
       case 'group':
-        if (!recipientIds?.length) throw new Error('Group IDs required for group recipients');
+        if (!recipientIds?.length)
+          throw new Error('Group IDs required for group recipients');
         for (const groupId of recipientIds) {
-          const groupUsers = await GroupService.getMembers(groupId, { page: 1, limit: 1000 });
+          const groupUsers = await GroupService.getMembers(groupId, {
+            page: 1,
+            limit: 1000,
+          });
           users.push(...groupUsers.items);
         }
         break;
 
       case 'all':
-        const allUsers = await UserService.findByEventId(eventId, { page: 1, limit: 10000 });
+        const allUsers = await UserService.findByEventId(eventId, {
+          page: 1,
+          limit: 10000,
+        });
         users = allUsers.items;
         break;
     }
 
-    return users.map(user => ({
-      userId: user.id,
-      email: (user.profile as any)?.email,
-      firstName: (user.profile as any)?.firstName,
-      lastName: (user.profile as any)?.lastName,
-      emailOptIn: (user.communication as any)?.emailOptIn || false,
-      groupId: user.groupId,
-    })).filter(r => r.email); // Filter out users without email
+    return users
+      .map((user) => ({
+        userId: user.id,
+        email: (user.profile as any)?.email,
+        firstName: (user.profile as any)?.firstName,
+        lastName: (user.profile as any)?.lastName,
+        emailOptIn: (user.communication as any)?.emailOptIn || false,
+        groupId: user.groupId,
+      }))
+      .filter((r) => r.email); // Filter out users without email
   }
 
   private static getPurposeFromTemplateType(templateType?: string): string {
     switch (templateType) {
-      case 'welcome': return 'event_reminder';
-      case 'assignment': return 'group_assignment';
-      case 'activity_update': return 'event_reminder';
-      case 'announcement': return 'announcement';
-      default: return 'custom';
+      case 'welcome':
+        return 'event_reminder';
+      case 'assignment':
+        return 'group_assignment';
+      case 'activity_update':
+        return 'event_reminder';
+      case 'announcement':
+        return 'announcement';
+      default:
+        return 'custom';
     }
   }
 
-  private static replaceVariables(template: string, variables: Record<string, any>): string {
+  private static replaceVariables(
+    template: string,
+    variables: Record<string, any>
+  ): string {
     let result = template;
     Object.entries(variables).forEach(([key, value]) => {
       const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
@@ -534,19 +641,47 @@ export class CommunicationsService {
     };
   }> {
     // Get communication logs stats
-    const logs = await CommunicationLogService.findByEventId(eventId, { page: 1, limit: 10000 });
-    
+    const logs = await CommunicationLogService.findByEventId(eventId, {
+      page: 1,
+      limit: 10000,
+    });
+
     const totalMessages = logs.items.length;
-    const emailMessages = logs.items.filter(log => log.type === 'email').length;
-    const deliveredMessages = logs.items.filter(log => log.status === 'delivered' || log.status === 'sent').length;
-    const failedMessages = logs.items.filter(log => log.status === 'failed').length;
+    const emailMessages = logs.items.filter(
+      (log) => log.type === 'email'
+    ).length;
+    const deliveredMessages = logs.items.filter(
+      (log) => log.status === 'delivered' || log.status === 'sent'
+    ).length;
+    const failedMessages = logs.items.filter(
+      (log) => log.status === 'failed'
+    ).length;
 
     // Get user communication preferences
-    const users = await UserService.findByEventId(eventId, { page: 1, limit: 10000 });
-    const emailOnly = users.items.filter(u => (u.communication as any)?.emailOptIn && !(u.communication as any)?.whatsappOptIn).length;
-    const whatsappOnly = users.items.filter(u => !(u.communication as any)?.emailOptIn && (u.communication as any)?.whatsappOptIn).length;
-    const both = users.items.filter(u => (u.communication as any)?.emailOptIn && (u.communication as any)?.whatsappOptIn).length;
-    const neither = users.items.filter(u => !(u.communication as any)?.emailOptIn && !(u.communication as any)?.whatsappOptIn).length;
+    const users = await UserService.findByEventId(eventId, {
+      page: 1,
+      limit: 10000,
+    });
+    const emailOnly = users.items.filter(
+      (u) =>
+        (u.communication as any)?.emailOptIn &&
+        !(u.communication as any)?.whatsappOptIn
+    ).length;
+    const whatsappOnly = users.items.filter(
+      (u) =>
+        !(u.communication as any)?.emailOptIn &&
+        (u.communication as any)?.whatsappOptIn
+    ).length;
+    const both = users.items.filter(
+      (u) =>
+        (u.communication as any)?.emailOptIn &&
+        (u.communication as any)?.whatsappOptIn
+    ).length;
+    const neither = users.items.filter(
+      (u) =>
+        !(u.communication as any)?.emailOptIn &&
+        !(u.communication as any)?.whatsappOptIn
+    ).length;
 
     // Calculate opened messages from message tracking
     const messages = await prisma.message.findMany({
@@ -555,9 +690,12 @@ export class CommunicationsService {
         emailTracking: true,
       },
     });
-    
+
     const openedMessages = messages.reduce((count, message) => {
-      return count + message.emailTracking.filter(tracking => tracking.opened).length;
+      return (
+        count +
+        message.emailTracking.filter((tracking) => tracking.opened).length
+      );
     }, 0);
 
     return {
@@ -575,7 +713,12 @@ export class CommunicationsService {
     };
   }
 
-  static getEmailTemplates(): { id: string; name: string; subject: string; type: string }[] {
+  static getEmailTemplates(): {
+    id: string;
+    name: string;
+    subject: string;
+    type: string;
+  }[] {
     return [
       {
         id: 'welcome',

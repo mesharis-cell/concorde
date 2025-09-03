@@ -1,16 +1,29 @@
 import { prisma } from '../config/database.js';
 import { v4 as uuidv4 } from 'uuid';
-import type { CreateUser, Pagination, PaginatedResponse, UserSession, UserMagicLink } from '../types/index.js';
+import type {
+  CreateUser,
+  Pagination,
+  PaginatedResponse,
+  UserSession,
+  UserMagicLink,
+} from '../types/index.js';
 import type { User } from '@prisma/client';
 import { GroupService } from './groups.js';
 
 export class UserService {
   static async create(data: CreateUser): Promise<User> {
-    // Check if user with same email already exists in this event
+    // Normalize email and check if user with same email already exists in this event
     if (data.profile?.email) {
-      const existingUser = await this.findByEmailAndEvent(data.profile.email, data.eventId);
+      data.profile.email = data.profile.email.toLowerCase();
+
+      const existingUser = await this.findByEmailAndEvent(
+        data.profile.email,
+        data.eventId
+      );
       if (existingUser) {
-        throw new Error(`User with email ${data.profile.email} already exists in this event`);
+        throw new Error(
+          `User with email ${data.profile.email} already exists in this event`
+        );
       }
     }
 
@@ -47,20 +60,28 @@ export class UserService {
     });
   }
 
-  static async findByEmail(email: string, eventId: string): Promise<User | null> {
+  static async findByEmail(
+    email: string,
+    eventId: string
+  ): Promise<User | null> {
+    // Normalize email for case-insensitive comparison
+    const normalizedEmail = email.toLowerCase();
+
     // Use raw query since Prisma doesn't support JSON field queries well with MongoDB
     const users = await prisma.user.findMany({
-      where: { 
+      where: {
         eventId,
         active: true,
       },
     });
-    
+
     // Filter by email in JavaScript since JSON field querying is limited
-    return users.find(user => {
-      const profile = user.profile as any;
-      return profile?.email === email;
-    }) || null;
+    return (
+      users.find((user) => {
+        const profile = user.profile as any;
+        return profile?.email?.toLowerCase() === normalizedEmail;
+      }) || null
+    );
   }
 
   static async findByEventId(
@@ -71,18 +92,28 @@ export class UserService {
       groupId?: string;
       search?: string;
       hasRequirements?: boolean;
-      requirementType?: 'dietary' | 'medical' | 'accessibility' | 'accommodation' | 'any';
-      communicationType?: 'email-only' | 'whatsapp-only' | 'both' | 'none' | 'any';
+      requirementType?:
+        | 'dietary'
+        | 'medical'
+        | 'accessibility'
+        | 'accommodation'
+        | 'any';
+      communicationType?:
+        | 'email-only'
+        | 'whatsapp-only'
+        | 'both'
+        | 'none'
+        | 'any';
     } = {}
   ): Promise<PaginatedResponse<User>> {
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
 
-    const where: any = { 
-      eventId, 
-      active: true 
+    const where: any = {
+      eventId,
+      active: true,
     };
-    
+
     if (filters.assigned !== undefined) {
       where.assigned = filters.assigned;
     }
@@ -93,7 +124,7 @@ export class UserService {
 
     // For now, implement basic filtering without JSON path queries
     // Use simple client-side filtering for complex JSON queries until we implement raw SQL
-    
+
     // Basic filters that work with Prisma
     let users: User[] = [];
     let filteredCount = 0;
@@ -119,7 +150,7 @@ export class UserService {
 
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
-      filtered = filtered.filter(user => {
+      filtered = filtered.filter((user) => {
         const profile = user.profile as any;
         const firstName = profile?.firstName || '';
         const lastName = profile?.lastName || '';
@@ -132,12 +163,11 @@ export class UserService {
       });
     }
 
-
     if (filters.requirementType && filters.requirementType !== 'any') {
-      filtered = filtered.filter(user => {
+      filtered = filtered.filter((user) => {
         const requirements = user.requirements as any;
         const accommodation = user.accommodation as any;
-        
+
         if (filters.requirementType === 'dietary') {
           return requirements?.dietary;
         } else if (filters.requirementType === 'medical') {
@@ -150,19 +180,24 @@ export class UserService {
         return false;
       });
     } else if (filters.requirementType === 'any') {
-      filtered = filtered.filter(user => {
+      filtered = filtered.filter((user) => {
         const requirements = user.requirements as any;
         const accommodation = user.accommodation as any;
-        return requirements?.dietary || requirements?.medical || requirements?.accessibility || accommodation?.required;
+        return (
+          requirements?.dietary ||
+          requirements?.medical ||
+          requirements?.accessibility ||
+          accommodation?.required
+        );
       });
     }
 
     if (filters.communicationType && filters.communicationType !== 'any') {
-      filtered = filtered.filter(user => {
+      filtered = filtered.filter((user) => {
         const communication = user.communication as any;
         const emailOptIn = communication?.emailOptIn || false;
         const whatsappOptIn = communication?.whatsappOptIn || false;
-        
+
         if (filters.communicationType === 'email-only') {
           return emailOptIn && !whatsappOptIn;
         } else if (filters.communicationType === 'whatsapp-only') {
@@ -177,10 +212,15 @@ export class UserService {
     }
 
     if (filters.hasRequirements) {
-      filtered = filtered.filter(user => {
+      filtered = filtered.filter((user) => {
         const requirements = user.requirements as any;
         const accommodation = user.accommodation as any;
-        return requirements?.dietary || requirements?.medical || requirements?.accessibility || accommodation?.required;
+        return (
+          requirements?.dietary ||
+          requirements?.medical ||
+          requirements?.accessibility ||
+          accommodation?.required
+        );
       });
     }
 
@@ -201,19 +241,26 @@ export class UserService {
   }
 
   static async update(id: string, data: Partial<CreateUser>): Promise<User> {
-    // If email is being updated, check for duplicates within the same event
+    // If email is being updated, normalize and check for duplicates within the same event
     if (data.profile?.email) {
+      data.profile.email = data.profile.email.toLowerCase();
+
       const currentUser = await prisma.user.findUnique({
         where: { id },
         select: { eventId: true, profile: true },
       });
-      
+
       if (currentUser) {
-        const currentEmail = (currentUser.profile as any)?.email;
+        const currentEmail = (currentUser.profile as any)?.email?.toLowerCase();
         if (currentEmail !== data.profile.email) {
-          const existingUser = await this.findByEmailAndEvent(data.profile.email, currentUser.eventId);
+          const existingUser = await this.findByEmailAndEvent(
+            data.profile.email,
+            currentUser.eventId
+          );
           if (existingUser) {
-            throw new Error(`User with email ${data.profile.email} already exists in this event`);
+            throw new Error(
+              `User with email ${data.profile.email} already exists in this event`
+            );
           }
         }
       }
@@ -224,11 +271,16 @@ export class UserService {
     if (data.profile) updateData.profile = data.profile;
     if (data.communication) updateData.communication = data.communication;
     if (data.flight !== undefined) updateData.flight = data.flight;
-    if (data.accommodation !== undefined) updateData.accommodation = data.accommodation;
-    if (data.transferRequirements !== undefined) updateData.transferRequirements = data.transferRequirements;
-    if (data.requirements !== undefined) updateData.requirements = data.requirements;
-    if (data.merchandiseSize !== undefined) updateData.merchandiseSize = data.merchandiseSize;
-    if (data.emergencyContact !== undefined) updateData.emergencyContact = data.emergencyContact;
+    if (data.accommodation !== undefined)
+      updateData.accommodation = data.accommodation;
+    if (data.transferRequirements !== undefined)
+      updateData.transferRequirements = data.transferRequirements;
+    if (data.requirements !== undefined)
+      updateData.requirements = data.requirements;
+    if (data.merchandiseSize !== undefined)
+      updateData.merchandiseSize = data.merchandiseSize;
+    if (data.emergencyContact !== undefined)
+      updateData.emergencyContact = data.emergencyContact;
 
     return prisma.user.update({
       where: { id },
@@ -236,7 +288,11 @@ export class UserService {
     });
   }
 
-  static async assignToGroup(userId: string, groupId: string, adminId: string): Promise<User> {
+  static async assignToGroup(
+    userId: string,
+    groupId: string,
+    adminId: string
+  ): Promise<User> {
     // Check if user is already assigned to a group
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -282,7 +338,10 @@ export class UserService {
     return updatedUser;
   }
 
-  static async unassignFromGroup(userId: string, adminId: string): Promise<User> {
+  static async unassignFromGroup(
+    userId: string,
+    adminId: string
+  ): Promise<User> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { groupId: true, assigned: true },
@@ -310,7 +369,11 @@ export class UserService {
     return updatedUser;
   }
 
-  static async reassignToGroup(userId: string, newGroupId: string, adminId: string): Promise<User> {
+  static async reassignToGroup(
+    userId: string,
+    newGroupId: string,
+    adminId: string
+  ): Promise<User> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { groupId: true, assigned: true, eventId: true },
@@ -370,7 +433,7 @@ export class UserService {
     }
 
     const magicLinks = user.magicLinks as UserMagicLink[];
-    
+
     // Add new magic link
     magicLinks.push({
       token,
@@ -404,8 +467,8 @@ export class UserService {
 
     for (const user of allUsers) {
       const magicLinks = (user.magicLinks as UserMagicLink[]) || [];
-      const index = magicLinks.findIndex(link => link.token === token);
-      
+      const index = magicLinks.findIndex((link) => link.token === token);
+
       if (index !== -1) {
         matchingUser = user;
         linkIndex = index;
@@ -432,7 +495,7 @@ export class UserService {
 
     const updatedUser = await prisma.user.update({
       where: { id: matchingUser.id },
-      data: { 
+      data: {
         magicLinks,
         lastLoginAt: new Date(),
       },
@@ -454,7 +517,10 @@ export class UserService {
     return this.validateMagicLink(token);
   }
 
-  static async createSession(userId: string, sessionToken?: string): Promise<string> {
+  static async createSession(
+    userId: string,
+    sessionToken?: string
+  ): Promise<string> {
     const token = uuidv4();
     const createdAt = new Date();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
@@ -469,7 +535,7 @@ export class UserService {
     }
 
     const sessions = user.sessions as UserSession[];
-    
+
     // Add new session
     sessions.push({
       token,
@@ -494,9 +560,13 @@ export class UserService {
 
     for (const user of allUsers) {
       const sessions = (user.sessions as UserSession[]) || [];
-      const session = sessions.find(s => s.token === token);
-      
-      if (session && !session.used && new Date() <= new Date(session.expiresAt)) {
+      const session = sessions.find((s) => s.token === token);
+
+      if (
+        session &&
+        !session.used &&
+        new Date() <= new Date(session.expiresAt)
+      ) {
         return user;
       }
     }
@@ -512,8 +582,8 @@ export class UserService {
 
     for (const user of allUsers) {
       const sessions = (user.sessions as UserSession[]) || [];
-      const sessionIndex = sessions.findIndex(s => s.token === token);
-      
+      const sessionIndex = sessions.findIndex((s) => s.token === token);
+
       if (sessionIndex !== -1) {
         sessions[sessionIndex] = {
           ...sessions[sessionIndex],
@@ -539,7 +609,7 @@ export class UserService {
   static async getRequirementsSummary(eventId: string) {
     const users = await prisma.user.findMany({
       where: { eventId, active: true, assigned: true },
-      select: { 
+      select: {
         requirements: true,
         accommodation: true,
         flight: true,
@@ -587,7 +657,7 @@ export class UserService {
   }
 
   static async updateCommunicationPreferences(
-    userId: string, 
+    userId: string,
     preferences: { emailOptIn: boolean; whatsappOptIn: boolean }
   ): Promise<User> {
     const user = await prisma.user.findUnique({
@@ -614,7 +684,9 @@ export class UserService {
   static async getUsersWithNotificationStatus(
     groupId: string,
     pagination: Pagination
-  ): Promise<PaginatedResponse<User & { notificationStatus: 'notified' | 'pending' }>> {
+  ): Promise<
+    PaginatedResponse<User & { notificationStatus: 'notified' | 'pending' }>
+  > {
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
 
@@ -638,9 +710,11 @@ export class UserService {
       }),
     ]);
 
-    const usersWithStatus = users.map(user => ({
+    const usersWithStatus = users.map((user) => ({
       ...user,
-      notificationStatus: user.groupAssignmentNotified ? 'notified' : 'pending' as const,
+      notificationStatus: user.groupAssignmentNotified
+        ? 'notified'
+        : ('pending' as const),
     }));
 
     return {
@@ -666,7 +740,13 @@ export class UserService {
     });
   }
 
-  static async findByEmailAndEvent(email: string, eventId: string): Promise<User | null> {
+  static async findByEmailAndEvent(
+    email: string,
+    eventId: string
+  ): Promise<User | null> {
+    // Normalize email for case-insensitive comparison
+    const normalizedEmail = email.toLowerCase();
+
     // Use raw query since Prisma doesn't support JSON field queries well with MongoDB
     const users = await prisma.user.findMany({
       where: {
@@ -674,12 +754,13 @@ export class UserService {
         active: true,
       },
     });
-    
+
     // Filter by email in JavaScript since JSON field querying is limited
-    const user = users.find(user => {
-      const profile = user.profile as any;
-      return profile?.email === email;
-    }) || null;
+    const user =
+      users.find((user) => {
+        const profile = user.profile as any;
+        return profile?.email?.toLowerCase() === normalizedEmail;
+      }) || null;
 
     return user;
   }
@@ -714,5 +795,57 @@ export class UserService {
     }
 
     return deletedUser;
+  }
+
+  /**
+   * Unsubscribe user from email communications
+   */
+  static async unsubscribeFromEmail(
+    userId: string,
+    eventId: string
+  ): Promise<{ success: boolean; user?: User; error?: string }> {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          event: {
+            select: { id: true, name: true, shortName: true },
+          },
+        },
+      });
+
+      if (!user) {
+        return { success: false, error: 'User not found' };
+      }
+
+      if (!user.active) {
+        return { success: false, error: 'User account is inactive' };
+      }
+
+      // Verify user belongs to the specified event
+      if (user.eventId !== eventId) {
+        return { success: false, error: 'Invalid request' };
+      }
+
+      const currentCommunication = (user.communication as any) || {};
+      const updatedCommunication = {
+        ...currentCommunication,
+        emailOptIn: false,
+      };
+
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: { communication: updatedCommunication },
+        include: {
+          event: {
+            select: { name: true, shortName: true },
+          },
+        },
+      });
+
+      return { success: true, user: updatedUser };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   }
 }

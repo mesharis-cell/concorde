@@ -131,6 +131,12 @@ export class EmailService {
           <p>Looking forward to seeing you at {{eventName}}!</p>
           
           <p>Best regards,<br>The {{eventName}} Team</p>
+          
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+          <p style="font-size: 12px; color: #666; text-align: center;">
+            This email was sent for {{eventName}}. 
+            <a href="{{unsubscribeLink}}" style="color: #666;">Unsubscribe</a>
+          </p>
         </div>
       `,
     };
@@ -172,6 +178,12 @@ export class EmailService {
           <p>We're excited to have you join {{groupName}} and look forward to an amazing {{eventName}}!</p>
           
           <p>Best regards,<br>The {{eventName}} Team</p>
+          
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+          <p style="font-size: 12px; color: #666; text-align: center;">
+            This email was sent for {{eventName}}. 
+            <a href="{{unsubscribeLink}}" style="color: #666;">Unsubscribe</a>
+          </p>
         </div>
       `,
     };
@@ -212,6 +224,12 @@ export class EmailService {
           <p>Please check your updated itinerary for the latest information. We apologize for any inconvenience and appreciate your understanding.</p>
           
           <p>Best regards,<br>The {{eventName}} Team</p>
+          
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+          <p style="font-size: 12px; color: #666; text-align: center;">
+            This email was sent for {{eventName}}. 
+            <a href="{{unsubscribeLink}}" style="color: #666;">Unsubscribe</a>
+          </p>
         </div>
       `,
     };
@@ -244,6 +262,12 @@ export class EmailService {
           <p>Thank you for your attention.</p>
           
           <p>Best regards,<br>The {{eventName}} Team</p>
+          
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+          <p style="font-size: 12px; color: #666; text-align: center;">
+            This email was sent for {{eventName}}. 
+            <a href="{{unsubscribeLink}}" style="color: #666;">Unsubscribe</a>
+          </p>
         </div>
       `,
     };
@@ -258,6 +282,7 @@ export class EmailService {
       firstName: string;
       lastName: string;
       magicLink: string;
+      unsubscribeLink?: string;
     }
   ) {
     const template: EmailTemplate = {
@@ -286,6 +311,12 @@ export class EmailService {
           <p>If you didn't request this link, please ignore this email.</p>
           
           <p>Best regards,<br>The {{eventName}} Team</p>
+          
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+          <p style="font-size: 12px; color: #666; text-align: center;">
+            This email was sent for {{eventName}}. 
+            <a href="{{unsubscribeLink}}" style="color: #666;">Unsubscribe</a>
+          </p>
         </div>
       `,
     };

@@ -7,7 +7,13 @@ export interface CreateTemplate {
   eventId: string;
   name: string;
   type: 'COMMUNICATION' | 'AUTHENTICATION';
-  category: 'WELCOME' | 'ASSIGNMENT' | 'ACTIVITY_UPDATE' | 'ANNOUNCEMENT' | 'MAGIC_LINK' | 'CUSTOM';
+  category:
+    | 'WELCOME'
+    | 'ASSIGNMENT'
+    | 'ACTIVITY_UPDATE'
+    | 'ANNOUNCEMENT'
+    | 'MAGIC_LINK'
+    | 'CUSTOM';
   subject: string;
   html: string;
   createdBy: string;
@@ -32,14 +38,19 @@ export class TemplateService {
 
     // Validate authentication templates must include magicLink variable
     if (data.type === 'AUTHENTICATION' && data.category === 'MAGIC_LINK') {
-      if (!data.html.includes('{{magicLink}}') || !data.subject.includes('{{')) {
-        throw new Error('Authentication templates must include {{magicLink}} variable');
+      const magicLinkRegex = /\{\{\s*magicLink\s*\}\}/i;
+      if (!magicLinkRegex.test(data.html)) {
+        throw new Error(
+          'Authentication templates must include {{magicLink}} variable'
+        );
       }
     }
 
     // Extract variables from template content
-    const extractedVariables = this.extractVariables(data.html + ' ' + data.subject);
-    
+    const extractedVariables = this.extractVariables(
+      data.html + ' ' + data.subject
+    );
+
     // Check if template name already exists for this event
     const existingTemplate = await prisma.emailTemplate.findUnique({
       where: {
@@ -51,7 +62,9 @@ export class TemplateService {
     });
 
     if (existingTemplate) {
-      throw new Error('A template with this name already exists for this event');
+      throw new Error(
+        'A template with this name already exists for this event'
+      );
     }
 
     return await prisma.emailTemplate.create({
@@ -91,7 +104,7 @@ export class TemplateService {
     } = {}
   ): Promise<EmailTemplate[]> {
     const where: any = { eventId, active: true };
-    
+
     if (filters.type) where.type = filters.type;
     if (filters.category) where.category = filters.category;
     if (filters.active !== undefined) where.active = filters.active;
@@ -103,14 +116,15 @@ export class TemplateService {
           select: { id: true, firstName: true, lastName: true, email: true },
         },
       },
-      orderBy: [
-        { category: 'asc' },
-        { createdAt: 'desc' },
-      ],
+      orderBy: [{ category: 'asc' }, { createdAt: 'desc' }],
     });
   }
 
-  static async update(id: string, data: UpdateTemplate, adminId: string): Promise<EmailTemplate> {
+  static async update(
+    id: string,
+    data: UpdateTemplate,
+    adminId: string
+  ): Promise<EmailTemplate> {
     // Check if template exists and admin has permission
     const template = await prisma.emailTemplate.findUnique({
       where: { id },
@@ -127,14 +141,21 @@ export class TemplateService {
     }
 
     // Validate authentication templates
-    if (template.type === 'AUTHENTICATION' && data.html && !data.html.includes('{{magicLink}}')) {
-      throw new Error('Authentication templates must include {{magicLink}} variable');
+    if (template.type === 'AUTHENTICATION' && data.html) {
+      const magicLinkRegex = /\{\{\s*magicLink\s*\}\}/i;
+      if (!magicLinkRegex.test(data.html)) {
+        throw new Error(
+          'Authentication templates must include {{magicLink}} variable'
+        );
+      }
     }
 
     // Extract variables if HTML content is updated
     const updateData: any = { ...data };
     if (data.html) {
-      updateData.requiredVariables = this.extractVariables((data.html || template.html) + ' ' + (data.subject || template.subject));
+      updateData.requiredVariables = this.extractVariables(
+        (data.html || template.html) + ' ' + (data.subject || template.subject)
+      );
     }
 
     return await prisma.emailTemplate.update({
@@ -157,7 +178,10 @@ export class TemplateService {
     });
   }
 
-  static async checkAccess(templateId: string, adminId: string): Promise<{ canAccess: boolean; canEdit: boolean }> {
+  static async checkAccess(
+    templateId: string,
+    adminId: string
+  ): Promise<{ canAccess: boolean; canEdit: boolean }> {
     const template = await prisma.emailTemplate.findUnique({
       where: { id: templateId },
     });
@@ -183,7 +207,10 @@ export class TemplateService {
     }
   }
 
-  static async generateTrackingUrl(messageId: string, userId: string): Promise<string> {
+  static async generateTrackingUrl(
+    messageId: string,
+    userId: string
+  ): Promise<string> {
     const trackingId = uuidv4();
     const trackingUrl = `/api/track/open/${messageId}/${userId}/${trackingId}`;
 
@@ -199,8 +226,8 @@ export class TemplateService {
   }
 
   static async trackEmailOpen(
-    trackingId: string, 
-    userAgent?: string, 
+    trackingId: string,
+    userAgent?: string,
     ipAddress?: string
   ): Promise<boolean> {
     const tracking = await prisma.emailTracking.findUnique({
@@ -233,25 +260,32 @@ export class TemplateService {
   }> {
     const messages = await prisma.message.findMany({
       where: { templateId },
-      select: { 
-        id: true, 
+      select: {
+        id: true,
         createdAt: true,
         emailTracking: {
-          select: { opened: true }
-        }
+          select: { opened: true },
+        },
       },
     });
 
     const totalSent = messages.length;
     const totalOpened = messages.reduce((count, message) => {
-      return count + message.emailTracking.filter(tracking => tracking.opened).length;
+      return (
+        count +
+        message.emailTracking.filter((tracking) => tracking.opened).length
+      );
     }, 0);
 
     const openRate = totalSent > 0 ? (totalOpened / totalSent) * 100 : 0;
-    const lastUsed = messages.length > 0 
-      ? messages.reduce((latest, message) => 
-          message.createdAt > latest ? message.createdAt : latest, messages[0].createdAt)
-      : null;
+    const lastUsed =
+      messages.length > 0
+        ? messages.reduce(
+            (latest, message) =>
+              message.createdAt > latest ? message.createdAt : latest,
+            messages[0].createdAt
+          )
+        : null;
 
     return {
       totalSent,
@@ -263,6 +297,8 @@ export class TemplateService {
 
   private static extractVariables(content: string): string[] {
     const matches = content.match(/\{\{([^}]+)\}\}/g);
-    return matches ? [...new Set(matches.map(m => m.slice(2, -2).trim()))] : [];
+    return matches
+      ? [...new Set(matches.map((m) => m.slice(2, -2).trim()))]
+      : [];
   }
 }

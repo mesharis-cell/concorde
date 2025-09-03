@@ -20,6 +20,7 @@ async function sendMagicLinkWithTemplate(
     lastName: string;
     magicLink: string;
     eventId: string;
+    unsubscribeLink?: string;
   }
 ) {
   try {
@@ -469,6 +470,7 @@ app.openapi(requestMagicLinkRoute, async (c) => {
         lastName,
         magicLink: magicLinkUrl,
         eventId,
+        unsubscribeLink: `${process.env.APP_URL || 'http://localhost:3001'}/api/unsubscribe/${user.id}/${eventId}`,
       });
     } else {
       // In production, send email via AWS SES
@@ -481,6 +483,7 @@ app.openapi(requestMagicLinkRoute, async (c) => {
         lastName,
         magicLink: magicLinkUrl,
         eventId,
+        unsubscribeLink: `${process.env.APP_URL || 'http://localhost:3001'}/api/unsubscribe/${user.id}/${eventId}`,
       });
     }
 
@@ -1103,5 +1106,242 @@ app.openapi(getActivityInfoRoute, async (c) => {
     );
   }
 });
+
+// =============================================================================
+// UNSUBSCRIBE ENDPOINTS (No Authentication Required)
+// =============================================================================
+
+// Unsubscribe from email communications
+const unsubscribeRoute = createRoute({
+  method: 'get',
+  path: '/unsubscribe/{userId}/{eventId}',
+  tags: ['Public - Unsubscribe'],
+  summary: 'Unsubscribe from email communications',
+  description: 'Unsubscribe user from email notifications',
+  request: {
+    params: z.object({
+      userId: z.string().min(1).describe('User ID'),
+      eventId: z.string().min(1).describe('Event ID'),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'text/html': {
+          schema: { type: 'string' },
+        },
+      },
+      description: 'Unsubscribe confirmation page',
+    },
+    400: {
+      content: {
+        'text/html': {
+          schema: { type: 'string' },
+        },
+      },
+      description: 'Invalid request',
+    },
+    404: {
+      content: {
+        'text/html': {
+          schema: { type: 'string' },
+        },
+      },
+      description: 'User or event not found',
+    },
+  },
+});
+
+app.openapi(unsubscribeRoute, async (c) => {
+  try {
+    const { userId, eventId } = c.req.valid('param');
+
+    // Unsubscribe user
+    const result = await UserService.unsubscribeFromEmail(userId, eventId);
+    if (!result.success) {
+      const statusCode = result.error === 'User not found' ? 404 : 400;
+      return c.html(
+        generateUnsubscribeErrorPage(result.error || 'Failed to unsubscribe'),
+        statusCode
+      );
+    }
+
+    // Get user details for personalized confirmation
+    const profile = result.user?.profile as any;
+    const event = result.user?.event as any;
+    const firstName = profile?.firstName || '';
+    const eventName = event?.name || 'the event';
+
+    return c.html(generateUnsubscribeSuccessPage(firstName, eventName));
+  } catch (error: any) {
+    return c.html(
+      generateUnsubscribeErrorPage('An unexpected error occurred'),
+      500
+    );
+  }
+});
+
+/**
+ * Generate HTML for successful unsubscribe confirmation
+ */
+function generateUnsubscribeSuccessPage(
+  firstName: string,
+  eventName: string
+): string {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unsubscribed Successfully</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .success-icon {
+            font-size: 48px;
+            color: #22c55e;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #16a34a;
+            margin-bottom: 16px;
+            font-size: 28px;
+        }
+        p {
+            margin-bottom: 16px;
+            font-size: 16px;
+            color: #666;
+        }
+        .highlight {
+            font-weight: 600;
+            color: #333;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e5e5;
+            font-size: 14px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon">✓</div>
+        <h1>You've Been Unsubscribed</h1>
+        <p>
+            ${firstName ? `Hi ${firstName}, you` : 'You'} have been successfully unsubscribed 
+            from email notifications for <span class="highlight">${eventName}</span>.
+        </p>
+        <p>
+            You will no longer receive email communications from us regarding this event.
+        </p>
+        <p>
+            If you change your mind, you can update your preferences by logging into your account 
+            or contacting our support team.
+        </p>
+        <div class="footer">
+            <p>This change is effective immediately.</p>
+        </div>
+    </div>
+</body>
+</html>`;
+}
+
+/**
+ * Generate HTML for unsubscribe error page
+ */
+function generateUnsubscribeErrorPage(errorMessage: string): string {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unsubscribe Error</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .error-icon {
+            font-size: 48px;
+            color: #ef4444;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #dc2626;
+            margin-bottom: 16px;
+            font-size: 28px;
+        }
+        p {
+            margin-bottom: 16px;
+            font-size: 16px;
+            color: #666;
+        }
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            padding: 12px;
+            border-radius: 4px;
+            color: #991b1b;
+            margin: 20px 0;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e5e5;
+            font-size: 14px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="error-icon">⚠</div>
+        <h1>Unable to Unsubscribe</h1>
+        <div class="error-message">
+            ${errorMessage}
+        </div>
+        <p>
+            If you're still receiving unwanted emails, please contact our support team 
+            and we'll help you resolve this issue.
+        </p>
+        <div class="footer">
+            <p>We apologize for any inconvenience.</p>
+        </div>
+    </div>
+</body>
+</html>`;
+}
 
 export default app;
