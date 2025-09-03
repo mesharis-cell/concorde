@@ -298,6 +298,11 @@ export class CommunicationsService {
           unsubscribeLink: `${env.APP_URL || 'http://localhost:3001'}/api/unsubscribe/${recipient.userId}/${template.eventId}`,
         };
 
+        // For assignment templates, automatically generate itineraryLink
+        if (template.category === 'ASSIGNMENT') {
+          variables.itineraryLink = `${'https://chivasregalmonza.com'}/itinerary`;
+        }
+
         // Inject tracking pixel into HTML
         const trackingPixel = `<img src="${env.APP_URL || 'http://localhost:3001'}${trackingUrl}" width="1" height="1" style="display:none;" alt="" />`;
         const htmlWithTracking = template.html.replace(

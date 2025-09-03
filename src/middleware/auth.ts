@@ -13,7 +13,7 @@ export interface AuthContext {
   };
 }
 
-// Authentication middleware for admins
+// Authentication middleware for admins (keeping JWT for admin routes)
 export async function authenticateAdmin(authenticateSuperAdmin: boolean) {
   return async function (c: Context, next: Next) {
     const authHeader = c.req.header('Authorization');
@@ -61,7 +61,6 @@ export async function authenticateAdmin(authenticateSuperAdmin: boolean) {
         });
       }
 
-
       await next();
     } catch (error) {
       return c.json({
@@ -72,34 +71,40 @@ export async function authenticateAdmin(authenticateSuperAdmin: boolean) {
   }
 }
 
-// Authentication middleware for users
+// Simple email-based authentication middleware for users
 export async function authenticateUser(c: Context, next: Next) {
-  const authHeader = c.req.header('Authorization');
+  let email: string;
+  let eventId: string;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  try {
+    // Try to get email from request body
+    const body = await c.req.json();
+
+    email = body.email;
+    // For testing purposes, use a default eventId or get from request
+    eventId = body.eventId || process.env.DEFAULT_EVENT_ID || "68b5aa94b9d13b18bb4694c6";
+  } catch (error) {
     return c.json({
       success: false,
-      error: 'Missing or invalid authorization header',
+      error: 'Failed to parse request body - missing email',
     }, 401);
   }
 
-  const token = authHeader.substring(7);
+  if (!email) {
+    return c.json({
+      success: false,
+      error: 'Email is required for authentication',
+    }, 401);
+  }
 
   try {
-    const payload = JwtService.verify(token);
+    // Find user by email - this acts as our "authentication"
+    const user = await UserService.findByEmail(email, eventId);
 
-    if (payload.role !== 'user') {
-      return c.json({
-        success: false,
-        error: 'Invalid token type',
-      }, 401);
-    }
-
-    const user = await UserService.findById(payload.id);
     if (!user) {
       return c.json({
         success: false,
-        error: 'User not found',
+        error: 'User not found with provided email',
       }, 401);
     }
 
@@ -115,44 +120,31 @@ export async function authenticateUser(c: Context, next: Next) {
   } catch (error) {
     return c.json({
       success: false,
-      error: 'Invalid or expired token',
+      error: 'Authentication failed',
     }, 401);
   }
 }
 
-// Optional authentication middleware
+// Optional authentication middleware (for backward compatibility, but simplified)
 export async function optionalAuth(c: Context, next: Next) {
-  const authHeader = c.req.header('Authorization');
+  try {
+    const body = await c.req.json();
+    const email = body.email;
+    const eventId = body.eventId || process.env.DEFAULT_EVENT_ID || "68b5aa94b9d13b18bb4694c6";
 
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7);
-
-    try {
-      const payload = JwtService.verify(token);
-
-      if (payload.role === 'admin') {
-        const admin = await AdminService.findById(payload.id);
-        if (admin) {
-          c.set('user', {
-            id: admin.id,
-            role: 'admin' as const,
-            adminData: admin,
-          });
-        }
-      } else if (payload.role === 'user') {
-        const user = await UserService.findById(payload.id);
-        if (user) {
-          c.set('user', {
-            id: user.id,
-            role: 'user' as const,
-            eventId: user.eventId,
-            userData: user,
-          });
-        }
+    if (email) {
+      const user = await UserService.findByEmail(email, eventId);
+      if (user) {
+        c.set('user', {
+          id: user.id,
+          role: 'user' as const,
+          eventId: user.eventId,
+          userData: user,
+        });
       }
-    } catch (error) {
-      // Ignore invalid tokens in optional auth
     }
+  } catch (error) {
+    // Ignore errors in optional auth
   }
 
   await next();

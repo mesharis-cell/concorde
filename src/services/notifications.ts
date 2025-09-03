@@ -108,7 +108,7 @@ export class NotificationService {
   ): Promise<MessageDelivery> {
     const profile = recipient.profile as any;
     const communication = recipient.communication as UserCommunication;
-    
+
     const delivery: MessageDelivery = {
       user: recipient.id,
       channels: {},
@@ -207,7 +207,7 @@ export class NotificationService {
   ): Promise<NotificationResult> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { 
+      include: {
         event: true,
         group: true,
       },
@@ -220,7 +220,7 @@ export class NotificationService {
     const profile = user.profile as any;
     const event = user.event;
     const group = user.group;
-    
+
     // Generate itinerary link
     const itineraryLink = `${process.env.APP_URL}/events/${event.id}/itinerary`;
 
@@ -236,6 +236,10 @@ export class NotificationService {
         lastName: profile.lastName,
         groupName: group.name,
         itineraryLink,
+        // Template compatibility - map to expected variable names
+        name: profile.firstName,
+        event_name: event.name,
+        link: itineraryLink,
       },
       recipientType: 'INDIVIDUAL',
       recipientIds: [userId],
@@ -269,7 +273,7 @@ export class NotificationService {
 
     const event = activity.event;
     const userIds = activity.group.users.map((u: any) => u.id);
-    
+
     // Generate itinerary link
     const itineraryLink = `${process.env.APP_URL}/events/${event.id}/itinerary`;
 
@@ -338,7 +342,7 @@ export class NotificationService {
 
     const _profile = user.profile as any;
     const event = user.event;
-    
+
     // Generate magic link
     const magicLink = `${process.env.APP_URL}/auth/magic?token=${magicToken}&event=${event.id}`;
 

@@ -70,7 +70,7 @@ export class UserService {
     // Use raw query since Prisma doesn't support JSON field queries well with MongoDB
     const users = await prisma.user.findMany({
       where: {
-        eventId,
+        eventId, // Prisma handles string to ObjectId conversion automatically
         active: true,
       },
     });
@@ -93,17 +93,17 @@ export class UserService {
       search?: string;
       hasRequirements?: boolean;
       requirementType?:
-        | 'dietary'
-        | 'medical'
-        | 'accessibility'
-        | 'accommodation'
-        | 'any';
+      | 'dietary'
+      | 'medical'
+      | 'accessibility'
+      | 'accommodation'
+      | 'any';
       communicationType?:
-        | 'email-only'
-        | 'whatsapp-only'
-        | 'both'
-        | 'none'
-        | 'any';
+      | 'email-only'
+      | 'whatsapp-only'
+      | 'both'
+      | 'none'
+      | 'any';
     } = {}
   ): Promise<PaginatedResponse<User>> {
     const { page, limit } = pagination;

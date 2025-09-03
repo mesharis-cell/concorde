@@ -1,67 +1,19 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { UserService } from '../../services/users.js';
 import { EventService } from '../../services/events.js';
-import { JwtService } from '../../utils/jwt.js';
 import {
   CreateUserSchema,
   PublicRegistrationSchema,
   ApiSuccessSchema,
   ApiErrorSchema,
 } from '../../types/index.js';
-import { authenticateUser } from '../../middleware/auth.js';
-import { EmailService } from '../../services/email.js';
+import { authenticateUser, AuthContext } from '../../middleware/auth.js';
 
-// Helper function to send magic link using branded template if available
-async function sendMagicLinkWithTemplate(
-  email: string,
-  variables: {
-    eventName: string;
-    firstName: string;
-    lastName: string;
-    magicLink: string;
-    eventId: string;
-    unsubscribeLink?: string;
-  }
-) {
-  try {
-    // Try to find a branded MAGIC_LINK template for this event
-    const { TemplateService } = await import('../../services/templates.js');
-    const templates = await TemplateService.findByEventId(variables.eventId, {
-      type: 'AUTHENTICATION',
-      category: 'MAGIC_LINK',
-      active: true,
-    });
 
-    if (templates.length > 0) {
-      // Use the first available branded template
-      const brandedTemplate = templates[0];
 
-      const template = {
-        subject: brandedTemplate.subject,
-        html: brandedTemplate.html,
-      };
+const app = new OpenAPIHono<{ Variables: AuthContext }>();
 
-      return await EmailService.sendEmail(email, template, variables);
-    }
-  } catch (error) {
-    console.warn(
-      'Failed to load branded template, falling back to generic:',
-      error
-    );
-  }
 
-  // Fallback to generic template
-  return await EmailService.sendMagicLinkEmail(email, variables);
-}
-
-const app = new OpenAPIHono();
-
-// Register Bearer Auth security scheme for authenticated endpoints
-app.openAPIRegistry.registerComponent('securitySchemes', 'bearerAuth', {
-  type: 'http',
-  scheme: 'bearer',
-  bearerFormat: 'JWT',
-});
 
 // Event Registration (Public)
 const eventRegisterRoute = createRoute({
@@ -349,304 +301,41 @@ app.openapi(eventInfoRoute, async (c) => {
 
 // Legacy /users/register route removed - use event-specific /events/{eventId}/register for public registration
 
-// Request Magic Link (Public)
-const requestMagicLinkRoute = createRoute({
-  method: 'post',
-  path: '/auth/request-magic-link',
-  tags: ['Public - Auth'],
-  summary: 'Request a magic link for authentication',
-  description:
-    'Send passwordless login link to user email (24-hour expiration)',
-  request: {
-    body: {
-      content: {
-        'application/json': {
-          schema: z.object({
-            email: z.string().email().describe('User email address'),
-            eventId: z.string().describe('Event ID user wants to access'),
-          }),
-          example: {
-            email: 'john.doe@example.com',
-            eventId: '60f7b3b3b3b3b3b3b3b3b3b3',
-          },
-        },
-      },
-    },
-  },
-  responses: {
-    200: {
-      content: {
-        'application/json': {
-          schema: ApiSuccessSchema,
-          examples: {
-            production: {
-              value: {
-                success: true,
-                data: {
-                  message: 'Magic link sent to your email',
-                },
-              },
-            },
-            development: {
-              value: {
-                success: true,
-                data: {
-                  message: 'Magic link sent to your email',
-                  token: 'ml_1a2b3c4d5e6f7g8h9i0j',
-                },
-              },
-            },
-          },
-        },
-      },
-      description: 'Magic link sent successfully',
-    },
-    404: {
-      content: {
-        'application/json': {
-          schema: ApiErrorSchema,
-          example: {
-            success: false,
-            error: 'User not found',
-            message: 'No user found with this email for the specified event',
-          },
-        },
-      },
-      description: 'User not found',
-    },
-  },
-});
 
-app.openapi(requestMagicLinkRoute, async (c) => {
-  try {
-    const { email, eventId } = c.req.valid('json');
 
-    const user = await UserService.findByEmail(email, eventId);
-    if (!user) {
-      return c.json(
-        {
-          success: false,
-          error: 'User not found',
-          message: 'No user found with this email for the specified event',
-        },
-        404
-      );
-    }
 
-    // Get event details for the email
-    const event = await EventService.findById(eventId);
-    if (!event) {
-      return c.json(
-        {
-          success: false,
-          error: 'Event not found',
-        },
-        404
-      );
-    }
 
-    const magicLink = await UserService.generateMagicLink(user.id);
 
-    // Get user profile for personalization
-    const profile = user.profile as any;
-    const firstName = profile?.firstName || '';
-    const lastName = profile?.lastName || '';
 
-    if (process.env.NODE_ENV === 'development') {
-      // In development, just log the magic link
-      console.log('🔗 Magic Link Generated:');
-      console.log(`📧 To: ${email}`);
-      console.log(`🎫 Token: ${magicLink.token}`);
-      console.log(`👤 User: ${firstName} ${lastName}`);
-      console.log(`🎪 Event: ${event.name}`);
-      console.log('---');
 
-      const magicLinkUrl = `${event.config['micrositeUrl']}/auth/magic?token=${magicLink.token}&event=${eventId}`;
-
-      // Try to use branded template first, fall back to generic
-      await sendMagicLinkWithTemplate(email, {
-        eventName: event.name,
-        firstName,
-        lastName,
-        magicLink: magicLinkUrl,
-        eventId,
-        unsubscribeLink: `${process.env.APP_URL || 'http://localhost:3001'}/api/unsubscribe/${user.id}/${eventId}`,
-      });
-    } else {
-      // In production, send email via AWS SES
-      const magicLinkUrl = `${event.config['micrositeUrl']}/auth/magic?token=${magicLink.token}&event=${eventId}`;
-
-      // Try to use branded template first, fall back to generic
-      await sendMagicLinkWithTemplate(email, {
-        eventName: event.name,
-        firstName,
-        lastName,
-        magicLink: magicLinkUrl,
-        eventId,
-        unsubscribeLink: `${process.env.APP_URL || 'http://localhost:3001'}/api/unsubscribe/${user.id}/${eventId}`,
-      });
-    }
-
-    return c.json({
-      success: true,
-      data: {
-        message: 'Magic link sent to your email',
-        // In development, return the token for testing
-        ...(process.env.NODE_ENV === 'development' && {
-          token: magicLink.token,
-        }),
-      },
-    });
-  } catch (error: any) {
-    return c.json(
-      {
-        success: false,
-        error: 'Failed to send magic link',
-        details: error.message,
-      },
-      500
-    );
-  }
-});
-
-// Verify Magic Link (Public)
-const verifyMagicLinkRoute = createRoute({
-  method: 'post',
-  path: '/auth/validate-magic-link',
-  tags: ['Public - Auth'],
-  summary: 'Verify magic link and get user session',
-  description:
-    'Validate token from email link and return JWT for authenticated access',
-  request: {
-    body: {
-      content: {
-        'application/json': {
-          schema: z.object({
-            token: z.string().describe('Magic link token from email'),
-          }),
-          example: {
-            token: 'ml_1a2b3c4d5e6f7g8h9i0j',
-          },
-        },
-      },
-    },
-  },
-  responses: {
-    200: {
-      content: {
-        'application/json': {
-          schema: ApiSuccessSchema,
-          example: {
-            success: true,
-            data: {
-              sessionToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-              user: {
-                id: '60f7b3b3b3b3b3b3b3b3b3b3',
-                profile: {
-                  email: 'john.doe@example.com',
-                  firstName: 'John',
-                  lastName: 'Doe',
-                },
-                assigned: true,
-                groupId: '60f7b3b3b3b3b3b3b3b3b3b4',
-                eventId: '60f7b3b3b3b3b3b3b3b3b3b3',
-              },
-            },
-            message: 'Authentication successful',
-          },
-        },
-      },
-      description: 'Magic link verified successfully',
-    },
-    400: {
-      content: {
-        'application/json': {
-          schema: ApiErrorSchema,
-          examples: {
-            expired: {
-              value: {
-                success: false,
-                error: 'Invalid or expired magic link',
-              },
-            },
-            'already-used': {
-              value: {
-                success: false,
-                error: 'Magic link already used',
-              },
-            },
-          },
-        },
-      },
-      description: 'Invalid or expired magic link',
-    },
-  },
-});
-
-app.openapi(verifyMagicLinkRoute, async (c) => {
-  try {
-    const { token } = c.req.valid('json');
-
-    const user = await UserService.verifyMagicLink(token);
-    if (!user) {
-      return c.json(
-        {
-          success: false,
-          error: 'Invalid or expired magic link',
-        },
-        400
-      );
-    }
-
-    // Generate JWT session token using the utility method
-    const sessionToken = JwtService.generateUserAccessToken(
-      user.id,
-      user.eventId
-    );
-
-    // Create session record
-    await UserService.createSession(user.id);
-
-    return c.json({
-      success: true,
-      data: {
-        sessionToken,
-        user: {
-          id: user.id,
-          profile: user.profile,
-          assigned: user.assigned,
-          groupId: user.groupId,
-          eventId: user.eventId,
-        },
-      },
-      message: 'Authentication successful',
-    });
-  } catch (error: any) {
-    return c.json(
-      {
-        success: false,
-        error: 'Authentication failed',
-        details: error.message,
-      },
-      400
-    );
-  }
-});
 
 // =============================================================================
-// AUTHENTICATED USER ENDPOINTS (JWT Required from /auth/validate-magic-link)
+// AUTHENTICATED USER ENDPOINTS (Email Required in Request Body)
 // =============================================================================
 
 // Get User Itinerary (Authenticated)
 const getUserItineraryRoute = createRoute({
-  method: 'get',
+  method: 'post',
   path: '/user/itinerary',
   tags: ['Public - User (Authenticated)'],
   summary: 'Get user assigned group activities',
   description:
-    "Retrieve activities for the user's assigned group - requires JWT from magic link validation",
+    "Retrieve activities for the user's assigned group - requires email in request body",
   middleware: [authenticateUser] as const,
-  security: [{ bearerAuth: [] }],
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            email: z.string().email().describe('User email for authentication'),
+          }),
+          example: {
+            email: 'john.doe@example.com',
+          },
+        },
+      },
+    },
+  },
   responses: {
     200: {
       content: {
@@ -686,7 +375,7 @@ const getUserItineraryRoute = createRoute({
           },
         },
       },
-      description: 'Unauthorized - JWT required',
+      description: 'Unauthorized - email required',
     },
     404: {
       content: {
@@ -704,8 +393,8 @@ const getUserItineraryRoute = createRoute({
 });
 
 app.openapi(getUserItineraryRoute, async (c) => {
-  // Manually run authentication middleware
-  const authResult = await authenticateUser(c, async () => {});
+  // Apply authentication middleware manually
+  const authResult = await authenticateUser(c, async () => { });
   if (authResult) {
     return authResult; // Return auth error response
   }
@@ -760,14 +449,27 @@ app.openapi(getUserItineraryRoute, async (c) => {
 
 // Get User Profile (Authenticated)
 const getUserProfileRoute = createRoute({
-  method: 'get',
+  method: 'post',
   path: '/user/profile',
   tags: ['Public - User (Authenticated)'],
   summary: 'Get current user profile',
   description:
-    'Retrieve complete user profile information - requires JWT from magic link validation',
+    'Retrieve complete user profile information - requires email in request body',
   middleware: [authenticateUser] as const,
-  security: [{ bearerAuth: [] }],
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            email: z.string().email().describe('User email for authentication'),
+          }),
+          example: {
+            email: 'john.doe@example.com',
+          },
+        },
+      },
+    },
+  },
   responses: {
     200: {
       content: {
@@ -816,14 +518,14 @@ const getUserProfileRoute = createRoute({
           },
         },
       },
-      description: 'Unauthorized - JWT required',
+      description: 'Unauthorized - email required',
     },
   },
 });
 
 app.openapi(getUserProfileRoute, async (c) => {
-  // Manually run authentication middleware
-  const authResult = await authenticateUser(c, async () => {});
+  // Apply authentication middleware manually
+  const authResult = await authenticateUser(c, async () => { });
   if (authResult) {
     return authResult; // Return auth error response
   }
@@ -864,20 +566,21 @@ const updateCommunicationPreferencesRoute = createRoute({
   tags: ['Public - User (Authenticated)'],
   summary: 'Update user communication preferences',
   description:
-    'Update email and WhatsApp notification preferences - requires JWT from magic link validation',
+    'Update email and WhatsApp notification preferences - requires email in request body',
   middleware: [authenticateUser] as const,
-  security: [{ bearerAuth: [] }],
   request: {
     body: {
       content: {
         'application/json': {
           schema: z.object({
+            email: z.string().email().describe('User email for authentication'),
             emailOptIn: z.boolean().describe('Enable email notifications'),
             whatsappOptIn: z
               .boolean()
               .describe('Enable WhatsApp notifications'),
           }),
           example: {
+            email: 'john.doe@example.com',
             emailOptIn: true,
             whatsappOptIn: false,
           },
@@ -928,14 +631,14 @@ const updateCommunicationPreferencesRoute = createRoute({
           },
         },
       },
-      description: 'Unauthorized - JWT required',
+      description: 'Unauthorized - email required',
     },
   },
 });
 
 app.openapi(updateCommunicationPreferencesRoute, async (c) => {
   // Manually run authentication middleware
-  const authResult = await authenticateUser(c, async () => {});
+  const authResult = await authenticateUser(c, async () => { });
   if (authResult) {
     return authResult; // Return auth error response
   }
@@ -1082,16 +785,16 @@ app.openapi(getActivityInfoRoute, async (c) => {
         thumbnail: activity.thumbnail,
         group: activity.group
           ? {
-              id: activity.group.id,
-              name: activity.group.name,
-            }
+            id: activity.group.id,
+            name: activity.group.name,
+          }
           : null,
         event: activity.event
           ? {
-              id: activity.event.id,
-              name: activity.event.name,
-              shortName: activity.event.shortName,
-            }
+            id: activity.event.id,
+            name: activity.event.name,
+            shortName: activity.event.shortName,
+          }
           : null,
       },
     });
@@ -1160,10 +863,10 @@ app.openapi(unsubscribeRoute, async (c) => {
     const result = await UserService.unsubscribeFromEmail(userId, eventId);
     if (!result.success) {
       const statusCode = result.error === 'User not found' ? 404 : 400;
-      return c.html(
-        generateUnsubscribeErrorPage(result.error || 'Failed to unsubscribe'),
-        statusCode
-      );
+      return c.json({
+        success: false,
+        error: result.error || 'Failed to unsubscribe'
+      }, statusCode);
     }
 
     // Get user details for personalized confirmation
@@ -1172,12 +875,15 @@ app.openapi(unsubscribeRoute, async (c) => {
     const firstName = profile?.firstName || '';
     const eventName = event?.name || 'the event';
 
-    return c.html(generateUnsubscribeSuccessPage(firstName, eventName));
+    return c.json({
+      success: true,
+      message: `${firstName} successfully unsubscribed from ${eventName}`
+    });
   } catch (error: any) {
-    return c.html(
-      generateUnsubscribeErrorPage('An unexpected error occurred'),
-      500
-    );
+    return c.json({
+      success: false,
+      error: 'An unexpected error occurred'
+    }, 500);
   }
 });
 
