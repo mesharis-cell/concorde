@@ -25,6 +25,7 @@ export interface SendTemplateEmailRequest {
   recipientIds?: string[]; // For authentication, only single user allowed
   variables?: Record<string, any>;
   adminId: string;
+  enableTracking?: boolean; // Default: false (no tracking)
 }
 
 export interface CommunicationRecipient {
@@ -180,7 +181,8 @@ export class CommunicationsService {
     return result;
   }
 
-  // Template-based email sending with tracking and monitoring
+  // Template-based email sending with optional tracking and monitoring
+  // By default, tracking is DISABLED unless explicitly enabled with enableTracking: true
   static async sendTemplateEmail(
     request: SendTemplateEmailRequest
   ): Promise<CommunicationResult> {
@@ -283,14 +285,18 @@ export class CommunicationsService {
     const deliveries = [];
     for (const recipient of eligibleRecipients) {
       try {
-        // Generate tracking URL
-        const trackingUrl = await TemplateService.generateTrackingUrl(
-          message.id,
-          recipient.userId
-        );
+        let trackingUrl: string | null = null;
+
+        // Generate tracking URL only if tracking is enabled
+        if (request.enableTracking === true) {
+          trackingUrl = await TemplateService.generateTrackingUrl(
+            message.id,
+            recipient.userId
+          );
+        }
 
         // Build variables for template substitution (combine base + recipient-specific)
-        const variables = {
+        const variables: Record<string, any> = {
           ...baseVariables,
           firstName: recipient.firstName,
           lastName: recipient.lastName,
@@ -303,16 +309,20 @@ export class CommunicationsService {
           variables.itineraryLink = `${'https://chivasregalmonza.com'}/itinerary`;
         }
 
-        // Inject tracking pixel into HTML
-        const trackingPixel = `<img src="${env.APP_URL || 'http://localhost:3001'}${trackingUrl}" width="1" height="1" style="display:none;" alt="" />`;
-        const htmlWithTracking = template.html.replace(
-          '</body>',
-          `${trackingPixel}</body>`
-        );
+        // Conditionally inject tracking pixel into HTML
+        let finalHtml = template.html;
+
+        if (request.enableTracking === true && trackingUrl) {
+          const trackingPixel = `<img src="${env.APP_URL || 'http://localhost:3001'}${trackingUrl}" width="1" height="1" style="opacity:0;position:absolute;top:-9999px;" alt="." />`;
+          finalHtml = template.html.replace(
+            '</body>',
+            `${trackingPixel}</body>`
+          );
+        }
 
         const emailTemplate: EmailTemplate = {
           subject: this.replaceVariables(template.subject, variables),
-          html: this.replaceVariables(htmlWithTracking, variables),
+          html: this.replaceVariables(finalHtml, variables),
         };
 
         const emailResult = await EmailService.sendEmail(
@@ -346,7 +356,11 @@ export class CommunicationsService {
                 : request.recipientType,
             recipientIds: request.recipientIds || [],
             status: 'sent',
-            metadata: { messageId: emailResult.messageId, trackingUrl },
+            metadata: {
+              messageId: emailResult.messageId,
+              ...(trackingUrl && { trackingUrl }),
+              trackingEnabled: request.enableTracking === true
+            },
           });
 
           result.sentCount++;
@@ -394,7 +408,10 @@ export class CommunicationsService {
                 : request.recipientType,
             recipientIds: request.recipientIds || [],
             status: 'failed',
-            metadata: { error: emailResult.error },
+            metadata: {
+              error: emailResult.error,
+              trackingEnabled: request.enableTracking === true
+            },
           });
 
           result.failedCount++;
@@ -444,7 +461,10 @@ export class CommunicationsService {
                 : request.recipientType,
             recipientIds: request.recipientIds || [],
             status: 'failed',
-            metadata: { error: error.message },
+            metadata: {
+              error: error.message,
+              trackingEnabled: request.enableTracking === true
+            },
           });
         } catch (logError) {
           console.error('Failed to create communication log:', logError);
