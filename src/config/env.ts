@@ -35,6 +35,9 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
     .default('development'),
+
+  // Monitoring (optional)
+  MONITORING_EMAIL: z.string().email().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
