@@ -3588,6 +3588,112 @@ app.openapi(sendTemplateCommunicationRoute, async (c) => {
   }
 });
 
+// Get Communication Log Detail with All Recipients (Admin)
+const getCommunicationDetailRoute = createRoute({
+  method: 'get',
+  path: '/communications/log/{logId}',
+  tags: ['Admin - Communications'],
+  summary: 'Get detailed communication log with all recipients and delivery status',
+  request: {
+    params: z.object({
+      logId: z.string().min(1, 'Communication log ID is required'),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.boolean(),
+            data: z.object({
+              log: z.object({
+                id: z.string(),
+                type: z.string(),
+                channel: z.string(),
+                purpose: z.string(),
+                subject: z.string().nullable(),
+                recipientType: z.string(),
+                status: z.string(),
+                sentAt: z.string(),
+                event: z.object({
+                  id: z.string(),
+                  name: z.string(),
+                }),
+                group: z.object({
+                  id: z.string(),
+                  name: z.string(),
+                }).nullable(),
+                admin: z.object({
+                  id: z.string(),
+                  firstName: z.string(),
+                  lastName: z.string(),
+                  email: z.string(),
+                }),
+              }),
+              recipients: z.array(z.object({
+                userId: z.string(),
+                email: z.string(),
+                firstName: z.string(),
+                lastName: z.string(),
+                groupName: z.string().nullable(),
+                status: z.enum(['sent', 'delivered', 'failed', 'pending']),
+                sentAt: z.string().nullable(),
+                openedAt: z.string().nullable(),
+                error: z.string().nullable(),
+                trackingEnabled: z.boolean(),
+              })),
+              summary: z.object({
+                totalRecipients: z.number(),
+                sentCount: z.number(),
+                deliveredCount: z.number(),
+                failedCount: z.number(),
+                openedCount: z.number(),
+                groups: z.array(z.string()),
+              }),
+            }),
+          }),
+        },
+      },
+      description: 'Communication log details retrieved successfully',
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Communication log not found',
+    },
+  },
+});
+
+app.openapi(getCommunicationDetailRoute, async (c) => {
+  try {
+    const { logId } = c.req.valid('param');
+
+    const communicationDetail = await CommunicationLogService.getCommunicationDetail(logId);
+
+    if (!communicationDetail) {
+      return c.json({
+        success: false,
+        error: 'Communication log not found',
+      }, 404);
+    }
+
+    return c.json({
+      success: true,
+      data: communicationDetail,
+    });
+  } catch (error: any) {
+    console.error('Failed to retrieve communication log detail:', error);
+    return c.json({
+      success: false,
+      error: 'Failed to retrieve communication log details',
+      details: error.message,
+    }, 500);
+  }
+});
+
 // Send Authentication Magic Link (Super Admin Only)
 const sendAuthenticationRoute = createRoute({
   method: 'post',
