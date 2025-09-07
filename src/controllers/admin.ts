@@ -336,15 +336,15 @@ app.openapi(exportUsersRoute, async (c) => {
             : '',
           flight.arrival
             ? new Date(flight.arrival)
-                .toISOString()
-                .slice(0, 16)
-                .replace('T', ' ')
+              .toISOString()
+              .slice(0, 16)
+              .replace('T', ' ')
             : '',
           flight.departure
             ? new Date(flight.departure)
-                .toISOString()
-                .slice(0, 16)
-                .replace('T', ' ')
+              .toISOString()
+              .slice(0, 16)
+              .replace('T', ' ')
             : '',
           flight.arrivalAirport || '',
           flight.departureAirport || '',
@@ -370,8 +370,7 @@ app.openapi(exportUsersRoute, async (c) => {
       c.header('Content-Type', 'text/csv');
       c.header(
         'Content-Disposition',
-        `attachment; filename="users-${eventId}-${
-          new Date().toISOString().split('T')[0]
+        `attachment; filename="users-${eventId}-${new Date().toISOString().split('T')[0]
         }.csv"`
       );
       return c.text(csvContent);
@@ -1139,8 +1138,7 @@ app.openapi(exportGroupsRoute, async (c) => {
       c.header('Content-Type', 'text/csv');
       c.header(
         'Content-Disposition',
-        `attachment; filename="groups-${eventId}-${
-          new Date().toISOString().split('T')[0]
+        `attachment; filename="groups-${eventId}-${new Date().toISOString().split('T')[0]
         }.csv"`
       );
       return c.text(csvContent);
@@ -2312,8 +2310,7 @@ app.openapi(exportActivitiesRoute, async (c) => {
       c.header('Content-Type', 'text/csv');
       c.header(
         'Content-Disposition',
-        `attachment; filename="activities-${eventId}-${
-          new Date().toISOString().split('T')[0]
+        `attachment; filename="activities-${eventId}-${new Date().toISOString().split('T')[0]
         }.csv"`
       );
       return c.text(csvContent);
@@ -3588,6 +3585,198 @@ app.openapi(sendTemplateCommunicationRoute, async (c) => {
   }
 });
 
+// Get Message Detail with All Recipients (Admin)
+const getMessageDetailRoute = createRoute({
+  method: 'get',
+  path: '/messages/{messageId}/detail',
+  tags: ['Admin - Communications'],
+  summary: 'Get detailed message with all recipients and delivery status',
+  request: {
+    params: z.object({
+      messageId: z.string().min(1, 'Message ID is required'),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.boolean(),
+            data: z.object({
+              log: z.object({
+                id: z.string(),
+                type: z.string(),
+                channel: z.string(),
+                purpose: z.string(),
+                subject: z.string().nullable(),
+                recipientType: z.string(),
+                status: z.string(),
+                sentAt: z.string(),
+                event: z.object({
+                  id: z.string(),
+                  name: z.string(),
+                }),
+                group: z.object({
+                  id: z.string(),
+                  name: z.string(),
+                }).nullable(),
+                admin: z.object({
+                  id: z.string(),
+                  firstName: z.string(),
+                  lastName: z.string(),
+                  email: z.string(),
+                }),
+              }),
+              recipients: z.array(z.object({
+                userId: z.string(),
+                email: z.string(),
+                firstName: z.string(),
+                lastName: z.string(),
+                groupName: z.string().nullable(),
+                status: z.enum(['sent', 'delivered', 'failed', 'pending']),
+                sentAt: z.string().nullable(),
+                openedAt: z.string().nullable(),
+                error: z.string().nullable(),
+                trackingEnabled: z.boolean(),
+              })),
+              summary: z.object({
+                totalRecipients: z.number(),
+                sentCount: z.number(),
+                deliveredCount: z.number(),
+                failedCount: z.number(),
+                openedCount: z.number(),
+                groups: z.array(z.string()),
+              }),
+            }),
+          }),
+        },
+      },
+      description: 'Communication log details retrieved successfully',
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Communication log not found',
+    },
+  },
+});
+
+app.openapi(getMessageDetailRoute, async (c) => {
+  try {
+    const { messageId } = c.req.valid('param');
+
+    // Get the message with all related data
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+      include: {
+        event: {
+          select: { id: true, name: true },
+        },
+        template: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            subject: true
+          },
+        },
+        emailTracking: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                profile: true,
+                groupId: true,
+                group: {
+                  select: { name: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!message) {
+      return c.json({
+        success: false,
+        error: 'Message not found',
+      }, 404);
+    }
+
+    // Get admin details
+    const admin = await prisma.admin.findUnique({
+      where: { id: message.sentBy },
+      select: { id: true, firstName: true, lastName: true, email: true },
+    });
+
+    // Extract recipients from deliveries JSON
+    const deliveries = (message.deliveries as any[]) || [];
+    const recipients = deliveries.map((delivery: any) => {
+      const tracking = message.emailTracking.find(t => t.userId === delivery.user);
+      const userProfile = tracking?.user.profile as any;
+
+      return {
+        userId: delivery.user,
+        email: delivery.userEmail || userProfile?.email || '',
+        firstName: delivery.userName?.split(' ')[0] || userProfile?.firstName || '',
+        lastName: delivery.userName?.split(' ').slice(1).join(' ') || userProfile?.lastName || '',
+        groupName: tracking?.user.group?.name || null,
+        status: delivery.email?.sent ? 'sent' : 'failed',
+        sentAt: delivery.email?.sentAt || null,
+        openedAt: tracking?.opened ? tracking.openedAt : null,
+        error: delivery.email?.error || null,
+        trackingEnabled: !!tracking,
+      };
+    });
+
+    // Calculate summary stats
+    const sentCount = recipients.filter(r => r.status === 'sent').length;
+    const failedCount = recipients.filter(r => r.status === 'failed').length;
+    const openedCount = recipients.filter(r => r.openedAt).length;
+    const groups = [...new Set(recipients.map(r => r.groupName).filter(Boolean))];
+
+    const messageDetail = {
+      log: {
+        id: message.id,
+        type: message.type || 'COMMUNICATION',
+        channel: 'email',
+        purpose: message.template?.type === 'AUTHENTICATION' ? 'authentication' : 'communication',
+        subject: message.emailSubject || message.template?.subject || 'Untitled',
+        recipientType: message.recipientType.toLowerCase(),
+        status: message.status || 'sent',
+        sentAt: message.createdAt,
+        event: message.event,
+        admin: admin || { id: message.sentBy, firstName: 'Unknown', lastName: 'Admin', email: '' },
+      },
+      recipients,
+      summary: {
+        totalRecipients: recipients.length,
+        sentCount,
+        deliveredCount: sentCount, // Same as sent for now
+        failedCount,
+        openedCount,
+        groups,
+      },
+    };
+
+    return c.json({
+      success: true,
+      data: messageDetail,
+    });
+  } catch (error: any) {
+    console.error('Failed to retrieve message detail:', error);
+    return c.json({
+      success: false,
+      error: 'Failed to retrieve message details',
+      details: error.message,
+    }, 500);
+  }
+});
+
 // Send Authentication Magic Link (Super Admin Only)
 const sendAuthenticationRoute = createRoute({
   method: 'post',
@@ -3668,9 +3857,8 @@ app.openapi(sendAuthenticationRoute, async (c) => {
       recipientIds: [userId],
       variables: {
         ...variables,
-        magicLink: `${
-          process.env.FRONTEND_URL || 'https://chivasregalmonza.com'
-        }/auth/magic?token=${magicLink.token}&event=${user.eventId}`,
+        magicLink: `${process.env.FRONTEND_URL || 'https://chivasregalmonza.com'
+          }/auth/magic?token=${magicLink.token}&event=${user.eventId}`,
       },
       adminId,
     });
@@ -3759,9 +3947,8 @@ app.openapi(generateUploadUrlRoute, async (c) => {
     let folderPath: string;
     switch (folder) {
       case 'activities':
-        folderPath = `events/${eventId}/activities${
-          activityId ? `/${activityId}` : ''
-        }`;
+        folderPath = `events/${eventId}/activities${activityId ? `/${activityId}` : ''
+          }`;
         break;
       case 'events':
         folderPath = `events/${eventId}/assets`;
@@ -4337,8 +4524,7 @@ app.openapi(importActivitiesRoute, async (c) => {
           !activityData.endDateTime
         ) {
           errors.push(
-            `Row ${
-              i + 2
+            `Row ${i + 2
             }: Missing required fields (title, group, startDateTime, endDateTime)`
           );
           continue;
@@ -4887,10 +5073,10 @@ app.openapi(getCommunicationHistoryRoute, async (c) => {
       templateId: message.templateId,
       template: message.template
         ? {
-            name: message.template.name,
-            type: message.template.type,
-            subject: message.template.subject,
-          }
+          name: message.template.name,
+          type: message.template.type,
+          subject: message.template.subject,
+        }
         : null,
       subject: message.emailSubject || 'Untitled', // emailSubject now contains processed subject
       recipientType: message.recipientType,

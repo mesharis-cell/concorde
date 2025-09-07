@@ -1,6 +1,7 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { prisma } from '../config/database.js';
 import { ApiSuccessSchema, ApiErrorSchema } from '../types/index.js';
+import { CommunicationLogService } from '../services/communication-logs.js';
 
 const app = new OpenAPIHono();
 
@@ -30,7 +31,7 @@ const getCommunicationStatsRoute = createRoute({
 app.openapi(getCommunicationStatsRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
-    
+
     const [
       totalMessages,
       emailMessages,
@@ -50,7 +51,7 @@ app.openapi(getCommunicationStatsRoute, async (c) => {
       deliveredMessages,
       deliveryRate: totalMessages > 0 ? Math.round((deliveredMessages / totalMessages) * 100) : 0,
     };
-    
+
     return c.json({
       success: true,
       data: stats,
@@ -59,6 +60,64 @@ app.openapi(getCommunicationStatsRoute, async (c) => {
     return c.json({
       success: false,
       error: 'Failed to retrieve communication statistics',
+      details: error.message,
+    }, 500);
+  }
+});
+
+// Get Communication Log Detail with All Recipients
+const getCommunicationDetailRoute = createRoute({
+  method: 'get',
+  path: '/communications/log/{logId}',
+  tags: ['Communications'],
+  summary: 'Get detailed communication log with all recipients and delivery status',
+  request: {
+    params: z.object({
+      logId: z.string().min(1),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Communication log details retrieved successfully',
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Communication log not found',
+    },
+  },
+});
+
+app.openapi(getCommunicationDetailRoute, async (c) => {
+  try {
+    const { logId } = c.req.valid('param');
+
+    const communicationDetail = await CommunicationLogService.getCommunicationDetail(logId);
+
+    if (!communicationDetail) {
+      return c.json({
+        success: false,
+        error: 'Communication log not found',
+      }, 404);
+    }
+
+    return c.json({
+      success: true,
+      data: communicationDetail,
+    });
+  } catch (error: any) {
+    console.error('Failed to retrieve communication log detail:', error);
+    return c.json({
+      success: false,
+      error: 'Failed to retrieve communication log details',
       details: error.message,
     }, 500);
   }
