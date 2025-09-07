@@ -223,21 +223,32 @@ const eventInfoRoute = createRoute({
             success: true,
             data: {
               id: '60f7b3b3b3b3b3b3b3b3b3b3',
-              name: 'F1 Italian Grand Prix 2025',
-              shortName: 'Monza 2025',
+              name: 'F1 Singapore Grand Prix 2025',
+              shortName: 'Singapore 2025',
               location: {
-                city: 'Monza',
-                country: 'Italy',
-                venue: 'Autodromo Nazionale Monza',
-                timezone: 'Europe/Rome',
+                city: 'Singapore',
+                country: 'Singapore',
+                venue: 'Marina Bay Street Circuit',
+                timezone: 'Asia/Singapore',
               },
               dateRange: {
-                start: '2025-09-05T00:00:00Z',
-                end: '2025-09-07T23:59:59Z',
+                start: '2025-09-18T00:00:00Z',
+                end: '2025-09-21T23:59:59Z',
               },
               config: {
                 registrationOpen: true,
               },
+              hotelConfig: {
+                hotels: [{
+                  name: 'Grand Hotel Singapore',
+                  isDefault: true,
+                  roomTypes: ['Deluxe King', 'Premium Twin', 'Suite'],
+                  checkInTime: '15:00',
+                  checkOutTime: '11:00'
+                }]
+              },
+              termsConditions: '<p>Event terms and conditions...</p>',
+              privacyPolicy: '<p>Privacy policy content...</p>',
             },
           },
         },
@@ -285,6 +296,10 @@ app.openapi(eventInfoRoute, async (c) => {
         config: {
           registrationOpen: event.config?.registrationOpen || false,
         },
+        // Singapore Phase 2 additions
+        hotelConfig: event.hotelConfig || null,
+        termsConditions: event.termsConditions || null,
+        privacyPolicy: event.privacyPolicy || null,
       },
     });
   } catch (error: any) {

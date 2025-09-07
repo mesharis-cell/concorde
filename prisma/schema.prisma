@@ -72,6 +72,11 @@ model Event {
   dateRange Json // { start: DateTime, end: DateTime }
   config    Json // { micrositeUrl, registrationOpen }
 
+  // Singapore Phase 2 additions
+  hotelConfig     Json? // Hotel inventory and configuration
+  termsConditions String? // HTML from TipTap editor  
+  privacyPolicy   String? // HTML from TipTap editor
+
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

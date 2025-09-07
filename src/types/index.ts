@@ -217,24 +217,26 @@ export const UserFlightSchema = z.object({
   inbound: z
     .object({
       departureFrom: z.string().optional(), // "Inbound Departure from [station/airport]"
-      departureDate: z.string().optional(), // "Inbound Departure date [dd/mm/yyyy]"
-      departureTime: z.string().optional(), // "Inbound Departure time [hh:mm]"
+      departureDate: z.coerce.date().optional(), // Enhanced: Date field for Singapore
+      departureTime: z.string().optional(), // "Inbound Departure time [hh:mm]" - 24h format
       departureTerminal: z.string().optional(), // "Inbound Departure terminal"
       flightNumber: z.string().optional(), // "Inbound Flight number"
-      arrivalDate: z.string().optional(), // "Inbound Arrival date [dd/mm/yyyy]"
-      arrivalTime: z.string().optional(), // "Inbound Arrival time [hh:mm]"
+      airline: z.string().optional(), // Singapore addition: Airline name
+      arrivalDate: z.coerce.date().optional(), // Enhanced: Date field for Singapore
+      arrivalTime: z.string().optional(), // "Inbound Arrival time [hh:mm]" - 24h format
       arrivalTo: z.string().optional(), // "Inbound Arrival to [station/airport]"
     })
     .optional(),
   outbound: z
     .object({
       departureFrom: z.string().optional(), // "Outbound Departure from [station/airport]"
-      departureDate: z.string().optional(), // "Outbound Departure date [dd/mm/yyyy]"
-      departureTime: z.string().optional(), // "Outbound Departure time [hh:mm]"
+      departureDate: z.coerce.date().optional(), // Enhanced: Date field for Singapore
+      departureTime: z.string().optional(), // "Outbound Departure time [hh:mm]" - 24h format
       departureTerminal: z.string().optional(), // "Outbound Departure Terminal"
       flightNumber: z.string().optional(), // "Outbound Flight number"
-      arrivalDate: z.string().optional(), // "Outbound Arrival date [dd/mm/yyyy]"
-      arrivalTime: z.string().optional(), // "Outbound Arrival time [hh:mm]"
+      airline: z.string().optional(), // Singapore addition: Airline name
+      arrivalDate: z.coerce.date().optional(), // Enhanced: Date field for Singapore
+      arrivalTime: z.string().optional(), // "Outbound Arrival time [hh:mm]" - 24h format
       arrivalTo: z.string().optional(), // "Outbound Arrival to [station/airport]"
     })
     .optional(),
@@ -258,6 +260,27 @@ export const UserAccommodationSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => (val === null ? undefined : val)),
+  specialRequests: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)),
+
+  // Singapore Phase 2 additions
+  occupancy: z.enum(['single', 'double']).optional(),
+  guestName: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)),
+  guestRelation: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)),
+  earlyCheckIn: z.boolean().optional(),
+  lateCheckOut: z.boolean().optional(),
+  visaBookingRequired: z.boolean().optional(),
 });
 export type UserAccommodation = z.infer<typeof UserAccommodationSchema>;
 
@@ -286,6 +309,12 @@ export const UserRequirementsSchema = z.object({
 export type UserRequirements = z.infer<typeof UserRequirementsSchema>;
 
 export const UserMerchandiseSizeSchema = z.object({
+  // Singapore Phase 2 addition
+  gender: z.enum(['Men', 'Women']).optional(),
+  // Updated to use single size field instead of individual items
+  size: z.enum(['S', 'M', 'L', 'XL', 'XXL']).optional(),
+
+  // Legacy fields (keeping for backward compatibility)
   shirt: z
     .string()
     .nullable()
@@ -346,7 +375,7 @@ export const CreateUserSchema = z.object({
 });
 export type CreateUser = z.infer<typeof CreateUserSchema>;
 
-// Public Registration Schema - Only user-provided fields, admin-managed fields optional
+// Public Registration Schema - Enhanced for Singapore Phase 2
 export const PublicRegistrationSchema = z.object({
   eventId: z.string(),
   profile: UserProfileSchema, // Required: email, firstName, lastName, phone
@@ -356,11 +385,12 @@ export const PublicRegistrationSchema = z.object({
   }),
   transferRequirements: z.string().nullable().optional(),
   requirements: UserRequirementsSchema.optional(), // Optional: dietary, medical, accessibility, specialRequests
-  merchandiseSize: UserMerchandiseSizeSchema.optional(), // Optional: shirt, jacket, hat
+  merchandiseSize: UserMerchandiseSizeSchema.optional(), // Enhanced: gender + size
   emergencyContact: UserEmergencyContactSchema.optional(), // Optional: name, relationship, phone, email
-  // Admin-managed fields are NOT included in public registration:
-  // - flight: Managed by admin
-  // - accommodation: Managed by admin
+
+  // Singapore Phase 2: Users can now provide flight and accommodation details during registration
+  flight: UserFlightSchema.optional(),
+  accommodation: UserAccommodationSchema.optional(),
 });
 export type PublicRegistration = z.infer<typeof PublicRegistrationSchema>;
 
