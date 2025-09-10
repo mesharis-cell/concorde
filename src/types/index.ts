@@ -58,6 +58,32 @@ export const CreateEventSchema = z.object({
   location: EventLocationSchema,
   dateRange: EventDateRangeSchema,
   config: EventConfigSchema,
+  // ✅ Phase 2 additions
+  hotelConfig: z
+    .object({
+      hotels: z.array(
+        z.object({
+          name: z.string(),
+          isDefault: z.boolean(),
+          checkInTime: z.string(),
+          checkOutTime: z.string(),
+          contractedRooms: z
+            .array(
+              z.object({
+                date: z.coerce.date(),
+                roomType: z.string(),
+                quantity: z.number(),
+                allocated: z.number(),
+              })
+            )
+            .default([]),
+        })
+      ),
+    })
+    .nullable()
+    .optional(),
+  termsConditions: z.string().nullable().optional(),
+  privacyPolicy: z.string().nullable().optional(),
 });
 export type CreateEvent = z.infer<typeof CreateEventSchema>;
 

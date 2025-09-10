@@ -1,5 +1,9 @@
 import { prisma } from '../config/database.js';
-import type { CreateEvent, Pagination, PaginatedResponse } from '../types/index.js';
+import type {
+  CreateEvent,
+  Pagination,
+  PaginatedResponse,
+} from '../types/index.js';
 import type { Event } from '@prisma/client';
 
 export class EventService {
@@ -32,7 +36,7 @@ export class EventService {
     const skip = (page - 1) * limit;
 
     const where: any = {};
-    
+
     if (filters.active !== undefined) {
       where.active = filters.active;
     }
@@ -54,7 +58,14 @@ export class EventService {
           adminEvents: {
             include: {
               admin: {
-                select: { id: true, email: true, firstName: true, lastName: true, role: true, active: true },
+                select: {
+                  id: true,
+                  email: true,
+                  firstName: true,
+                  lastName: true,
+                  role: true,
+                  active: true,
+                },
               },
             },
           },
@@ -83,6 +94,16 @@ export class EventService {
         ...(data.location && { location: data.location }),
         ...(data.dateRange && { dateRange: data.dateRange }),
         ...(data.config && { config: data.config }),
+        // ✅ Phase 2 additions
+        ...(data.hotelConfig !== undefined && {
+          hotelConfig: data.hotelConfig,
+        }),
+        ...(data.termsConditions !== undefined && {
+          termsConditions: data.termsConditions,
+        }),
+        ...(data.privacyPolicy !== undefined && {
+          privacyPolicy: data.privacyPolicy,
+        }),
       },
     });
   }
@@ -124,17 +145,18 @@ export class EventService {
     if (!event) return null;
 
     // Get additional stats
-    const [assignedUsers, unassignedUsers, activeGroups] = await prisma.$transaction([
-      prisma.user.count({
-        where: { eventId: id, assigned: true },
-      }),
-      prisma.user.count({
-        where: { eventId: id, assigned: false },
-      }),
-      prisma.group.count({
-        where: { eventId: id, active: true, deleted: false },
-      }),
-    ]);
+    const [assignedUsers, unassignedUsers, activeGroups] =
+      await prisma.$transaction([
+        prisma.user.count({
+          where: { eventId: id, assigned: true },
+        }),
+        prisma.user.count({
+          where: { eventId: id, assigned: false },
+        }),
+        prisma.group.count({
+          where: { eventId: id, active: true, deleted: false },
+        }),
+      ]);
 
     return {
       ...event,
