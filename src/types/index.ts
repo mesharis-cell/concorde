@@ -229,8 +229,7 @@ export const UserProfileSchema = z.object({
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   phone: z.string().optional(),
-  // Preferred names (optional)
-  hasPreferredName: z.boolean().optional().default(false),
+  // Preferred names (always optional, no checkbox needed)
   preferredFirstName: z.string().optional(),
   preferredLastName: z.string().optional(),
 });
@@ -246,13 +245,11 @@ export const UserFlightSchema = z.object({
   inbound: z
     .object({
       departureFrom: z.string().optional(), // "Inbound Departure from [station/airport]"
-      departureDate: z.coerce.date().optional(), // Enhanced: Date field for Singapore
-      departureTime: z.string().optional(), // "Inbound Departure time [hh:mm]" - 24h format
+      departureDateTime: z.coerce.date().optional(), // Combined departure date+time (full datetime)
       departureTerminal: z.string().optional(), // "Inbound Departure terminal"
       flightNumber: z.string().optional(), // "Inbound Flight number"
       airline: z.string().optional(), // Singapore addition: Airline name
-      arrivalDate: z.coerce.date().optional(), // Enhanced: Date field for Singapore
-      arrivalTime: z.string().optional(), // "Inbound Arrival time [hh:mm]" - 24h format
+      arrivalDateTime: z.coerce.date().optional(), // Combined arrival date+time (full datetime)
       arrivalToAirport: z.string().optional(), // "Inbound Arrival to airport"
       arrivalToTerminal: z.string().optional(), // "Inbound Arrival to terminal"
     })
@@ -260,13 +257,11 @@ export const UserFlightSchema = z.object({
   outbound: z
     .object({
       departureFrom: z.string().optional(), // "Outbound Departure from [station/airport]"
-      departureDate: z.coerce.date().optional(), // Enhanced: Date field for Singapore
-      departureTime: z.string().optional(), // "Outbound Departure time [hh:mm]" - 24h format
+      departureDateTime: z.coerce.date().optional(), // Combined departure date+time (full datetime)
       departureTerminal: z.string().optional(), // "Outbound Departure Terminal"
       flightNumber: z.string().optional(), // "Outbound Flight number"
       airline: z.string().optional(), // Singapore addition: Airline name
-      arrivalDate: z.coerce.date().optional(), // Enhanced: Date field for Singapore
-      arrivalTime: z.string().optional(), // "Outbound Arrival time [hh:mm]" - 24h format
+      arrivalDateTime: z.coerce.date().optional(), // Combined arrival date+time (full datetime)
       arrivalToAirport: z.string().optional(), // "Outbound Arrival to airport"
       arrivalToTerminal: z.string().optional(), // "Outbound Arrival to terminal"
     })
