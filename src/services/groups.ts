@@ -20,7 +20,6 @@ export class GroupService {
         event: true,
         _count: {
           select: {
-            users: { where: { assigned: true } },
             activities: { where: { deleted: false } },
           },
         },
@@ -64,7 +63,6 @@ export class GroupService {
         include: {
           _count: {
             select: {
-              users: { where: { assigned: true } },
               activities: { where: { deleted: false } },
             },
           },
@@ -73,8 +71,30 @@ export class GroupService {
       prisma.group.count({ where }),
     ]);
 
+    // Calculate user counts manually for multi-group structure
+    const enrichedItems = await Promise.all(
+      items.map(async (group) => {
+        const userCount = await prisma.user.count({
+          where: {
+            groupIds: { has: group.id },
+            assigned: true,
+            active: true,
+          },
+        });
+
+        return {
+          ...group,
+          memberCount: userCount,
+          _count: {
+            ...group._count,
+            users: userCount,
+          },
+        };
+      })
+    );
+
     return {
-      items,
+      items: enrichedItems,
       pagination: {
         page,
         limit,
@@ -96,7 +116,11 @@ export class GroupService {
 
   static async updateMemberCount(groupId: string): Promise<void> {
     const count = await prisma.user.count({
-      where: { groupId, assigned: true },
+      where: { 
+        groupIds: { has: groupId }, // User has this group in their groupIds array
+        assigned: true,
+        active: true,
+      },
     });
 
     await prisma.group.update({
@@ -168,7 +192,6 @@ export class GroupService {
         },
         _count: {
           select: {
-            users: { where: { assigned: true } },
             activities: { where: { deleted: false } },
           },
         },
@@ -252,6 +275,88 @@ export class GroupService {
         limit,
         total,
         totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Get group members with multi-group support
+   */
+  static async getMembersWithMultiGroup(
+    groupId: string,
+    pagination: Pagination,
+    filters: { search?: string; hasRequirements?: boolean } = {}
+  ): Promise<PaginatedResponse<any>> {
+    const { page, limit } = pagination;
+    const skip = (page - 1) * limit;
+
+    // Get all users who have this group in their groupIds array
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where: {
+          groupIds: { has: groupId },
+          assigned: true,
+          active: true,
+        },
+        orderBy: { registeredAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.user.count({
+        where: {
+          groupIds: { has: groupId },
+          assigned: true,
+          active: true,
+        },
+      }),
+    ]);
+
+    // Enrich users with their other group memberships
+    const enrichedUsers = await Promise.all(
+      users.map(async (user) => {
+        // Get all groups this user belongs to
+        const userGroups = await prisma.group.findMany({
+          where: {
+            id: { in: user.groupIds },
+            active: true,
+            deleted: false,
+          },
+          select: { id: true, name: true },
+        });
+
+        return {
+          ...user,
+          groups: userGroups,
+          groupCount: userGroups.length,
+        };
+      })
+    );
+
+    // Apply client-side filtering
+    let filtered = enrichedUsers;
+
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filtered = filtered.filter((user) => {
+        const profile = user.profile as any;
+        const firstName = profile?.firstName || '';
+        const lastName = profile?.lastName || '';
+        const email = profile?.email || '';
+        return (
+          firstName.toLowerCase().includes(searchLower) ||
+          lastName.toLowerCase().includes(searchLower) ||
+          email.toLowerCase().includes(searchLower)
+        );
+      });
+    }
+
+    return {
+      items: filtered,
+      pagination: {
+        page,
+        limit,
+        total: filtered.length,
+        totalPages: Math.ceil(filtered.length / limit),
       },
     };
   }

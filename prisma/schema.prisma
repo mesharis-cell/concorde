@@ -124,7 +124,6 @@ model Group {
   // Relations
   event      Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
   activities Activity[] @relation(fields: [activityIds], references: [id])
-  users      User[]
   communicationLogs CommunicationLog[]
   userActivityExclusions UserActivityExclusion[]
 
@@ -152,19 +151,27 @@ model Activity {
   // Content
   content Json // { html: string }
 
+  // Capacity management
+  capacity         Int?      // null = unlimited capacity
+  currentAttendees Int       @default(0) // Auto-computed from assignments
+
+  // Timing details for structured scheduling
+  timingTable Json[] // [{ enabled: Boolean, time: String, description: String, location?: String }]
+
   active         Boolean   @default(true)
   deleted        Boolean   @default(false)
   createdBy      String    @db.ObjectId
-  lastModifiedBy String    @db.ObjectId
+  lastModifiedBy String?   @db.ObjectId // Optional for creation
+  lastModifiedAt DateTime? // Track modification time
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
   // Relations
-  event                 Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event                 Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
   groups                Group[] @relation(fields: [groupIds], references: [id])
-  createdByAdmin        Admin  @relation("ActivityCreator", fields: [createdBy], references: [id])
-  lastModifiedByAdmin   Admin  @relation("ActivityModifier", fields: [lastModifiedBy], references: [id])
+  createdByAdmin        Admin   @relation("ActivityCreator", fields: [createdBy], references: [id])
+  lastModifiedByAdmin   Admin?  @relation("ActivityModifier", fields: [lastModifiedBy], references: [id])
   userExclusions        UserActivityExclusion[]
 
   // Prisma v6 optimized indexes for timeline queries
@@ -173,13 +180,14 @@ model Activity {
   @@index([groupIds, active, deleted])
   @@index([createdBy])
   @@index([lastModifiedBy])
+  @@index([capacity, currentAttendees]) // For capacity monitoring
   @@map("activities")
 }
 
 model User {
-  id      String  @id @default(auto()) @map("_id") @db.ObjectId
-  eventId String  @db.ObjectId
-  groupId String? @db.ObjectId
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  eventId  String   @db.ObjectId
+  groupIds String[] @db.ObjectId // Multiple group assignments
 
   // Profile
   profile Json // { email, firstName, lastName, phone, preferredFirstName, preferredLastName }
@@ -206,10 +214,10 @@ model User {
   // Emergency contact
   emergencyContact Json? // { name, relationship, phone, email }
 
-  // Assignment status
-  assigned   Boolean   @default(false)
-  assignedAt DateTime?
-  assignedBy String?   @db.ObjectId
+  // Assignment status (now supports multiple groups)
+  assigned   Boolean   @default(false) // true if assigned to any group
+  assignedAt DateTime? // last assignment date
+  assignedBy String?   @db.ObjectId // last admin who assigned
   
   // Notification status
   groupAssignmentNotified Boolean @default(false)
@@ -222,8 +230,7 @@ model User {
   updatedAt    DateTime  @updatedAt
 
   // Relations
-  event Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  group Group? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
   otps UserOTP[]
   communicationLogs CommunicationLog[]
   activityExclusions UserActivityExclusion[]
@@ -232,7 +239,7 @@ model User {
   // Prisma v6 optimized indexes
   @@index([eventId, active])
   @@index([eventId, assigned])
-  @@index([groupId])
+  @@index([groupIds])
   @@index([groupAssignmentNotified])
   @@map("users")
 }

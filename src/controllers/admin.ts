@@ -33,6 +33,7 @@ import {
   GetAuditTrailSchema,
 } from '../types/index.js';
 import { AuditTrailService } from '../services/audit-trail.js';
+import { ConflictDetectionService } from '../services/conflict-detection.js';
 
 const app = new OpenAPIHono();
 
@@ -645,8 +646,8 @@ app.openapi(getUserItineraryRoute, async (c) => {
       }
     }
 
-    // Check if user is assigned to a group
-    if (!user.assigned || !user.groupId) {
+    // Check if user is assigned to groups
+    if (!user.assigned || !user.groupIds || user.groupIds.length === 0) {
       return c.json(
         {
           success: false,
@@ -656,7 +657,7 @@ app.openapi(getUserItineraryRoute, async (c) => {
               id: user.id,
               profile: user.profile,
               assigned: user.assigned,
-              groupId: user.groupId,
+              groupIds: user.groupIds,
             },
           },
         },
@@ -680,12 +681,15 @@ app.openapi(getUserItineraryRoute, async (c) => {
     const exclusions =
       await UserActivityExclusionService.getUserExclusions(userId);
 
-    // Get group info for context
-    const group = await GroupService.findById(user.groupId);
+    // Get groups info for context
+    const groups = await Promise.all(
+      user.groupIds.map(groupId => GroupService.findById(groupId))
+    );
+    const validGroups = groups.filter(Boolean);
 
-    // Get total activities in group for comparison
-    const allGroupActivities = await ActivityService.findByGroupId(
-      user.groupId,
+    // Get total activities in all user groups for comparison
+    const allGroupActivities = await ActivityService.findByMultipleGroupIds(
+      user.groupIds,
       {
         page: 1,
         limit: 1000,
@@ -699,14 +703,14 @@ app.openapi(getUserItineraryRoute, async (c) => {
           id: user.id,
           profile: user.profile,
           assigned: user.assigned,
-          groupId: user.groupId,
+          groupIds: user.groupIds,
           communication: user.communication,
           requirements: user.requirements,
           emergencyContact: user.emergencyContact,
         },
         timeline, // What user sees (filtered)
         exclusions, // What's excluded
-        group,
+        groups: validGroups,
         stats: {
           totalGroupActivities: allGroupActivities.pagination.total,
           visibleActivities: Object.values(timeline).flat().length,
@@ -959,6 +963,7 @@ const deleteUserRoute = createRoute({
 app.openapi(deleteUserRoute, async (c) => {
   try {
     const { userId } = c.req.valid('param');
+    const authUser = c.get('user');
     const user = await UserService.softDelete(userId, authUser.id);
 
     return c.json({
@@ -1024,12 +1029,14 @@ app.openapi(assignUserRoute, async (c) => {
     const { groupId } = c.req.valid('json');
     const authUser = c.get('user');
 
-    const user = await UserService.assignToGroup(userId, groupId, authUser.id);
+    const result = await UserService.assignToGroups(userId, [groupId], authUser.id);
 
     return c.json({
       success: true,
-      data: user,
-      message: 'User assigned to group successfully',
+      data: result,
+      message: result.warnings.hasIssues
+        ? `User assigned with ${result.warnings.capacityIssues.length + result.warnings.timingConflicts.length} warnings`
+        : 'User assigned to group successfully',
     });
   } catch (error: any) {
     return c.json(
@@ -1092,6 +1099,244 @@ app.openapi(unassignUserRoute, async (c) => {
         details: error.message,
       },
       400
+    );
+  }
+});
+
+// Get All Event Conflicts Route
+const getEventConflictsRoute = createRoute({
+  method: 'get',
+  path: '/events/{eventId}/conflicts',
+  tags: ['Admin - Conflicts'],
+  summary: 'Get all conflicts and issues for an event',
+  request: {
+    params: z.object({
+      eventId: z.string().min(1).openapi({
+        param: { name: 'eventId', in: 'path' },
+        example: '60f7b3b3b3b3b3b3b3b3b3b3',
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            data: z.object({
+              hasIssues: z.boolean(),
+              capacityIssues: z.array(z.object({
+                type: z.enum(['capacity_exceeded', 'capacity_warning']),
+                activityId: z.string(),
+                activityTitle: z.string(),
+                capacity: z.number(),
+                currentAttendees: z.number(),
+                affectedUserCount: z.number(),
+                severity: z.enum(['low', 'medium', 'high']),
+              })),
+              timingConflicts: z.array(z.object({
+                type: z.enum(['timing_overlap']),
+                userId: z.string(),
+                userEmail: z.string().optional(),
+                activities: z.array(z.object({
+                  id: z.string(),
+                  title: z.string(),
+                  groupId: z.string(),
+                  groupName: z.string().optional(),
+                  startDateTime: z.string(),
+                  endDateTime: z.string(),
+                })),
+                overlapDuration: z.number(),
+                severity: z.enum(['low', 'medium', 'high']),
+              })),
+              summary: z.object({
+                totalIssues: z.number(),
+                highSeverityCount: z.number(),
+                affectedActivities: z.number(),
+                affectedUsers: z.number(),
+              }),
+            }),
+            message: z.string().optional(),
+          }),
+        },
+      },
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+    },
+  },
+});
+
+app.openapi(getEventConflictsRoute, async (c) => {
+  try {
+    const { eventId } = c.req.valid('param');
+    
+    const conflicts = await ConflictDetectionService.getAllEventConflicts(eventId);
+    
+    return c.json({
+      success: true,
+      data: conflicts,
+      message: conflicts.hasIssues 
+        ? `Found ${conflicts.summary.totalIssues} issues (${conflicts.summary.highSeverityCount} high priority)`
+        : 'No conflicts detected',
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to analyze conflicts',
+        details: error.message,
+      },
+      400
+    );
+  }
+});
+
+// Multi-Group Assignment Route (Enhanced)
+const assignUserToMultipleGroupsRoute = createRoute({
+  method: 'put',
+  path: '/users/{userId}/assign-multiple',
+  tags: ['Admin - Users'],
+  summary: 'Assign user to multiple groups with conflict analysis',
+  request: {
+    params: z.object({
+      userId: z.string().min(1).openapi({
+        param: { name: 'userId', in: 'path' },
+        example: '60f7b3b3b3b3b3b3b3b3b3b3',
+      }),
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            groupIds: z.array(z.string()), // Allow empty array for de-assignment
+            allowConflicts: z.boolean().default(true),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            data: z.object({
+              user: z.any(),
+              warnings: z.object({
+                capacityIssues: z.array(z.any()),
+                timingConflicts: z.array(z.any()),
+                hasIssues: z.boolean(),
+              }),
+            }),
+            message: z.string(),
+          }),
+        },
+      },
+      description: 'User assigned successfully with conflict warnings',
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Assignment failed',
+    },
+  },
+});
+
+app.openapi(assignUserToMultipleGroupsRoute, async (c) => {
+  try {
+    const { userId } = c.req.valid('param');
+    const { groupIds, allowConflicts } = c.req.valid('json');
+    const authUser = c.get('user');
+
+    const result = await UserService.assignToGroups(userId, groupIds, authUser.id, { allowConflicts });
+
+    return c.json({
+      success: true,
+      data: {
+        user: result.user,
+        warnings: {
+          hasIssues: result.warnings.hasIssues,
+          capacityIssues: result.warnings.capacityIssues,
+          timingConflicts: result.warnings.timingConflicts,
+        },
+      },
+      message: result.warnings.hasIssues 
+        ? `User assigned with ${result.warnings.capacityIssues.length + result.warnings.timingConflicts.length} warnings`
+        : 'User assigned successfully',
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Assignment failed',
+        details: error.message,
+      },
+      400
+    );
+  }
+});
+
+// Analyze Assignment Conflicts Route
+const analyzeAssignmentConflictsRoute = createRoute({
+  method: 'post',
+  path: '/users/analyze-conflicts',
+  tags: ['Admin - Users'],
+  summary: 'Analyze potential conflicts before assignment',
+  description: 'Preview capacity and timing conflicts without making changes',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            userIds: z.array(z.string()).min(1),
+            groupIds: z.array(z.string()), // Allow empty array to analyze removal from all groups
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Conflict analysis completed',
+    },
+  },
+});
+
+app.openapi(analyzeAssignmentConflictsRoute, async (c) => {
+  try {
+    const { userIds, groupIds } = c.req.valid('json');
+
+    const analysis = await ConflictDetectionService.analyzeAssignmentConflicts(userIds, groupIds);
+
+    return c.json({
+      success: true,
+      data: analysis,
+      message: analysis.hasIssues 
+        ? `Found ${analysis.summary.totalIssues} potential issues`
+        : 'No conflicts detected',
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Conflict analysis failed',
+        details: error.message,
+      },
+      500
     );
   }
 });
@@ -1560,19 +1805,29 @@ app.openapi(getEventOverviewStatsRoute, async (c) => {
         }),
       ]);
 
-    // Get group distribution
+    // Get group distribution (updated for multi-group structure)
     const groups = await prisma.group.findMany({
       where: { eventId, deleted: false },
-      include: {
-        _count: {
-          select: {
-            users: { where: { assigned: true, active: true } },
-          },
-        },
-      },
     });
 
-    const groupDistribution = groups.map((group) => ({
+    // Calculate member counts manually for multi-group support
+    const groupsWithCounts = await Promise.all(
+      groups.map(async (group) => {
+        const memberCount = await prisma.user.count({
+          where: {
+            groupIds: { has: group.id },
+            assigned: true,
+            active: true,
+          },
+        });
+        return {
+          ...group,
+          _count: { users: memberCount },
+        };
+      })
+    );
+
+    const groupDistribution = groupsWithCounts.map((group) => ({
       id: group.id,
       name: group.name,
       count: group._count.users,
@@ -1642,7 +1897,7 @@ app.openapi(getEventOverviewStatsRoute, async (c) => {
           totalUsers > 0 ? Math.round((assignedUsers / totalUsers) * 100) : 0,
       },
       groups: {
-        total: groups.length,
+        total: groupsWithCounts.length,
         distribution: groupDistribution,
       },
       communication: communicationPreferences,
@@ -5454,6 +5709,133 @@ app.openapi(getAuditTrailStatsRoute, async (c) => {
       {
         success: false,
         error: 'Failed to retrieve audit trail statistics',
+        details: error.message,
+      },
+      500
+    );
+  }
+});
+
+// Activity Capacity Status Route
+const getActivityCapacityStatusRoute = createRoute({
+  method: 'get',
+  path: '/activities/{activityId}/capacity-status',
+  tags: ['Admin - Activities'],
+  summary: 'Get activity capacity status and attendee information',
+  request: {
+    params: z.object({
+      activityId: z.string().min(1).openapi({
+        param: { name: 'activityId', in: 'path' },
+        example: '60f7b3b3b3b3b3b3b3b3b3b3',
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Capacity status retrieved successfully',
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Activity not found',
+    },
+  },
+});
+
+app.openapi(getActivityCapacityStatusRoute, async (c) => {
+  try {
+    const { activityId } = c.req.valid('param');
+    
+    const status = await ConflictDetectionService.getActivityCapacityStatus(activityId);
+    
+    if (!status) {
+      return c.json(
+        {
+          success: false,
+          error: 'Activity not found',
+        },
+        404
+      );
+    }
+
+    return c.json({
+      success: true,
+      data: status,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to get capacity status',
+        details: error.message,
+      },
+      500
+    );
+  }
+});
+
+// Update Activity Capacity Settings Route
+const updateActivityCapacityRoute = createRoute({
+  method: 'put',
+  path: '/activities/capacity-settings',
+  tags: ['Admin - Activities'],
+  summary: 'Bulk update activity capacity and timing settings',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            updates: z.array(z.object({
+              id: z.string(),
+              capacity: z.number().int().positive().optional(),
+              timingTable: z.array(z.object({
+                enabled: z.boolean(),
+                time: z.string(),
+                description: z.string(),
+                location: z.string().optional(),
+              })).optional(),
+            })),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Capacity settings updated successfully',
+    },
+  },
+});
+
+app.openapi(updateActivityCapacityRoute, async (c) => {
+  try {
+    const { updates } = c.req.valid('json');
+    const authUser = c.get('user');
+
+    await ActivityService.updateCapacitySettings(updates, authUser.id);
+
+    return c.json({
+      success: true,
+      message: `Updated capacity settings for ${updates.length} activities`,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to update capacity settings',
         details: error.message,
       },
       500

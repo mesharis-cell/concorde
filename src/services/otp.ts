@@ -223,7 +223,6 @@ export class OTPService {
           user: {
             include: {
               event: true,
-              group: true
             }
           }
         }

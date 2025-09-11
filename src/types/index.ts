@@ -119,6 +119,13 @@ export const ActivityContentSchema = z.object({
 });
 export type ActivityContent = z.infer<typeof ActivityContentSchema>;
 
+export const ActivityTimingEntrySchema = z.object({
+  enabled: z.boolean(),
+  time: z.string(), // "18:00"
+  description: z.string(),
+  location: z.string().optional(),
+});
+
 export const CreateActivitySchema = z.object({
   eventId: z.string(),
   groupIds: z.array(z.string()).default([]), // Array of group IDs
@@ -130,11 +137,17 @@ export const CreateActivitySchema = z.object({
   category: ActivityCategory.default('OTHER'),
   location: ActivityLocationSchema.optional(),
   content: ActivityContentSchema,
+  capacity: z.number().int().positive().optional(), // Optional capacity limit
+  timingTable: z.array(ActivityTimingEntrySchema).default([]), // Structured timing details
+  allowConflicts: z.boolean().optional().default(false), // Allow capacity conflicts
 });
 export type CreateActivity = z.infer<typeof CreateActivitySchema>;
 
 export const UpdateActivitySchema = CreateActivitySchema.partial().omit({
   eventId: true,
+  createdBy: true,
+}).extend({
+  allowConflicts: z.boolean().optional().default(false),
 });
 export type UpdateActivity = z.infer<typeof UpdateActivitySchema>;
 

@@ -253,14 +253,18 @@ export class CommunicationLogService {
     const [total, notified] = await prisma.$transaction([
       prisma.user.count({
         where: {
-          groupId,
+          groupIds: {
+            has: groupId
+          },
           assigned: true,
           active: true,
         },
       }),
       prisma.user.count({
         where: {
-          groupId,
+          groupIds: {
+            has: groupId
+          },
           assigned: true,
           active: true,
           groupAssignmentNotified: true,
