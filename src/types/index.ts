@@ -58,6 +58,32 @@ export const CreateEventSchema = z.object({
   location: EventLocationSchema,
   dateRange: EventDateRangeSchema,
   config: EventConfigSchema,
+  // ✅ Phase 2 additions
+  hotelConfig: z
+    .object({
+      hotels: z.array(
+        z.object({
+          name: z.string(),
+          isDefault: z.boolean(),
+          checkInTime: z.string(),
+          checkOutTime: z.string(),
+          contractedRooms: z
+            .array(
+              z.object({
+                date: z.coerce.date(),
+                roomType: z.string(),
+                quantity: z.number(),
+                allocated: z.number(),
+              })
+            )
+            .default([]),
+        })
+      ),
+    })
+    .nullable()
+    .optional(),
+  termsConditions: z.string().nullable().optional(),
+  privacyPolicy: z.string().nullable().optional(),
 });
 export type CreateEvent = z.infer<typeof CreateEventSchema>;
 
@@ -109,7 +135,6 @@ export type CreateActivity = z.infer<typeof CreateActivitySchema>;
 
 export const UpdateActivitySchema = CreateActivitySchema.partial().omit({
   eventId: true,
-  createdBy: true,
 });
 export type UpdateActivity = z.infer<typeof UpdateActivitySchema>;
 
@@ -204,6 +229,9 @@ export const UserProfileSchema = z.object({
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   phone: z.string().optional(),
+  // Preferred names (always optional, no checkbox needed)
+  preferredFirstName: z.string().optional(),
+  preferredLastName: z.string().optional(),
 });
 export type UserProfile = z.infer<typeof UserProfileSchema>;
 
@@ -217,25 +245,25 @@ export const UserFlightSchema = z.object({
   inbound: z
     .object({
       departureFrom: z.string().optional(), // "Inbound Departure from [station/airport]"
-      departureDate: z.string().optional(), // "Inbound Departure date [dd/mm/yyyy]"
-      departureTime: z.string().optional(), // "Inbound Departure time [hh:mm]"
+      departureDateTime: z.coerce.date().optional(), // Combined departure date+time (full datetime)
       departureTerminal: z.string().optional(), // "Inbound Departure terminal"
       flightNumber: z.string().optional(), // "Inbound Flight number"
-      arrivalDate: z.string().optional(), // "Inbound Arrival date [dd/mm/yyyy]"
-      arrivalTime: z.string().optional(), // "Inbound Arrival time [hh:mm]"
-      arrivalTo: z.string().optional(), // "Inbound Arrival to [station/airport]"
+      airline: z.string().optional(), // Singapore addition: Airline name
+      arrivalDateTime: z.coerce.date().optional(), // Combined arrival date+time (full datetime)
+      arrivalToAirport: z.string().optional(), // "Inbound Arrival to airport"
+      arrivalToTerminal: z.string().optional(), // "Inbound Arrival to terminal"
     })
     .optional(),
   outbound: z
     .object({
       departureFrom: z.string().optional(), // "Outbound Departure from [station/airport]"
-      departureDate: z.string().optional(), // "Outbound Departure date [dd/mm/yyyy]"
-      departureTime: z.string().optional(), // "Outbound Departure time [hh:mm]"
+      departureDateTime: z.coerce.date().optional(), // Combined departure date+time (full datetime)
       departureTerminal: z.string().optional(), // "Outbound Departure Terminal"
       flightNumber: z.string().optional(), // "Outbound Flight number"
-      arrivalDate: z.string().optional(), // "Outbound Arrival date [dd/mm/yyyy]"
-      arrivalTime: z.string().optional(), // "Outbound Arrival time [hh:mm]"
-      arrivalTo: z.string().optional(), // "Outbound Arrival to [station/airport]"
+      airline: z.string().optional(), // Singapore addition: Airline name
+      arrivalDateTime: z.coerce.date().optional(), // Combined arrival date+time (full datetime)
+      arrivalToAirport: z.string().optional(), // "Outbound Arrival to airport"
+      arrivalToTerminal: z.string().optional(), // "Outbound Arrival to terminal"
     })
     .optional(),
 });
@@ -258,34 +286,70 @@ export const UserAccommodationSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => (val === null ? undefined : val)),
-});
-export type UserAccommodation = z.infer<typeof UserAccommodationSchema>;
-
-export const UserRequirementsSchema = z.object({
-  dietary: z
-    .string()
-    .nullable()
-    .optional()
-    .transform((val) => (val === null ? undefined : val)),
-  medical: z
-    .string()
-    .nullable()
-    .optional()
-    .transform((val) => (val === null ? undefined : val)),
-  accessibility: z
-    .string()
-    .nullable()
-    .optional()
-    .transform((val) => (val === null ? undefined : val)),
   specialRequests: z
     .string()
     .nullable()
     .optional()
     .transform((val) => (val === null ? undefined : val)),
+
+  // Singapore Phase 2 additions - Enhanced occupancy options
+  doubleOccupancy: z
+    .object({
+      enabled: z.boolean().default(false),
+      guestType: z.enum(['official', 'plus-one']).optional(), // "another official guest" or "personal plus one"
+      guestName: z.string().optional(),
+      guestRelation: z.string().optional(),
+    })
+    .optional(),
+  twinOccupancy: z
+    .object({
+      enabled: z.boolean().default(false),
+      guestType: z.enum(['official', 'plus-one']).optional(), // "another official guest" or "personal plus one"
+    })
+    .optional(),
+  earlyCheckIn: z.boolean().optional(),
+  lateCheckOut: z.boolean().optional(),
+  visaBookingRequired: z.boolean().optional(),
+});
+export type UserAccommodation = z.infer<typeof UserAccommodationSchema>;
+
+export const UserRequirementsSchema = z.object({
+  // Enhanced YES/NO pattern with conditional details
+  medical: z
+    .object({
+      enabled: z.boolean().default(false),
+      details: z.string().optional(), // "Asthma, EpiPen carrier, etc."
+    })
+    .optional(),
+  dietary: z
+    .object({
+      enabled: z.boolean().default(false),
+      details: z.string().optional(), // "VEGAN, HALAL, NO FISH, ETC."
+    })
+    .optional(),
+  allergiesIntolerances: z
+    .object({
+      enabled: z.boolean().default(false),
+      details: z.string().optional(), // "No shellfish, No nuts, no dairy"
+    })
+    .optional(),
+  accessibility: z
+    .object({
+      enabled: z.boolean().default(false),
+      details: z.string().optional(), // "Wheelchair, etc."
+    })
+    .optional(),
+  otherComments: z.string().optional(), // Open text field for any other comments
 });
 export type UserRequirements = z.infer<typeof UserRequirementsSchema>;
 
 export const UserMerchandiseSizeSchema = z.object({
+  // Singapore Phase 2 addition
+  gender: z.enum(['Men', 'Women']).optional(),
+  // Updated to use single size field instead of individual items (max size: XL)
+  size: z.enum(['S', 'M', 'L', 'XL']).optional(),
+
+  // Legacy fields (keeping for backward compatibility)
   shirt: z
     .string()
     .nullable()
@@ -346,7 +410,7 @@ export const CreateUserSchema = z.object({
 });
 export type CreateUser = z.infer<typeof CreateUserSchema>;
 
-// Public Registration Schema - Only user-provided fields, admin-managed fields optional
+// Public Registration Schema - Enhanced for Singapore Phase 2
 export const PublicRegistrationSchema = z.object({
   eventId: z.string(),
   profile: UserProfileSchema, // Required: email, firstName, lastName, phone
@@ -356,11 +420,15 @@ export const PublicRegistrationSchema = z.object({
   }),
   transferRequirements: z.string().nullable().optional(),
   requirements: UserRequirementsSchema.optional(), // Optional: dietary, medical, accessibility, specialRequests
-  merchandiseSize: UserMerchandiseSizeSchema.optional(), // Optional: shirt, jacket, hat
+  merchandiseSize: UserMerchandiseSizeSchema.optional(), // Enhanced: gender + size
   emergencyContact: UserEmergencyContactSchema.optional(), // Optional: name, relationship, phone, email
-  // Admin-managed fields are NOT included in public registration:
-  // - flight: Managed by admin
-  // - accommodation: Managed by admin
+
+  // Singapore Phase 2: Users can now provide flight and accommodation details during registration
+  flight: UserFlightSchema.optional(),
+  accommodation: UserAccommodationSchema.optional(),
+
+  // Group binding assignment during registration
+  groupId: z.string().optional(),
 });
 export type PublicRegistration = z.infer<typeof PublicRegistrationSchema>;
 
