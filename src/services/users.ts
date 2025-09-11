@@ -4,14 +4,13 @@ import type {
   CreateUser,
   Pagination,
   PaginatedResponse,
-  UserSession,
-  UserMagicLink,
 } from '../types/index.js';
 import type { User } from '@prisma/client';
 import { GroupService } from './groups.js';
+import { AuditTrailService } from './audit-trail.js';
 
 export class UserService {
-  static async create(data: CreateUser): Promise<User> {
+  static async create(data: CreateUser, performedBy?: string): Promise<User> {
     // Normalize email and check if user with same email already exists in this event
     if (data.profile?.email) {
       data.profile.email = data.profile.email.toLowerCase();
@@ -38,10 +37,24 @@ export class UserService {
         requirements: data.requirements,
         merchandiseSize: data.merchandiseSize,
         emergencyContact: data.emergencyContact,
-        sessions: [],
-        magicLinks: [],
       },
     });
+
+    // Log audit trail
+    if (performedBy) {
+      await AuditTrailService.logCreate(
+        'User',
+        user.id,
+        {
+          email: data.profile?.email,
+          firstName: data.profile?.firstName,
+          lastName: data.profile?.lastName,
+          eventId: data.eventId,
+        },
+        performedBy,
+        data.eventId
+      );
+    }
 
     return user;
   }
@@ -240,7 +253,7 @@ export class UserService {
     };
   }
 
-  static async update(id: string, data: Partial<CreateUser>): Promise<User> {
+  static async update(id: string, data: Partial<CreateUser>, performedBy?: string): Promise<User> {
     // If email is being updated, normalize and check for duplicates within the same event
     if (data.profile?.email) {
       data.profile.email = data.profile.email.toLowerCase();
@@ -282,10 +295,31 @@ export class UserService {
     if (data.emergencyContact !== undefined)
       updateData.emergencyContact = data.emergencyContact;
 
-    return prisma.user.update({
+    // Get current user data for audit trail
+    const currentUser = performedBy ? await prisma.user.findUnique({ where: { id } }) : null;
+    
+    const updatedUser = await prisma.user.update({
       where: { id },
       data: updateData,
     });
+
+    // Log audit trail
+    if (performedBy && currentUser) {
+      const changedFields = AuditTrailService.getChangedFields(currentUser, updatedUser);
+      if (changedFields.length > 0) {
+        await AuditTrailService.logUpdate(
+          'User',
+          id,
+          currentUser,
+          updatedUser,
+          changedFields,
+          performedBy,
+          updatedUser.eventId
+        );
+      }
+    }
+
+    return updatedUser;
   }
 
   static async assignToGroup(
@@ -335,6 +369,21 @@ export class UserService {
     // Update group member count
     await GroupService.updateMemberCount(groupId);
 
+    // Log audit trail
+    const groupForAudit = await prisma.group.findUnique({
+      where: { id: groupId },
+      select: { name: true }
+    });
+
+    await AuditTrailService.logAssign(
+      'User',
+      userId,
+      groupForAudit?.name || groupId,
+      'group',
+      adminId,
+      updatedUser.eventId
+    );
+
     return updatedUser;
   }
 
@@ -365,6 +414,21 @@ export class UserService {
 
     // Update old group member count
     await GroupService.updateMemberCount(oldGroupId);
+
+    // Log audit trail
+    const oldGroup = await prisma.group.findUnique({
+      where: { id: oldGroupId },
+      select: { name: true }
+    });
+
+    await AuditTrailService.logUnassign(
+      'User',
+      userId,
+      oldGroup?.name || oldGroupId,
+      'group',
+      adminId,
+      updatedUser.eventId
+    );
 
     return updatedUser;
   }
@@ -418,186 +482,8 @@ export class UserService {
     return updatedUser;
   }
 
-  static async createMagicLink(userId: string): Promise<string> {
-    const token = uuidv4();
-    const createdAt = new Date();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { magicLinks: true },
-    });
-
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    const magicLinks = user.magicLinks as UserMagicLink[];
-
-    // Add new magic link
-    magicLinks.push({
-      token,
-      createdAt,
-      expiresAt,
-      used: false,
-    });
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { magicLinks },
-    });
-
-    return token;
-  }
-
-  // Alias for compatibility with controller
-  static async generateMagicLink(userId: string): Promise<{ token: string }> {
-    const token = await this.createMagicLink(userId);
-    return { token };
-  }
-
-  static async validateMagicLink(token: string): Promise<User | null> {
-    // Since MongoDB JSON field querying is complex, get all users and filter in JavaScript
-    const allUsers = await prisma.user.findMany({
-      where: { active: true },
-    });
-
-    let matchingUser: any = null;
-    let linkIndex = -1;
-
-    for (const user of allUsers) {
-      const magicLinks = (user.magicLinks as UserMagicLink[]) || [];
-      const index = magicLinks.findIndex((link) => link.token === token);
-
-      if (index !== -1) {
-        matchingUser = user;
-        linkIndex = index;
-        break;
-      }
-    }
-
-    if (!matchingUser || linkIndex === -1) return null;
-
-    const magicLinks = matchingUser.magicLinks as UserMagicLink[];
-    const link = magicLinks[linkIndex];
-
-    // Check if expired or already used
-    if (link.used || new Date() > new Date(link.expiresAt)) {
-      return null;
-    }
-
-    // Mark as used and update last accessed
-    magicLinks[linkIndex] = {
-      ...link,
-      used: true,
-      lastAccessedAt: new Date(),
-    };
-
-    const updatedUser = await prisma.user.update({
-      where: { id: matchingUser.id },
-      data: {
-        magicLinks,
-        lastLoginAt: new Date(),
-      },
-      include: {
-        event: {
-          select: { id: true, name: true, shortName: true },
-        },
-        group: {
-          select: { id: true, name: true, description: true },
-        },
-      },
-    });
-
-    return updatedUser;
-  }
-
-  // Alias for compatibility with controller
-  static async verifyMagicLink(token: string): Promise<User | null> {
-    return this.validateMagicLink(token);
-  }
-
-  static async createSession(
-    userId: string,
-    sessionToken?: string
-  ): Promise<string> {
-    const token = uuidv4();
-    const createdAt = new Date();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { sessions: true },
-    });
-
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    const sessions = user.sessions as UserSession[];
-
-    // Add new session
-    sessions.push({
-      token,
-      createdAt,
-      expiresAt,
-      used: false,
-    });
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { sessions },
-    });
-
-    return token;
-  }
-
-  static async validateSession(token: string): Promise<User | null> {
-    // Since MongoDB JSON field querying is complex, get all users and filter in JavaScript
-    const allUsers = await prisma.user.findMany({
-      where: { active: true },
-    });
-
-    for (const user of allUsers) {
-      const sessions = (user.sessions as UserSession[]) || [];
-      const session = sessions.find((s) => s.token === token);
-
-      if (
-        session &&
-        !session.used &&
-        new Date() <= new Date(session.expiresAt)
-      ) {
-        return user;
-      }
-    }
-
-    return null;
-  }
-
-  static async invalidateSession(token: string): Promise<void> {
-    // Since MongoDB JSON field querying is complex, get all users and filter in JavaScript
-    const allUsers = await prisma.user.findMany({
-      where: { active: true },
-    });
-
-    for (const user of allUsers) {
-      const sessions = (user.sessions as UserSession[]) || [];
-      const sessionIndex = sessions.findIndex((s) => s.token === token);
-
-      if (sessionIndex !== -1) {
-        sessions[sessionIndex] = {
-          ...sessions[sessionIndex],
-          used: true,
-        };
-
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { sessions },
-        });
-        break;
-      }
-    }
-  }
+  // Magic link and session methods removed - replaced with OTP authentication
+  // See OTPService for new authentication flow
 
   static async deactivate(id: string): Promise<User> {
     return prisma.user.update({
@@ -765,7 +651,7 @@ export class UserService {
     return user;
   }
 
-  static async softDelete(userId: string): Promise<User> {
+  static async softDelete(userId: string, performedBy?: string): Promise<User> {
     // First check if user exists and is not already deleted
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -792,6 +678,21 @@ export class UserService {
     // Update group member count if user was assigned
     if (user.groupId) {
       await GroupService.updateMemberCount(user.groupId);
+    }
+
+    // Log audit trail
+    if (performedBy) {
+      await AuditTrailService.logDelete(
+        'User',
+        userId,
+        {
+          email: (user.profile as any)?.email,
+          firstName: (user.profile as any)?.firstName,
+          lastName: (user.profile as any)?.lastName,
+        },
+        performedBy,
+        user.eventId
+      );
     }
 
     return deletedUser;

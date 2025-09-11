@@ -7,9 +7,10 @@ import adminController from '../controllers/admin.js';
 import adminsController from '../controllers/admins.js';
 import trackingController from '../controllers/tracking.js';
 import unsubscribeController from '../controllers/unsubscribe.js';
+import authController from '../controllers/auth.js';
 
 // Import middleware
-import { authenticateAdmin, authenticateUser } from '../middleware/auth.js';
+import { authenticateAdmin, authenticateUser, authenticateUserByEmail } from '../middleware/auth.js';
 
 const app = new OpenAPIHono();
 
@@ -26,8 +27,11 @@ app.get('/health', (c) => {
 // PUBLIC API ROUTES (No Authentication Required)
 // =============================================================================
 
-// Public user operations (registration, magic links)
+// Public user operations (registration)
 app.route('/api/v1/public', publicUsersController);
+
+// Public OTP authentication (no auth required)
+app.route('/api/v1/auth', authController);
 
 // Mount unsubscribe route directly under /api
 app.route('/api', publicUsersController);

@@ -21,7 +21,7 @@ export const MessageType = z.enum([
   'ASSIGNMENT',
   'ACTIVITY_UPDATE',
   'ANNOUNCEMENT',
-  'MAGIC_LINK',
+  'OTP_VERIFICATION',
 ]);
 export type MessageType = z.infer<typeof MessageType>;
 
@@ -177,7 +177,7 @@ export const TemplateCategoryEnum = z.enum([
   'ASSIGNMENT',
   'ACTIVITY_UPDATE',
   'ANNOUNCEMENT',
-  'MAGIC_LINK',
+  'OTP_VERIFICATION',
   'CUSTOM',
 ]);
 
@@ -192,15 +192,15 @@ export const CreateTemplateSchema = z
   })
   .refine(
     (data) => {
-      // Authentication templates must include magicLink variable
-      if (data.type === 'AUTHENTICATION' && data.category === 'MAGIC_LINK') {
-        return data.html.includes('{{magicLink}}');
+      // Authentication templates must include otpCode variable
+      if (data.type === 'AUTHENTICATION' && data.category === 'OTP_VERIFICATION') {
+        return data.html.includes('{{otpCode}}');
       }
       return true;
     },
     {
       message:
-        'Authentication templates must include {{magicLink}} variable in the content',
+        'Authentication templates must include {{otpCode}} variable in the content',
       path: ['html'],
     }
   );
@@ -380,22 +380,7 @@ export const UserEmergencyContactSchema = z.object({
 });
 export type UserEmergencyContact = z.infer<typeof UserEmergencyContactSchema>;
 
-export const UserSessionSchema = z.object({
-  token: z.string(),
-  createdAt: z.coerce.date(),
-  expiresAt: z.coerce.date(),
-  used: z.boolean(),
-});
-export type UserSession = z.infer<typeof UserSessionSchema>;
-
-export const UserMagicLinkSchema = z.object({
-  token: z.string(),
-  createdAt: z.coerce.date(),
-  expiresAt: z.coerce.date(),
-  lastAccessedAt: z.coerce.date().optional(),
-  used: z.boolean(),
-});
-export type UserMagicLink = z.infer<typeof UserMagicLinkSchema>;
+// Session and magic link schemas removed - replaced with JWT + OTP authentication
 
 export const CreateUserSchema = z.object({
   eventId: z.string(),
@@ -547,3 +532,39 @@ export type PaginatedResponse<T = any> = {
     totalPages: number;
   };
 };
+
+// ============================================================================
+// OTP Types
+// ============================================================================
+
+export const RequestOTPSchema = z.object({
+  email: z.string().email('Valid email address is required'),
+  eventId: z.string().min(1, 'Event ID is required'),
+  channel: z.enum(['email', 'sms']).default('email'),
+});
+export type RequestOTP = z.infer<typeof RequestOTPSchema>;
+
+export const ValidateOTPSchema = z.object({
+  otpId: z.string().min(1, 'OTP ID is required'),
+  otpCode: z.string().length(4, 'OTP code must be 4 digits').regex(/^\d{4}$/, 'OTP code must contain only numbers'),
+});
+export type ValidateOTP = z.infer<typeof ValidateOTPSchema>;
+
+// ============================================================================
+// Audit Trail Types
+// ============================================================================
+
+export const AuditActionEnum = z.enum(['CREATE', 'UPDATE', 'DELETE', 'IMPORT', 'EXPORT', 'ASSIGN', 'UNASSIGN']);
+export const ResourceTypeEnum = z.enum(['User', 'Activity', 'Group', 'Event', 'EmailTemplate', 'Admin', 'BulkOperation']);
+
+export const GetAuditTrailSchema = z.object({
+  eventId: z.string().optional(),
+  performedBy: z.string().optional(), 
+  resourceType: ResourceTypeEnum.optional(),
+  action: AuditActionEnum.optional(),
+  resourceId: z.string().optional(),
+  dateFrom: z.string().datetime().optional(),
+  dateTo: z.string().datetime().optional(),
+});
+
+export type GetAuditTrail = z.infer<typeof GetAuditTrailSchema>;

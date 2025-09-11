@@ -7,7 +7,7 @@ import {
   ApiSuccessSchema,
   ApiErrorSchema,
 } from '../../types/index.js';
-import { authenticateUser, AuthContext } from '../../middleware/auth.js';
+import { authenticateUserByEmail, AuthContext } from '../../middleware/auth.js';
 
 const app = new OpenAPIHono<{ Variables: AuthContext }>();
 
@@ -347,7 +347,7 @@ const getUserItineraryRoute = createRoute({
   summary: 'Get user assigned group activities',
   description:
     "Retrieve activities for the user's assigned group - requires email in request body",
-  middleware: [authenticateUser] as const,
+  middleware: [authenticateUserByEmail] as const,
   request: {
     body: {
       content: {
@@ -420,7 +420,7 @@ const getUserItineraryRoute = createRoute({
 
 app.openapi(getUserItineraryRoute, async (c) => {
   // Apply authentication middleware manually
-  const authResult = await authenticateUser(c, async () => {});
+  const authResult = await authenticateUserByEmail(c, async () => { });
   if (authResult) {
     return authResult; // Return auth error response
   }
@@ -481,7 +481,7 @@ const getUserProfileRoute = createRoute({
   summary: 'Get current user profile',
   description:
     'Retrieve complete user profile information - requires email in request body',
-  middleware: [authenticateUser] as const,
+  middleware: [authenticateUserByEmail] as const,
   request: {
     body: {
       content: {
@@ -551,7 +551,7 @@ const getUserProfileRoute = createRoute({
 
 app.openapi(getUserProfileRoute, async (c) => {
   // Apply authentication middleware manually
-  const authResult = await authenticateUser(c, async () => {});
+  const authResult = await authenticateUserByEmail(c, async () => { });
   if (authResult) {
     return authResult; // Return auth error response
   }
@@ -593,7 +593,7 @@ const updateCommunicationPreferencesRoute = createRoute({
   summary: 'Update user communication preferences',
   description:
     'Update email and WhatsApp notification preferences - requires email in request body',
-  middleware: [authenticateUser] as const,
+  middleware: [authenticateUserByEmail] as const,
   request: {
     body: {
       content: {
@@ -664,7 +664,7 @@ const updateCommunicationPreferencesRoute = createRoute({
 
 app.openapi(updateCommunicationPreferencesRoute, async (c) => {
   // Manually run authentication middleware
-  const authResult = await authenticateUser(c, async () => {});
+  const authResult = await authenticateUserByEmail(c, async () => { });
   if (authResult) {
     return authResult; // Return auth error response
   }

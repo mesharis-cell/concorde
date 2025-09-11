@@ -6,7 +6,7 @@ import { UserService } from '../services/users.js';
 export interface AuthContext {
   user?: {
     id: string;
-    role: 'admin' | 'user';
+    role: 'admin' | 'user' | 'guest';
     eventId?: string;
     adminData?: any;
     userData?: any;
@@ -71,8 +71,95 @@ export async function authenticateAdmin(authenticateSuperAdmin: boolean) {
   }
 }
 
-// Simple email-based authentication middleware for users
+// JWT-based authentication middleware for guest users (via OTP)
 export async function authenticateUser(c: Context, next: Next) {
+  const authHeader = c.req.header('Authorization');
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return c.json({
+      success: false,
+      error: 'Missing or invalid authorization header',
+    }, 401);
+  }
+
+  const token = authHeader.substring(7);
+
+  try {
+    const payload = JwtService.verify(token);
+
+    // Allow both 'user' and 'guest' token types
+    if (payload.role !== 'user' && payload.role !== 'guest') {
+      return c.json({
+        success: false,
+        error: 'Invalid token type',
+      }, 401);
+    }
+
+    // Find user by ID
+    const user = await UserService.findById(payload.id);
+    if (!user) {
+      return c.json({
+        success: false,
+        error: 'User not found',
+      }, 401);
+    }
+
+    // Verify event ID matches if provided in token
+    if (payload.eventId && user.eventId !== payload.eventId) {
+      return c.json({
+        success: false,
+        error: 'Token event mismatch',
+      }, 401);
+    }
+
+    // Add user data to context
+    c.set('user', {
+      id: user.id,
+      role: payload.role as 'user' | 'guest',
+      eventId: user.eventId,
+      userData: user,
+    });
+
+    await next();
+  } catch (error) {
+    return c.json({
+      success: false,
+      error: 'Invalid or expired token',
+    }, 401);
+  }
+}
+
+// Optional JWT authentication middleware (tries to authenticate but doesn't fail if token is missing)
+export async function optionalAuth(c: Context, next: Next) {
+  try {
+    const authHeader = c.req.header('Authorization');
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      const payload = JwtService.verify(token);
+
+      if (payload.role === 'user' || payload.role === 'guest') {
+        const user = await UserService.findById(payload.id);
+        if (user && (!payload.eventId || user.eventId === payload.eventId)) {
+          c.set('user', {
+            id: user.id,
+            role: payload.role as 'user' | 'guest',
+            eventId: user.eventId,
+            userData: user,
+          });
+        }
+      }
+    }
+  } catch (error) {
+    // Ignore errors in optional auth
+  }
+
+  await next();
+}
+
+// Legacy email-based authentication for backward compatibility
+// DEPRECATED: Use JWT authentication instead
+export async function authenticateUserByEmail(c: Context, next: Next) {
   let email: string;
   let eventId: string;
 
@@ -81,7 +168,6 @@ export async function authenticateUser(c: Context, next: Next) {
     const body = await c.req.json();
 
     email = body.email;
-    // For testing purposes, use a default eventId or get from request
     eventId = body.eventId || process.env.DEFAULT_EVENT_ID || "68b5aa94b9d13b18bb4694c6";
   } catch (error) {
     return c.json({
@@ -123,29 +209,4 @@ export async function authenticateUser(c: Context, next: Next) {
       error: 'Authentication failed',
     }, 401);
   }
-}
-
-// Optional authentication middleware (for backward compatibility, but simplified)
-export async function optionalAuth(c: Context, next: Next) {
-  try {
-    const body = await c.req.json();
-    const email = body.email;
-    const eventId = body.eventId || process.env.DEFAULT_EVENT_ID || "68b5aa94b9d13b18bb4694c6";
-
-    if (email) {
-      const user = await UserService.findByEmail(email, eventId);
-      if (user) {
-        c.set('user', {
-          id: user.id,
-          role: 'user' as const,
-          eventId: user.eventId,
-          userData: user,
-        });
-      }
-    }
-  } catch (error) {
-    // Ignore errors in optional auth
-  }
-
-  await next();
 }

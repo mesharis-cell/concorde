@@ -89,10 +89,10 @@ console.log(`🔧 Port: ${port}`);
 // });
 
 // For Bun deployment
-// export default {
-//   port,
-//   fetch: app.fetch,
-// };
+export default {
+  port,
+  fetch: app.fetch,
+};
 
 console.log(`✅ Server running on http://localhost:${port}`);
 console.log(`📚 API Documentation: http://localhost:${port}/docs`);
@@ -111,4 +111,4 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-export default app;
+// export default app;

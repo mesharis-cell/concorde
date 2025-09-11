@@ -30,7 +30,9 @@ import {
   PaginationSchema,
   ApiSuccessSchema,
   ApiErrorSchema,
+  GetAuditTrailSchema,
 } from '../types/index.js';
+import { AuditTrailService } from '../services/audit-trail.js';
 
 const app = new OpenAPIHono();
 
@@ -199,7 +201,7 @@ app.openapi(adminRegisterUserRoute, async (c) => {
       );
     }
 
-    const user = await UserService.create(data);
+    const user = await UserService.create(data, authUser.id);
 
     return c.json(
       {
@@ -373,8 +375,27 @@ app.openapi(exportUsersRoute, async (c) => {
         `attachment; filename="users-${eventId}-${new Date().toISOString().split('T')[0]
         }.csv"`
       );
+
+      // Log export operation
+      await AuditTrailService.logExport(
+        'User',
+        users.items.length,
+        format,
+        authUser.id,
+        eventId
+      );
+
       return c.text(csvContent);
     } else {
+      // Log export operation
+      await AuditTrailService.logExport(
+        'User',
+        users.items.length,
+        format,
+        authUser.id,
+        eventId
+      );
+
       return c.json({
         success: true,
         data: users,
@@ -544,14 +565,30 @@ const getUserItineraryRoute = createRoute({
     'Retrieve the exact timeline and excluded activities that a user sees, including user profile context',
   request: {
     params: z.object({
-      userId: z.string().min(1),
+      userId: z.string().min(1).openapi({
+        param: {
+          name: 'userId',
+          in: 'path',
+        },
+        example: '60f7b3b3b3b3b3b3b3b3b3b3',
+      }),
     }),
-    query: z
-      .object({
-        dateFrom: z.string().datetime().optional(),
-        dateTo: z.string().datetime().optional(),
-      })
-      .optional(),
+    query: z.object({
+      dateFrom: z.string().datetime().optional().openapi({
+        param: {
+          name: 'dateFrom',
+          in: 'query',
+        },
+        example: '2025-01-01T00:00:00Z',
+      }),
+      dateTo: z.string().datetime().optional().openapi({
+        param: {
+          name: 'dateTo',
+          in: 'query',
+        },
+        example: '2025-01-31T23:59:59Z',
+      }),
+    }),
   },
   responses: {
     200: {
@@ -806,6 +843,7 @@ app.openapi(updateUserRoute, async (c) => {
   try {
     const { userId } = c.req.valid('param');
     const updates = c.req.valid('json');
+    const authUser = c.get('user');
 
     // Build the update payload for partial updates - only include changed fields
     const updatePayload: any = {};
@@ -869,7 +907,7 @@ app.openapi(updateUserRoute, async (c) => {
     if (updates.emergencyContact !== undefined)
       updatePayload.emergencyContact = updates.emergencyContact;
 
-    const user = await UserService.update(userId, updatePayload);
+    const user = await UserService.update(userId, updatePayload, authUser.id);
 
     return c.json({
       success: true,
@@ -921,7 +959,7 @@ const deleteUserRoute = createRoute({
 app.openapi(deleteUserRoute, async (c) => {
   try {
     const { userId } = c.req.valid('param');
-    const user = await UserService.softDelete(userId);
+    const user = await UserService.softDelete(userId, authUser.id);
 
     return c.json({
       success: true,
@@ -4221,12 +4259,23 @@ app.openapi(importUsersRoute, async (c) => {
               : undefined,
         };
 
-        await UserService.create(createUserData);
+        await UserService.create(createUserData, authUser.id);
         imported++;
       } catch (error: any) {
         errors.push(`Row ${i + 2}: ${error.message}`);
       }
     }
+
+    // Log bulk import operation
+    await AuditTrailService.logImport(
+      'User',
+      dataRows.length,
+      imported,
+      errors.length,
+      authUser.id,
+      eventId,
+      file.name
+    );
 
     return c.json({
       success: true,
@@ -5228,6 +5277,183 @@ app.openapi(generateAdminPreviewTokenRoute, async (c) => {
       {
         success: false,
         error: 'Failed to generate preview token',
+        details: error.message,
+      },
+      500
+    );
+  }
+});
+
+// =============================================================================
+// 10. AUDIT TRAIL (Super Admin Only)
+// =============================================================================
+
+const getAuditTrailRoute = createRoute({
+  method: 'get',
+  path: '/audit-trail',
+  tags: ['Super Admin - Audit Trail'],
+  summary: 'Get system audit trail timeline (Super Admin only)',
+  description: 'Retrieve comprehensive audit trail of all system changes with filtering options',
+  request: {
+    query: PaginationSchema.extend({
+      eventId: z.string().optional().openapi({
+        param: { name: 'eventId', in: 'query' },
+        example: '68c1a6975faa5f8e91d9e846',
+      }),
+      performedBy: z.string().optional().openapi({
+        param: { name: 'performedBy', in: 'query' },
+        example: '68c1a6975faa5f8e91d9e847',
+      }),
+      resourceType: z.enum(['User', 'Activity', 'Group', 'Event', 'EmailTemplate', 'Admin', 'BulkOperation']).optional().openapi({
+        param: { name: 'resourceType', in: 'query' },
+        example: 'User',
+      }),
+      action: z.enum(['CREATE', 'UPDATE', 'DELETE', 'IMPORT', 'EXPORT', 'ASSIGN', 'UNASSIGN']).optional().openapi({
+        param: { name: 'action', in: 'query' },
+        example: 'CREATE',
+      }),
+      resourceId: z.string().optional().openapi({
+        param: { name: 'resourceId', in: 'query' },
+        example: '68c1a6975faa5f8e91d9e848',
+      }),
+      dateFrom: z.string().datetime().optional().openapi({
+        param: { name: 'dateFrom', in: 'query' },
+        example: '2025-01-01T00:00:00Z',
+      }),
+      dateTo: z.string().datetime().optional().openapi({
+        param: { name: 'dateTo', in: 'query' },
+        example: '2025-12-31T23:59:59Z',
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Audit trail retrieved successfully',
+    },
+    403: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Super admin access required',
+    },
+  },
+});
+
+app.openapi(getAuditTrailRoute, async (c) => {
+  try {
+    const authUser = c.get('user');
+
+    // Only super admins can access audit trail
+    if (authUser.adminData?.role !== 'SUPER') {
+      return c.json(
+        {
+          success: false,
+          error: 'Super admin access required to view audit trail',
+        },
+        403
+      );
+    }
+
+    const { page, limit, eventId, performedBy, resourceType, action, resourceId, dateFrom, dateTo } = c.req.valid('query');
+
+    const filters: any = {};
+    if (eventId) filters.eventId = eventId;
+    if (performedBy) filters.performedBy = performedBy;
+    if (resourceType) filters.resourceType = resourceType;
+    if (action) filters.action = action;
+    if (resourceId) filters.resourceId = resourceId;
+    if (dateFrom) filters.dateFrom = new Date(dateFrom);
+    if (dateTo) filters.dateTo = new Date(dateTo);
+
+    const result = await AuditTrailService.getAuditTrail(
+      { page: page || 1, limit: limit || 50 },
+      filters
+    );
+
+    return c.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve audit trail',
+        details: error.message,
+      },
+      500
+    );
+  }
+});
+
+const getAuditTrailStatsRoute = createRoute({
+  method: 'get',
+  path: '/audit-trail/stats',
+  tags: ['Super Admin - Audit Trail'],
+  summary: 'Get audit trail statistics (Super Admin only)',
+  description: 'Get comprehensive statistics about system changes',
+  request: {
+    query: z.object({
+      eventId: z.string().optional().openapi({
+        param: { name: 'eventId', in: 'query' },
+        example: '68c1a6975faa5f8e91d9e846',
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Audit trail statistics retrieved successfully',
+    },
+    403: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Super admin access required',
+    },
+  },
+});
+
+app.openapi(getAuditTrailStatsRoute, async (c) => {
+  try {
+    const authUser = c.get('user');
+
+    // Only super admins can access audit trail
+    if (authUser.adminData?.role !== 'SUPER') {
+      return c.json(
+        {
+          success: false,
+          error: 'Super admin access required to view audit trail statistics',
+        },
+        403
+      );
+    }
+
+    const { eventId } = c.req.valid('query');
+    const stats = await AuditTrailService.getStatistics(eventId);
+
+    return c.json({
+      success: true,
+      data: stats,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve audit trail statistics',
         details: error.message,
       },
       500
