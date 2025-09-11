@@ -135,7 +135,6 @@ export type CreateActivity = z.infer<typeof CreateActivitySchema>;
 
 export const UpdateActivitySchema = CreateActivitySchema.partial().omit({
   eventId: true,
-  createdBy: true,
 });
 export type UpdateActivity = z.infer<typeof UpdateActivitySchema>;
 
@@ -230,6 +229,10 @@ export const UserProfileSchema = z.object({
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   phone: z.string().optional(),
+  // Preferred names (optional)
+  hasPreferredName: z.boolean().optional().default(false),
+  preferredFirstName: z.string().optional(),
+  preferredLastName: z.string().optional(),
 });
 export type UserProfile = z.infer<typeof UserProfileSchema>;
 
@@ -250,7 +253,8 @@ export const UserFlightSchema = z.object({
       airline: z.string().optional(), // Singapore addition: Airline name
       arrivalDate: z.coerce.date().optional(), // Enhanced: Date field for Singapore
       arrivalTime: z.string().optional(), // "Inbound Arrival time [hh:mm]" - 24h format
-      arrivalTo: z.string().optional(), // "Inbound Arrival to [station/airport]"
+      arrivalToAirport: z.string().optional(), // "Inbound Arrival to airport"
+      arrivalToTerminal: z.string().optional(), // "Inbound Arrival to terminal"
     })
     .optional(),
   outbound: z
@@ -263,7 +267,8 @@ export const UserFlightSchema = z.object({
       airline: z.string().optional(), // Singapore addition: Airline name
       arrivalDate: z.coerce.date().optional(), // Enhanced: Date field for Singapore
       arrivalTime: z.string().optional(), // "Outbound Arrival time [hh:mm]" - 24h format
-      arrivalTo: z.string().optional(), // "Outbound Arrival to [station/airport]"
+      arrivalToAirport: z.string().optional(), // "Outbound Arrival to airport"
+      arrivalToTerminal: z.string().optional(), // "Outbound Arrival to terminal"
     })
     .optional(),
 });
@@ -292,18 +297,21 @@ export const UserAccommodationSchema = z.object({
     .optional()
     .transform((val) => (val === null ? undefined : val)),
 
-  // Singapore Phase 2 additions
-  occupancy: z.enum(['single', 'double']).optional(),
-  guestName: z
-    .string()
-    .nullable()
-    .optional()
-    .transform((val) => (val === null ? undefined : val)),
-  guestRelation: z
-    .string()
-    .nullable()
-    .optional()
-    .transform((val) => (val === null ? undefined : val)),
+  // Singapore Phase 2 additions - Enhanced occupancy options
+  doubleOccupancy: z
+    .object({
+      enabled: z.boolean().default(false),
+      guestType: z.enum(['official', 'plus-one']).optional(), // "another official guest" or "personal plus one"
+      guestName: z.string().optional(),
+      guestRelation: z.string().optional(),
+    })
+    .optional(),
+  twinOccupancy: z
+    .object({
+      enabled: z.boolean().default(false),
+      guestType: z.enum(['official', 'plus-one']).optional(), // "another official guest" or "personal plus one"
+    })
+    .optional(),
   earlyCheckIn: z.boolean().optional(),
   lateCheckOut: z.boolean().optional(),
   visaBookingRequired: z.boolean().optional(),
@@ -311,34 +319,40 @@ export const UserAccommodationSchema = z.object({
 export type UserAccommodation = z.infer<typeof UserAccommodationSchema>;
 
 export const UserRequirementsSchema = z.object({
-  dietary: z
-    .string()
-    .nullable()
-    .optional()
-    .transform((val) => (val === null ? undefined : val)),
+  // Enhanced YES/NO pattern with conditional details
   medical: z
-    .string()
-    .nullable()
-    .optional()
-    .transform((val) => (val === null ? undefined : val)),
+    .object({
+      enabled: z.boolean().default(false),
+      details: z.string().optional(), // "Asthma, EpiPen carrier, etc."
+    })
+    .optional(),
+  dietary: z
+    .object({
+      enabled: z.boolean().default(false),
+      details: z.string().optional(), // "VEGAN, HALAL, NO FISH, ETC."
+    })
+    .optional(),
+  allergiesIntolerances: z
+    .object({
+      enabled: z.boolean().default(false),
+      details: z.string().optional(), // "No shellfish, No nuts, no dairy"
+    })
+    .optional(),
   accessibility: z
-    .string()
-    .nullable()
-    .optional()
-    .transform((val) => (val === null ? undefined : val)),
-  specialRequests: z
-    .string()
-    .nullable()
-    .optional()
-    .transform((val) => (val === null ? undefined : val)),
+    .object({
+      enabled: z.boolean().default(false),
+      details: z.string().optional(), // "Wheelchair, etc."
+    })
+    .optional(),
+  otherComments: z.string().optional(), // Open text field for any other comments
 });
 export type UserRequirements = z.infer<typeof UserRequirementsSchema>;
 
 export const UserMerchandiseSizeSchema = z.object({
   // Singapore Phase 2 addition
   gender: z.enum(['Men', 'Women']).optional(),
-  // Updated to use single size field instead of individual items
-  size: z.enum(['S', 'M', 'L', 'XL', 'XXL']).optional(),
+  // Updated to use single size field instead of individual items (max size: XL)
+  size: z.enum(['S', 'M', 'L', 'XL']).optional(),
 
   // Legacy fields (keeping for backward compatibility)
   shirt: z
@@ -417,6 +431,9 @@ export const PublicRegistrationSchema = z.object({
   // Singapore Phase 2: Users can now provide flight and accommodation details during registration
   flight: UserFlightSchema.optional(),
   accommodation: UserAccommodationSchema.optional(),
+
+  // Group binding assignment during registration
+  groupId: z.string().optional(),
 });
 export type PublicRegistration = z.infer<typeof PublicRegistrationSchema>;
 

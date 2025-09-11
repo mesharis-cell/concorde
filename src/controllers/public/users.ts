@@ -9,11 +9,7 @@ import {
 } from '../../types/index.js';
 import { authenticateUser, AuthContext } from '../../middleware/auth.js';
 
-
-
 const app = new OpenAPIHono<{ Variables: AuthContext }>();
-
-
 
 // Event Registration (Public)
 const eventRegisterRoute = createRoute({
@@ -175,16 +171,35 @@ app.openapi(eventRegisterRoute, async (c) => {
     const registrationData = { ...data, eventId };
     const user = await UserService.create(registrationData);
 
+    // Auto-assign to group if groupId is provided (binding assignment)
+    let finalUser = user;
+    if (data.groupId) {
+      try {
+        finalUser = await UserService.assignToGroup(
+          user.id,
+          data.groupId,
+          'system-registration'
+        );
+      } catch (assignError: any) {
+        console.warn(
+          'Group assignment during registration failed:',
+          assignError.message
+        );
+        // Continue with registration even if group assignment fails
+      }
+    }
+
     // TODO: Send welcome message via opted-in channels
 
     return c.json(
       {
         success: true,
         data: {
-          id: user.id,
-          profile: user.profile,
-          assigned: user.assigned,
-          eventId: user.eventId,
+          id: finalUser.id,
+          profile: finalUser.profile,
+          assigned: finalUser.assigned,
+          eventId: finalUser.eventId,
+          groupId: finalUser.groupId,
         },
         message: 'Registration completed successfully',
       },
@@ -239,13 +254,15 @@ const eventInfoRoute = createRoute({
                 registrationOpen: true,
               },
               hotelConfig: {
-                hotels: [{
-                  name: 'Grand Hotel Singapore',
-                  isDefault: true,
-                  roomTypes: ['Deluxe King', 'Premium Twin', 'Suite'],
-                  checkInTime: '15:00',
-                  checkOutTime: '11:00'
-                }]
+                hotels: [
+                  {
+                    name: 'Grand Hotel Singapore',
+                    isDefault: true,
+                    roomTypes: ['Deluxe King', 'Premium Twin', 'Suite'],
+                    checkInTime: '15:00',
+                    checkOutTime: '11:00',
+                  },
+                ],
               },
               termsConditions: '<p>Event terms and conditions...</p>',
               privacyPolicy: '<p>Privacy policy content...</p>',
@@ -274,7 +291,7 @@ app.openapi(eventInfoRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
 
-    const event = await EventService.findById(eventId);
+    const event = await EventService.findById(eventId, true); // Include groups
     if (!event || !event.active) {
       return c.json(
         {
@@ -300,6 +317,8 @@ app.openapi(eventInfoRoute, async (c) => {
         hotelConfig: event.hotelConfig || null,
         termsConditions: event.termsConditions || null,
         privacyPolicy: event.privacyPolicy || null,
+        // Groups for registration binding assignment
+        groups: (event as any).groups || [],
       },
     });
   } catch (error: any) {
@@ -315,14 +334,6 @@ app.openapi(eventInfoRoute, async (c) => {
 });
 
 // Legacy /users/register route removed - use event-specific /events/{eventId}/register for public registration
-
-
-
-
-
-
-
-
 
 // =============================================================================
 // AUTHENTICATED USER ENDPOINTS (Email Required in Request Body)
@@ -409,7 +420,7 @@ const getUserItineraryRoute = createRoute({
 
 app.openapi(getUserItineraryRoute, async (c) => {
   // Apply authentication middleware manually
-  const authResult = await authenticateUser(c, async () => { });
+  const authResult = await authenticateUser(c, async () => {});
   if (authResult) {
     return authResult; // Return auth error response
   }
@@ -540,7 +551,7 @@ const getUserProfileRoute = createRoute({
 
 app.openapi(getUserProfileRoute, async (c) => {
   // Apply authentication middleware manually
-  const authResult = await authenticateUser(c, async () => { });
+  const authResult = await authenticateUser(c, async () => {});
   if (authResult) {
     return authResult; // Return auth error response
   }
@@ -653,7 +664,7 @@ const updateCommunicationPreferencesRoute = createRoute({
 
 app.openapi(updateCommunicationPreferencesRoute, async (c) => {
   // Manually run authentication middleware
-  const authResult = await authenticateUser(c, async () => { });
+  const authResult = await authenticateUser(c, async () => {});
   if (authResult) {
     return authResult; // Return auth error response
   }
@@ -800,16 +811,16 @@ app.openapi(getActivityInfoRoute, async (c) => {
         thumbnail: activity.thumbnail,
         group: activity.group
           ? {
-            id: activity.group.id,
-            name: activity.group.name,
-          }
+              id: activity.group.id,
+              name: activity.group.name,
+            }
           : null,
         event: activity.event
           ? {
-            id: activity.event.id,
-            name: activity.event.name,
-            shortName: activity.event.shortName,
-          }
+              id: activity.event.id,
+              name: activity.event.name,
+              shortName: activity.event.shortName,
+            }
           : null,
       },
     });
@@ -878,10 +889,13 @@ app.openapi(unsubscribeRoute, async (c) => {
     const result = await UserService.unsubscribeFromEmail(userId, eventId);
     if (!result.success) {
       const statusCode = result.error === 'User not found' ? 404 : 400;
-      return c.json({
-        success: false,
-        error: result.error || 'Failed to unsubscribe'
-      }, statusCode);
+      return c.json(
+        {
+          success: false,
+          error: result.error || 'Failed to unsubscribe',
+        },
+        statusCode
+      );
     }
 
     // Get user details for personalized confirmation
@@ -892,13 +906,16 @@ app.openapi(unsubscribeRoute, async (c) => {
 
     return c.json({
       success: true,
-      message: `${firstName} successfully unsubscribed from ${eventName}`
+      message: `${firstName} successfully unsubscribed from ${eventName}`,
     });
   } catch (error: any) {
-    return c.json({
-      success: false,
-      error: 'An unexpected error occurred'
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'An unexpected error occurred',
+      },
+      500
+    );
   }
 });
 

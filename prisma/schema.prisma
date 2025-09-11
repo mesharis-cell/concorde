@@ -170,7 +170,10 @@ model User {
   groupId String? @db.ObjectId
 
   // Profile
-  profile Json // { email, firstName, lastName, phone }
+  profile Json // { email, firstName, lastName, phone, hasPreferredName, preferredFirstName, preferredLastName }
+  
+  // Admin-managed ticket numbers
+  ticketNumbers String[] @default([]) // Array of ticket numbers (e.g., ["XXX123", "XXX456"])
 
   // Authentication
   sessions   Json[] // [{ token, createdAt, expiresAt, used }]
@@ -180,12 +183,12 @@ model User {
   communication Json // { emailOptIn, whatsappOptIn }
 
   // Travel & accommodation details
-  flight               Json? // { inbound: { departureFrom, departureDate, departureTime, departureTerminal, flightNumber, arrivalDate, arrivalTime, arrivalTo }, outbound: { departureFrom, departureDate, departureTime, departureTerminal, flightNumber, arrivalDate, arrivalTime, arrivalTo } }
-  accommodation        Json? // { required, hotel, checkIn, checkOut, specialRequests }
+  flight               Json? // { inbound: { departureFrom, departureDate, departureTime, departureTerminal, flightNumber, airline, arrivalDate, arrivalTime, arrivalToAirport, arrivalToTerminal }, outbound: { departureFrom, departureDate, departureTime, departureTerminal, flightNumber, airline, arrivalDate, arrivalTime, arrivalToAirport, arrivalToTerminal } }
+  accommodation        Json? // { required, hotel, checkIn, checkOut, specialRequests, doubleOccupancy: { enabled, guestType, guestName, guestRelation }, twinOccupancy: { enabled, guestType }, earlyCheckIn, lateCheckOut, visaBookingRequired }
   transferRequirements String?
 
-  // Requirements
-  requirements Json? // { dietary, medical, accessibility }
+  // Requirements - Enhanced YES/NO pattern
+  requirements Json? // { medical: { enabled, details }, dietary: { enabled, details }, allergiesIntolerances: { enabled, details }, accessibility: { enabled, details }, otherComments }
 
   // Merchandise
   merchandiseSize Json? // { shirt, jacket, hat }

@@ -19,9 +19,27 @@ export class EventService {
     });
   }
 
-  static async findById(id: string): Promise<Event | null> {
+  static async findById(
+    id: string,
+    includeGroups: boolean = false
+  ): Promise<Event | null> {
     return prisma.event.findUnique({
       where: { id },
+      ...(includeGroups && {
+        include: {
+          groups: {
+            where: {
+              active: true,
+              deleted: false,
+            },
+            select: {
+              id: true,
+              name: true,
+              description: true,
+            },
+          },
+        },
+      }),
     });
   }
 
