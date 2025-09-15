@@ -245,6 +245,13 @@ export const UserProfileSchema = z.object({
   // Preferred names (always optional, no checkbox needed)
   preferredFirstName: z.string().optional(),
   preferredLastName: z.string().optional(),
+  // Additional fields for CSV import
+  jobTitle: z.string().optional(),
+  company: z.string().optional(),
+  guestType: z.string().optional(),
+  vip: z.boolean().optional(),
+  initials: z.string().optional(),
+  host: z.string().optional(),
 });
 export type UserProfile = z.infer<typeof UserProfileSchema>;
 
@@ -359,8 +366,8 @@ export type UserRequirements = z.infer<typeof UserRequirementsSchema>;
 export const UserMerchandiseSizeSchema = z.object({
   // Singapore Phase 2 addition
   gender: z.enum(['Men', 'Women']).optional(),
-  // Updated to use single size field instead of individual items (max size: XL)
-  size: z.enum(['S', 'M', 'L', 'XL']).optional(),
+  // Updated to use single size field instead of individual items (includes XS)
+  size: z.enum(['XS', 'S', 'M', 'L', 'XL']).optional(),
 
   // Legacy fields (keeping for backward compatibility)
   shirt: z
@@ -572,7 +579,7 @@ export const ResourceTypeEnum = z.enum(['User', 'Activity', 'Group', 'Event', 'E
 
 export const GetAuditTrailSchema = z.object({
   eventId: z.string().optional(),
-  performedBy: z.string().optional(), 
+  performedBy: z.string().optional(),
   resourceType: ResourceTypeEnum.optional(),
   action: AuditActionEnum.optional(),
   resourceId: z.string().optional(),
