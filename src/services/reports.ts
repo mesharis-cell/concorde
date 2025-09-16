@@ -36,15 +36,12 @@ export class ReportsService {
           where: { eventId },
         },
       },
-      orderBy: [
-        { guestCategory: 'asc' },
-        { updatedAt: 'asc' },
-      ],
     });
 
     const headers = [
-      'Guest Name',
-      'Guest Category', 
+      'First Name',
+      'Surname',
+      'Guest Category',
       'Email',
       'Phone',
       'Flight Number',
@@ -70,7 +67,8 @@ export class ReportsService {
         const roomAssignment = user.roomAssignments[0];
 
         return [
-          `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim(),
+          profile?.firstName || '',
+          profile?.lastName || '',
           user.guestCategory || 'Standard',
           profile?.email || '',
           profile?.phone || '',
@@ -227,12 +225,13 @@ export class ReportsService {
     const groupMap = new Map(groups.map(g => [g.id, g.name]));
 
     const headers = [
-      'Guest Name',
+      'First Name',
+      'Surname',
       'Guest Category',
       'Email',
       'Phone',
       'Medical Conditions',
-      'Allergies/Intolerances', 
+      'Allergies/Intolerances',
       'Accessibility Needs',
       'Emergency Contact Name',
       'Emergency Contact Phone',
@@ -250,7 +249,8 @@ export class ReportsService {
       const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
 
       return [
-        `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim(),
+        profile?.firstName || '',
+        profile?.lastName || '',
         user.guestCategory || 'Standard',
         profile?.email || '',
         profile?.phone || '',
@@ -308,7 +308,8 @@ export class ReportsService {
     const groupMap = new Map(groups.map(g => [g.id, g.name]));
 
     const headers = [
-      'Guest Name',
+      'First Name',
+      'Surname',
       'Guest Category',
       'Email',
       'Phone',
@@ -326,7 +327,8 @@ export class ReportsService {
       const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
 
       return [
-        `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim(),
+        profile?.firstName || '',
+        profile?.lastName || '',
         user.guestCategory || 'Standard',
         profile?.email || '',
         profile?.phone || '',
@@ -498,9 +500,6 @@ export class ReportsService {
             where: { eventId },
           },
         },
-        orderBy: {
-          updatedAt: 'asc',
-        },
       }),
       prisma.group.findMany({
         where: { eventId, active: true, deleted: false },
@@ -592,7 +591,8 @@ export class ReportsService {
     const headers = [
       'Activity Title',
       'Date & Time',
-      'Guest Name',
+      'First Name',
+      'Surname',
       'Guest Category',
       'Email',
       'Group Assignment',
@@ -610,9 +610,6 @@ export class ReportsService {
           active: true,
           groupIds: { hasSome: activity.groups.map(g => g.id) },
         },
-        orderBy: {
-          updatedAt: 'asc',
-        },
       });
 
       const excludedUserIds = activity.userExclusions.map(e => e.user.id);
@@ -629,7 +626,8 @@ export class ReportsService {
         rows.push([
           activity.title,
           `${new Date(activity.startDateTime).toLocaleDateString('en-GB')} ${new Date(activity.startDateTime).toLocaleTimeString('en-GB')}`,
-          `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim(),
+          profile?.firstName || '',
+          profile?.lastName || '',
           user.guestCategory || 'Standard',
           profile?.email || '',
           userGroupNames,
@@ -681,7 +679,8 @@ export class ReportsService {
 
     const headers = [
       'Guest Category',
-      'Guest Name',
+      'First Name',
+      'Surname',
       'Email',
       'Phone',
       'Group Assignment',
@@ -698,7 +697,8 @@ export class ReportsService {
 
       return [
         user.guestCategory || 'Standard',
-        `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim(),
+        profile?.firstName || '',
+        profile?.lastName || '',
         profile?.email || '',
         profile?.phone || '',
         groupNames,
@@ -745,14 +745,12 @@ export class ReportsService {
           where: { eventId },
         },
       },
-      orderBy: {
-        updatedAt: 'asc',
-      },
     });
 
     const headers = [
       'Group Name',
-      'Guest Name',
+      'First Name',
+      'Surname',
       'Guest Category',
       'Email',
       'Phone',
@@ -774,7 +772,8 @@ export class ReportsService {
         
         rows.push([
           group.name,
-          `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim(),
+          profile?.firstName || '',
+          profile?.lastName || '',
           user.guestCategory || 'Standard',
           profile?.email || '',
           profile?.phone || '',
@@ -815,9 +814,6 @@ export class ReportsService {
             where: { eventId },
             select: { activityId: true },
           },
-        },
-        orderBy: {
-          updatedAt: 'asc',
         },
       }),
       prisma.group.findMany({
@@ -1023,9 +1019,6 @@ export class ReportsService {
             where: { eventId },
           },
         },
-        orderBy: {
-          updatedAt: 'asc',
-        },
       }),
       prisma.group.findMany({
         where: { eventId, active: true, deleted: false },
@@ -1036,7 +1029,8 @@ export class ReportsService {
     const groupMap = new Map(groups.map(g => [g.id, g.name]));
 
     const headers = [
-      'Guest Name',
+      'First Name',
+      'Surname',
       'Email',
       'Guest Category',
       'Gender',
@@ -1055,7 +1049,8 @@ export class ReportsService {
       const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
 
       rows.push([
-        `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim(),
+        profile?.firstName || '',
+        profile?.lastName || '',
         profile?.email || '',
         user.guestCategory || 'Standard',
         merchandise?.gender || '',
@@ -1105,14 +1100,12 @@ export class ReportsService {
             where: { eventId },
           },
         },
-        orderBy: {
-          updatedAt: 'asc',
-        },
       }),
     ]);
 
     const headers = [
-      'Guest Name',
+      'First Name',
+      'Surname',
       'Email',
       'Guest Category',
       'Room Drop Package',
@@ -1132,7 +1125,8 @@ export class ReportsService {
       const roomDrop = roomDropMap.get(user.roomDropAssigned);
       
       return [
-        `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim(),
+        profile?.firstName || '',
+        profile?.lastName || '',
         profile?.email || '',
         user.guestCategory || 'Standard',
         roomDrop?.name || user.roomDropAssigned || '',
