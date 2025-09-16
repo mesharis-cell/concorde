@@ -69,6 +69,7 @@ export class UserService {
         event: {
           select: { id: true, name: true, shortName: true },
         },
+        roomAssignments: true,
       },
     });
   }

@@ -84,6 +84,8 @@ model Event {
 
   // Singapore Phase 2 additions
   hotelConfig     Json? // Hotel inventory and configuration
+  roomDrops       Json? // Room drop packages configuration
+  guestCategories Json? // Guest tier categories configuration
   termsConditions String? // HTML from TipTap editor  
   privacyPolicy   String? // HTML from TipTap editor
 
@@ -102,6 +104,7 @@ model Event {
   userActivityExclusions UserActivityExclusion[]
   emailTemplates EmailTemplate[]
   auditTrails AuditTrail[]
+  roomAssignments RoomAssignment[]
 
   @@map("events")
 }
@@ -223,6 +226,10 @@ model User {
   groupAssignmentNotified Boolean @default(false)
   groupAssignmentNotifiedAt DateTime?
 
+  // Hotel & room management
+  guestCategory String? // Admin-assigned guest tier (VIP, Standard, etc.)
+  roomDropAssigned String? // ID of assigned room drop package
+
   // Status & timestamps
   active       Boolean   @default(true)
   registeredAt DateTime  @default(now())
@@ -235,6 +242,7 @@ model User {
   communicationLogs CommunicationLog[]
   activityExclusions UserActivityExclusion[]
   emailTracking EmailTracking[]
+  roomAssignments RoomAssignment[]
 
   // Prisma v6 optimized indexes
   @@index([eventId, active])
@@ -341,6 +349,8 @@ model Admin {
   createdExclusions     UserActivityExclusion[] @relation("ExclusionCreator")
   createdTemplates      EmailTemplate[] @relation("TemplateCreator")
   auditTrails           AuditTrail[]
+  roomAssignments       RoomAssignment[] @relation("RoomAssigner")
+  roomUpdates           RoomAssignment[] @relation("RoomUpdater")
 
   @@map("admins")
 }
@@ -489,6 +499,39 @@ model Migration {
 
   @@index([batch])
   @@map("migrations")
+}
+
+model RoomAssignment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  eventId   String   @db.ObjectId
+
+  // Assignment details
+  roomType    String
+  roomNumber  String?  // Assigned by hotel
+  status      String   @default("pending") // "pending", "confirmed", "checked_in", "checked_out"
+
+  // Operational fields
+  assignedBy  String   @db.ObjectId // Admin who assigned the room
+  assignedAt  DateTime @default(now())
+  updatedBy   String   @db.ObjectId
+  updatedAt   DateTime @updatedAt
+  hotelNotes  String?  // Notes from hotel
+  billingNotes String? // Billing information
+  bookingConfirmationNumber String? // Hotel booking reference
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  assignedByAdmin Admin @relation("RoomAssigner", fields: [assignedBy], references: [id])
+  updatedByAdmin Admin @relation("RoomUpdater", fields: [updatedBy], references: [id])
+
+  @@unique([userId, eventId])
+  @@index([eventId, status])
+  @@index([roomType])
+  @@index([assignedBy])
+  @@index([updatedBy])
+  @@map("room_assignments")
 }
 
 model AuditTrail {

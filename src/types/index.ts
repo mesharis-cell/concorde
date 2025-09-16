@@ -28,6 +28,23 @@ export type MessageType = z.infer<typeof MessageType>;
 export const RecipientType = z.enum(['INDIVIDUAL', 'GROUP', 'ALL']);
 export type RecipientType = z.infer<typeof RecipientType>;
 
+export const ReportType = z.enum([
+  'arrival-list',
+  'departure-list',
+  'medical-list',
+  'dietary-list',
+  'rooming-list',
+  'guest-list-alpha',
+  'activity-attendance',
+  'guest-list-type',
+  'guest-list-group',
+  'master-guest',
+  'change-report',
+  'merchandise-report',
+  'room-drops'
+]);
+export type ReportType = z.infer<typeof ReportType>;
+
 // ============================================================================
 // Event Types
 // ============================================================================
@@ -79,6 +96,26 @@ export const CreateEventSchema = z.object({
             .default([]),
         })
       ),
+    })
+    .nullable()
+    .optional(),
+  roomDrops: z
+    .object({
+      drops: z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          description: z.string(),
+          stock: z.number().min(0),
+          assigned: z.number().default(0),
+        })
+      ),
+    })
+    .nullable()
+    .optional(),
+  guestCategories: z
+    .object({
+      categories: z.array(z.string()),
     })
     .nullable()
     .optional(),
@@ -323,6 +360,15 @@ export const UserAccommodationSchema = z.object({
   earlyCheckIn: z.boolean().optional(),
   lateCheckOut: z.boolean().optional(),
   visaBookingRequired: z.boolean().optional(),
+  
+  // Room assignment fields (admin-managed)
+  roomType: z.string().optional(), // Assigned by admin
+  occupancy: z.enum(['single', 'double']).optional(),
+  guestName: z.string().optional(), // If double occupancy
+  guestRelation: z.string().optional(), // "Spouse", "Partner", etc.
+  nightsCount: z.number().optional(), // Auto-computed
+  roomNumber: z.string().optional(), // From RoomAssignment
+  roomDropId: z.string().optional(), // References event.roomDrops[].id
 });
 export type UserAccommodation = z.infer<typeof UserAccommodationSchema>;
 
@@ -436,6 +482,46 @@ export const AdminUpdateUserSchema = CreateUserSchema.omit({
   communication: true,
 }).partial();
 export type AdminUpdateUser = z.infer<typeof AdminUpdateUserSchema>;
+
+// ============================================================================
+// Room Assignment Types
+// ============================================================================
+
+export const CreateRoomAssignmentSchema = z.object({
+  userId: z.string().min(1),
+  eventId: z.string().min(1),
+  roomType: z.string().min(1),
+  hotelNotes: z.string().optional(),
+  billingNotes: z.string().optional(),
+  bookingConfirmationNumber: z.string().optional(),
+});
+export type CreateRoomAssignment = z.infer<typeof CreateRoomAssignmentSchema>;
+
+export const UpdateRoomAssignmentSchema = z.object({
+  roomType: z.string().optional(),
+  roomNumber: z.string().optional(),
+  status: z.enum(['pending', 'confirmed', 'checked_in', 'checked_out']).optional(),
+  hotelNotes: z.string().optional(),
+  billingNotes: z.string().optional(),
+  bookingConfirmationNumber: z.string().optional(),
+});
+export type UpdateRoomAssignment = z.infer<typeof UpdateRoomAssignmentSchema>;
+
+export const GuestCategorySchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  priority: z.number().default(0), // For ordering
+});
+export type GuestCategory = z.infer<typeof GuestCategorySchema>;
+
+export const RoomDropSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1),
+  description: z.string(),
+  stock: z.number().min(0),
+  assigned: z.number().default(0), // Track how many are assigned
+});
+export type RoomDrop = z.infer<typeof RoomDropSchema>;
 
 // ============================================================================
 // Admin Types
@@ -581,3 +667,24 @@ export const GetAuditTrailSchema = z.object({
 });
 
 export type GetAuditTrail = z.infer<typeof GetAuditTrailSchema>;
+
+// ============================================================================
+// Reports Types
+// ============================================================================
+
+export const ReportExportRequestSchema = z.object({
+  eventId: z.string(),
+  reportType: ReportType,
+  format: z.enum(['excel', 'csv']).default('excel'),
+  activityId: z.string().optional(),
+  dateFrom: z.string().datetime().optional(),
+  dateTo: z.string().datetime().optional(),
+});
+export type ReportExportRequest = z.infer<typeof ReportExportRequestSchema>;
+
+export const BulkExportRequestSchema = z.object({
+  eventId: z.string(),
+  reportTypes: z.array(ReportType),
+  format: z.enum(['excel', 'csv']).default('excel'),
+});
+export type BulkExportRequest = z.infer<typeof BulkExportRequestSchema>;
