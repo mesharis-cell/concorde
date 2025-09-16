@@ -5,6 +5,7 @@ import csv from 'csv-parser';
 import { prisma } from '../src/config/database.js';
 import { UserService } from '../src/services/users.js';
 import { AuditTrailService } from '../src/services/audit-trail.js';
+import { RoomAssignmentService } from '../src/services/room-assignments.js';
 import type { CreateUser } from '../src/types/index.js';
 
 // Configuration
@@ -39,6 +40,14 @@ interface ImportStats {
     skipped: number;
     warnings: string[];
     errors: Array<{ row: number; email: string; error: string }>;
+    roomAssignments: {
+        attempted: number;
+        successful: number;
+        failed: number;
+        skippedNoAccommodation: number;
+        skippedInvalidRoomType: number;
+        assignments: Array<{ row: number; user: string; roomType: string; assignmentId: string }>;
+    };
 }
 
 interface CSVRow {
@@ -289,6 +298,14 @@ async function importUsersFromCSV(filePath: string, performedBy: string): Promis
         skipped: 0,
         warnings: [],
         errors: [],
+        roomAssignments: {
+            attempted: 0,
+            successful: 0,
+            failed: 0,
+            skippedNoAccommodation: 0,
+            skippedInvalidRoomType: 0,
+            assignments: [],
+        },
     };
 
     return new Promise((resolve, reject) => {
@@ -373,6 +390,60 @@ async function importUsersFromCSV(filePath: string, performedBy: string): Promis
                             await UserService.assignToGroups(user.id, [groupId], performedBy);
                         }
 
+                        // Handle room assignment with detailed logging
+                        const roomCategory = normalizeString(row['Room catagory']); // Note: "catagory" spelling in CSV
+                        const validRoomTypes = ['Signature King', 'Shophouse suite'];
+                        const accommodationRequired = userData.accommodation?.required;
+                        const userEmail = userData.profile?.email || userData.profile?.firstName || 'Unknown';
+
+                        console.log(`🏨 Row ${rowNumber} (${userEmail}): Room assignment analysis:`);
+                        console.log(`   - Accommodation required: ${accommodationRequired}`);
+                        console.log(`   - Room category in CSV: "${roomCategory || 'EMPTY'}"`);
+                        console.log(`   - Valid room type: ${roomCategory ? validRoomTypes.includes(roomCategory) : false}`);
+
+                        if (accommodationRequired && roomCategory && validRoomTypes.includes(roomCategory)) {
+                            stats.roomAssignments.attempted++;
+                            try {
+                                console.log(`   - ✅ ATTEMPTING room assignment: ${roomCategory}`);
+                                const roomAssignment = await RoomAssignmentService.assignRoom({
+                                    userId: user.id,
+                                    eventId: EVENT_ID,
+                                    roomType: roomCategory,
+                                    assignedBy: performedBy,
+                                    status: 'assigned',
+                                });
+                                stats.roomAssignments.successful++;
+                                stats.roomAssignments.assignments.push({
+                                    row: rowNumber,
+                                    user: userEmail,
+                                    roomType: roomCategory,
+                                    assignmentId: roomAssignment.id,
+                                });
+                                console.log(`   - ✅ SUCCESS: Room assigned! Assignment ID: ${roomAssignment.id}`);
+                                console.log(`🏨 Row ${rowNumber}: ✅ SUCCESSFULLY assigned ${roomCategory} room to ${userEmail}`);
+                            } catch (roomError: any) {
+                                stats.roomAssignments.failed++;
+                                console.log(`   - ❌ FAILED: ${roomError.message}`);
+                                console.warn(`⚠️  Row ${rowNumber}: Room assignment FAILED - ${roomError.message}`);
+                                stats.warnings.push(`Row ${rowNumber}: Room assignment failed for ${roomCategory} - ${roomError.message}`);
+                            }
+                        } else {
+                            let reason = 'No room assignment - ';
+                            if (!accommodationRequired) {
+                                reason += 'accommodation not required';
+                                stats.roomAssignments.skippedNoAccommodation++;
+                            } else if (!roomCategory) {
+                                reason += 'no room category specified';
+                                stats.roomAssignments.skippedInvalidRoomType++;
+                            } else if (!validRoomTypes.includes(roomCategory)) {
+                                reason += `invalid room type "${roomCategory}"`;
+                                stats.roomAssignments.skippedInvalidRoomType++;
+                            }
+
+                            console.log(`   - ⏭️  SKIPPED: ${reason}`);
+                            console.log(`🏨 Row ${rowNumber}: ⏭️  NO room assignment for ${userEmail} - ${reason}`);
+                        }
+
                         stats.successful++;
                         console.log(`✅ Row ${rowNumber}: Created user ${userData.profile?.email || userData.profile?.firstName || 'Unknown'}`);
 
@@ -397,7 +468,7 @@ async function importUsersFromCSV(filePath: string, performedBy: string): Promis
                     eventId: EVENT_ID,
                     performedBy,
                     performedByType: 'ADMIN',
-                    summary: `Bulk CSV import: ${stats.successful} users created, ${stats.failed} failed, ${stats.skipped} skipped`,
+                    summary: `Bulk CSV import: ${stats.successful} users created, ${stats.roomAssignments.successful} rooms assigned, ${stats.failed} failed, ${stats.skipped} skipped`,
                     metadata: {
                         bulkOperation: {
                             totalItems: stats.totalRows,
@@ -409,6 +480,13 @@ async function importUsersFromCSV(filePath: string, performedBy: string): Promis
                             skipped: stats.skipped,
                             warningCount: stats.warnings.length,
                             errorCount: stats.errors.length,
+                            roomAssignments: {
+                                attempted: stats.roomAssignments.attempted,
+                                successful: stats.roomAssignments.successful,
+                                failed: stats.roomAssignments.failed,
+                                skippedNoAccommodation: stats.roomAssignments.skippedNoAccommodation,
+                                skippedInvalidRoomType: stats.roomAssignments.skippedInvalidRoomType,
+                            }
                         }
                     }
                 });
@@ -456,6 +534,20 @@ async function main() {
         console.log(`   ❌ Failed: ${stats.failed}`);
         console.log(`   ⏭️  Skipped: ${stats.skipped}`);
         console.log(`   ⚠️  Warnings: ${stats.warnings.length}`);
+
+        console.log('\n🏨 Room Assignment Summary:');
+        console.log(`   🎯 Attempted: ${stats.roomAssignments.attempted}`);
+        console.log(`   ✅ Successful: ${stats.roomAssignments.successful}`);
+        console.log(`   ❌ Failed: ${stats.roomAssignments.failed}`);
+        console.log(`   ⏭️  Skipped (No Accommodation): ${stats.roomAssignments.skippedNoAccommodation}`);
+        console.log(`   ⏭️  Skipped (Invalid Room Type): ${stats.roomAssignments.skippedInvalidRoomType}`);
+
+        if (stats.roomAssignments.assignments.length > 0) {
+            console.log('\n🏨 Successful Room Assignments:');
+            stats.roomAssignments.assignments.forEach(assignment =>
+                console.log(`   Row ${assignment.row}: ${assignment.user} → ${assignment.roomType} (ID: ${assignment.assignmentId})`)
+            );
+        }
 
         if (stats.warnings.length > 0) {
             console.log('\n⚠️  Warnings:');
