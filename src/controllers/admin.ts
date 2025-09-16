@@ -31,9 +31,14 @@ import {
   ApiSuccessSchema,
   ApiErrorSchema,
   GetAuditTrailSchema,
+  ReportType,
+  ReportExportRequestSchema,
+  BulkExportRequestSchema,
 } from '../types/index.js';
 import { AuditTrailService } from '../services/audit-trail.js';
 import { ConflictDetectionService } from '../services/conflict-detection.js';
+import { RoomAssignmentService } from '../services/room-assignments.js';
+import { ReportsService } from '../services/reports.js';
 
 const app = new OpenAPIHono();
 
@@ -1195,6 +1200,341 @@ app.openapi(getEventConflictsRoute, async (c) => {
     );
   }
 });
+
+// =============================================================================
+// ROOM ASSIGNMENT ENDPOINTS
+// =============================================================================
+
+// Assign Room to User
+const assignRoomRoute = createRoute({
+  method: 'post',
+  path: '/users/{userId}/assign-room',
+  tags: ['Admin - Room Management'],
+  summary: 'Assign room to user',
+  request: {
+    params: z.object({
+      userId: z.string().min(1),
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            roomType: z.string().min(1),
+            roomNumber: z.string().optional(),
+            status: z.string().optional(),
+            hotelNotes: z.string().optional(),
+            billingNotes: z.string().optional(),
+            bookingConfirmationNumber: z.string().optional(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            data: z.any(),
+            message: z.string(),
+          }),
+        },
+      },
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+    },
+  },
+});
+
+app.openapi(assignRoomRoute, async (c) => {
+  try {
+    const { userId } = c.req.valid('param');
+    const data = c.req.valid('json');
+    const authUser = c.get('user');
+
+    // Get eventId from user data or query parameter
+    let eventId = authUser.eventId || authUser.adminData?.assignedEvents?.[0]?.eventId;
+
+    // If still no eventId, get it from the user's record
+    if (!eventId) {
+      const user = await UserService.findById(userId);
+      eventId = user?.eventId;
+    }
+
+    if (!eventId) {
+      return c.json(
+        {
+          success: false,
+          error: 'Unable to determine event ID for room assignment',
+        },
+        400
+      );
+    }
+
+    const assignment = await RoomAssignmentService.assignRoom({
+      userId,
+      eventId,
+      roomType: data.roomType,
+      roomNumber: data.roomNumber,
+      status: data.status,
+      assignedBy: authUser.id,
+      hotelNotes: data.hotelNotes,
+      billingNotes: data.billingNotes,
+      bookingConfirmationNumber: data.bookingConfirmationNumber,
+    });
+
+    return c.json({
+      success: true,
+      data: assignment,
+      message: 'Room assigned successfully',
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to assign room',
+        details: error.message,
+      },
+      400
+    );
+  }
+});
+
+// Get Room Allocation Summary
+const getRoomAllocationSummaryRoute = createRoute({
+  method: 'get',
+  path: '/events/{eventId}/room-allocation-summary',
+  tags: ['Admin - Room Management'],
+  summary: 'Get room allocation summary for event',
+  request: {
+    params: z.object({
+      eventId: z.string().min(1),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            data: z.any(),
+          }),
+        },
+      },
+    },
+  },
+});
+
+app.openapi(getRoomAllocationSummaryRoute, async (c) => {
+  try {
+    const { eventId } = c.req.valid('param');
+    
+    const summary = await RoomAssignmentService.getAllocationSummary(eventId);
+    
+    return c.json({
+      success: true,
+      data: summary,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to get allocation summary',
+        details: error.message,
+      },
+      400
+    );
+  }
+});
+
+// Get Users Requiring Rooms
+const getUsersRequiringRoomsRoute = createRoute({
+  method: 'get',
+  path: '/events/{eventId}/users-requiring-rooms',
+  tags: ['Admin - Room Management'],
+  summary: 'Get users requiring room assignments',
+  request: {
+    params: z.object({
+      eventId: z.string().min(1),
+    }),
+    query: z.object({
+      page: z.coerce.number().min(1).default(1),
+      limit: z.coerce.number().min(1).max(100).default(20),
+      assigned: z.coerce.boolean().optional(),
+      roomType: z.string().optional(),
+      guestCategory: z.string().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            data: z.any(),
+          }),
+        },
+      },
+    },
+  },
+});
+
+app.openapi(getUsersRequiringRoomsRoute, async (c) => {
+  try {
+    const { eventId } = c.req.valid('param');
+    const query = c.req.valid('query');
+    
+    const users = await RoomAssignmentService.getUsersRequiringRooms(
+      eventId,
+      { page: query.page, limit: query.limit },
+      {
+        assigned: query.assigned,
+        roomType: query.roomType,
+        guestCategory: query.guestCategory,
+      }
+    );
+    
+    return c.json({
+      success: true,
+      data: users,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to get users requiring rooms',
+        details: error.message,
+      },
+      400
+    );
+  }
+});
+
+// Export Rooming List
+const exportRoomingListRoute = createRoute({
+  method: 'get',
+  path: '/events/{eventId}/rooming-list',
+  tags: ['Admin - Room Management'],
+  summary: 'Export rooming list for hotel',
+  request: {
+    params: z.object({
+      eventId: z.string().min(1),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            data: z.array(z.any()),
+          }),
+        },
+      },
+    },
+  },
+});
+
+app.openapi(exportRoomingListRoute, async (c) => {
+  try {
+    const { eventId } = c.req.valid('param');
+    
+    const roomingList = await RoomAssignmentService.exportRoomingList(eventId);
+    
+    return c.json({
+      success: true,
+      data: roomingList,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to export rooming list',
+        details: error.message,
+      },
+      400
+    );
+  }
+});
+
+// Assign Guest Category and Room Drop
+const assignGuestCategoryRoute = createRoute({
+  method: 'put',
+  path: '/users/{userId}/guest-category',
+  tags: ['Admin - Room Management'],
+  summary: 'Assign guest category and room drop to user',
+  request: {
+    params: z.object({
+      userId: z.string().min(1),
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            guestCategory: z.string().min(1),
+            roomDropId: z.string().optional(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            message: z.string(),
+          }),
+        },
+      },
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+    },
+  },
+});
+
+app.openapi(assignGuestCategoryRoute, async (c) => {
+  try {
+    const { userId } = c.req.valid('param');
+    const { guestCategory, roomDropId } = c.req.valid('json');
+    const authUser = c.get('user');
+
+    await RoomAssignmentService.assignGuestCategoryAndDrop(
+      userId,
+      guestCategory,
+      roomDropId || null,
+      authUser.id
+    );
+
+    return c.json({
+      success: true,
+      message: 'Guest category assigned successfully',
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to assign guest category',
+        details: error.message,
+      },
+      400
+    );
+  }
+});
+
+// =============================================================================
 
 // Multi-Group Assignment Route (Enhanced)
 const assignUserToMultipleGroupsRoute = createRoute({
@@ -5836,6 +6176,495 @@ app.openapi(updateActivityCapacityRoute, async (c) => {
       {
         success: false,
         error: 'Failed to update capacity settings',
+        details: error.message,
+      },
+      500
+    );
+  }
+});
+
+// =============================================================================
+// 11. REPORTS SYSTEM
+// =============================================================================
+
+// Get Available Reports
+const getAvailableReportsRoute = createRoute({
+  method: 'get',
+  path: '/reports/available',
+  tags: ['Admin - Reports'],
+  summary: 'Get all available reports metadata',
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Available reports retrieved successfully',
+    },
+  },
+});
+
+app.openapi(getAvailableReportsRoute, async (c) => {
+  try {
+    const reports = ReportsService.getAvailableReports();
+
+    return c.json({
+      success: true,
+      data: reports,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve available reports',
+        details: error.message,
+      },
+      500
+    );
+  }
+});
+
+// Export Individual Report
+const exportReportRoute = createRoute({
+  method: 'get',
+  path: '/reports/{reportType}/export',
+  tags: ['Admin - Reports'],
+  summary: 'Export individual report as Excel file',
+  request: {
+    params: z.object({
+      reportType: ReportType,
+    }),
+    query: z.object({
+      eventId: z.string(),
+      activityId: z.string().optional(),
+      dateFrom: z.string().datetime().optional(),
+      dateTo: z.string().datetime().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
+          schema: z.string(),
+        },
+      },
+      description: 'Report exported successfully',
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Export failed',
+    },
+  },
+});
+
+app.openapi(exportReportRoute, async (c) => {
+  try {
+    const { reportType } = c.req.valid('param');
+    const { eventId, activityId, dateFrom, dateTo } = c.req.valid('query');
+    const authUser = c.get('user');
+
+    // Check if admin has access to this event
+    if (authUser.adminData?.role !== 'SUPER') {
+      const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
+      if (!hasAccess) {
+        return c.json(
+          {
+            success: false,
+            error: 'Access denied to this event',
+          },
+          403
+        );
+      }
+    }
+
+    let reportData;
+    const pagination = { page: 1, limit: 10000 };
+
+    switch (reportType) {
+      case 'arrival-list':
+        reportData = await ReportsService.getArrivalListReport(eventId);
+        break;
+      case 'departure-list':
+        reportData = await ReportsService.getDepartureListReport(eventId);
+        break;
+      case 'medical-list':
+        reportData = await ReportsService.getMedicalListReport(eventId);
+        break;
+      case 'dietary-list':
+        reportData = await ReportsService.getDietaryListReport(eventId);
+        break;
+      case 'rooming-list':
+        reportData = await ReportsService.getRoomingListReport(eventId);
+        break;
+      case 'guest-list-alpha':
+        reportData = await ReportsService.getGuestListAlphaReport(eventId);
+        break;
+      case 'activity-attendance':
+        reportData = await ReportsService.getActivityAttendanceReport(eventId, activityId);
+        break;
+      case 'guest-list-type':
+        reportData = await ReportsService.getGuestListByTypeReport(eventId);
+        break;
+      case 'guest-list-group':
+        reportData = await ReportsService.getGuestListByGroupReport(eventId);
+        break;
+      case 'master-guest':
+        reportData = await ReportsService.getMasterGuestReport(eventId);
+        break;
+      case 'change-report':
+        reportData = await ReportsService.getChangeReport(
+          eventId,
+          pagination,
+          undefined,
+          undefined
+        );
+        break;
+      case 'merchandise-report':
+        reportData = await ReportsService.getMerchandiseReport(eventId);
+        break;
+      case 'room-drops':
+        reportData = await ReportsService.getRoomDropsReport(eventId);
+        break;
+      default:
+        return c.json(
+          {
+            success: false,
+            error: 'Invalid report type',
+          },
+          400
+        );
+    }
+
+    const excelBuffer = await ReportsService.generateExcelFile(reportData);
+
+    // Log export operation
+    await AuditTrailService.logExport(
+      'Report',
+      reportData.rows.length,
+      'excel',
+      authUser.id,
+      eventId
+    );
+
+    c.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    c.header(
+      'Content-Disposition',
+      `attachment; filename="${reportType}-${eventId}-${new Date().toISOString().split('T')[0]}.xlsx"`
+    );
+
+    return c.body(excelBuffer);
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to export report',
+        details: error.message,
+      },
+      500
+    );
+  }
+});
+
+// Preview Report Data
+const previewReportRoute = createRoute({
+  method: 'get',
+  path: '/reports/{reportType}/preview',
+  tags: ['Admin - Reports'],
+  summary: 'Preview report data for UI display',
+  request: {
+    params: z.object({
+      reportType: ReportType,
+    }),
+    query: z.object({
+      eventId: z.string(),
+      activityId: z.string().optional(),
+      page: z.coerce.number().min(1).default(1),
+      limit: z.coerce.number().min(1).max(1000).default(100),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Report preview retrieved successfully',
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Preview failed',
+    },
+  },
+});
+
+app.openapi(previewReportRoute, async (c) => {
+  try {
+    const { reportType } = c.req.valid('param');
+    const { eventId, activityId, page, limit } = c.req.valid('query');
+    const authUser = c.get('user');
+
+    // Check if admin has access to this event
+    if (authUser.adminData?.role !== 'SUPER') {
+      const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
+      if (!hasAccess) {
+        return c.json(
+          {
+            success: false,
+            error: 'Access denied to this event',
+          },
+          403
+        );
+      }
+    }
+
+    let reportData;
+
+    switch (reportType) {
+      case 'arrival-list':
+        reportData = await ReportsService.getArrivalListReport(eventId);
+        break;
+      case 'departure-list':
+        reportData = await ReportsService.getDepartureListReport(eventId);
+        break;
+      case 'medical-list':
+        reportData = await ReportsService.getMedicalListReport(eventId);
+        break;
+      case 'dietary-list':
+        reportData = await ReportsService.getDietaryListReport(eventId);
+        break;
+      case 'rooming-list':
+        reportData = await ReportsService.getRoomingListReport(eventId);
+        break;
+      case 'guest-list-alpha':
+        reportData = await ReportsService.getGuestListAlphaReport(eventId);
+        break;
+      case 'activity-attendance':
+        reportData = await ReportsService.getActivityAttendanceReport(eventId, activityId);
+        break;
+      case 'guest-list-type':
+        reportData = await ReportsService.getGuestListByTypeReport(eventId);
+        break;
+      case 'guest-list-group':
+        reportData = await ReportsService.getGuestListByGroupReport(eventId);
+        break;
+      case 'master-guest':
+        reportData = await ReportsService.getMasterGuestReport(eventId);
+        break;
+      case 'change-report':
+        reportData = await ReportsService.getChangeReport(
+          eventId,
+          { page, limit },
+          undefined,
+          undefined
+        );
+        break;
+      case 'merchandise-report':
+        reportData = await ReportsService.getMerchandiseReport(eventId);
+        break;
+      case 'room-drops':
+        reportData = await ReportsService.getRoomDropsReport(eventId);
+        break;
+      default:
+        return c.json(
+          {
+            success: false,
+            error: 'Invalid report type',
+          },
+          400
+        );
+    }
+
+    // Paginate rows for preview
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedRows = reportData.rows.slice(startIndex, endIndex);
+
+    return c.json({
+      success: true,
+      data: {
+        ...reportData,
+        rows: paginatedRows,
+        pagination: {
+          page,
+          limit,
+          total: reportData.rows.length,
+          totalPages: Math.ceil(reportData.rows.length / limit),
+        },
+      },
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to preview report',
+        details: error.message,
+      },
+      500
+    );
+  }
+});
+
+// Bulk Export Multiple Reports
+const bulkExportReportsRoute = createRoute({
+  method: 'post',
+  path: '/reports/bulk-export',
+  tags: ['Admin - Reports'],
+  summary: 'Export multiple reports as ZIP file',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: BulkExportRequestSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/zip': {
+          schema: z.string(),
+        },
+      },
+      description: 'Reports exported successfully',
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Bulk export failed',
+    },
+  },
+});
+
+app.openapi(bulkExportReportsRoute, async (c) => {
+  try {
+    const { eventId, reportTypes, format } = c.req.valid('json');
+    const authUser = c.get('user');
+
+    // Check if admin has access to this event
+    if (authUser.adminData?.role !== 'SUPER') {
+      const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
+      if (!hasAccess) {
+        return c.json(
+          {
+            success: false,
+            error: 'Access denied to this event',
+          },
+          403
+        );
+      }
+    }
+
+    const reports = [];
+    const pagination = { page: 1, limit: 10000 };
+
+    for (const reportType of reportTypes) {
+      let reportData;
+
+      switch (reportType) {
+        case 'arrival-list':
+          reportData = await ReportsService.getArrivalListReport(eventId);
+          break;
+        case 'departure-list':
+          reportData = await ReportsService.getDepartureListReport(eventId);
+          break;
+        case 'medical-list':
+          reportData = await ReportsService.getMedicalListReport(eventId);
+          break;
+        case 'dietary-list':
+          reportData = await ReportsService.getDietaryListReport(eventId);
+          break;
+        case 'rooming-list':
+          reportData = await ReportsService.getRoomingListReport(eventId);
+          break;
+        case 'guest-list-alpha':
+          reportData = await ReportsService.getGuestListAlphaReport(eventId);
+          break;
+        case 'activity-attendance':
+          reportData = await ReportsService.getActivityAttendanceReport(eventId);
+          break;
+        case 'guest-list-type':
+          reportData = await ReportsService.getGuestListByTypeReport(eventId);
+          break;
+        case 'guest-list-group':
+          reportData = await ReportsService.getGuestListByGroupReport(eventId);
+          break;
+        case 'master-guest':
+          reportData = await ReportsService.getMasterGuestReport(eventId);
+          break;
+        case 'change-report':
+          reportData = await ReportsService.getChangeReport(eventId, pagination, undefined, undefined);
+          break;
+        case 'merchandise-report':
+          reportData = await ReportsService.getMerchandiseReport(eventId);
+          break;
+        case 'room-drops':
+          reportData = await ReportsService.getRoomDropsReport(eventId);
+          break;
+        default:
+          continue;
+      }
+
+      if (reportData) {
+        reports.push({
+          type: reportType,
+          data: reportData,
+        });
+      }
+    }
+
+    if (format === 'excel') {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+
+      for (const report of reports) {
+        const excelBuffer = await ReportsService.generateExcelFile(report.data);
+        zip.file(`${report.type}-${eventId}.xlsx`, excelBuffer);
+      }
+
+      const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
+
+      // Log bulk export operation
+      await AuditTrailService.logExport(
+        'BulkReport',
+        reports.length,
+        'zip',
+        authUser.id,
+        eventId
+      );
+
+      c.header('Content-Type', 'application/zip');
+      c.header(
+        'Content-Disposition',
+        `attachment; filename="reports-${eventId}-${new Date().toISOString().split('T')[0]}.zip"`
+      );
+
+      return c.body(zipBuffer);
+    }
+
+    return c.json({
+      success: true,
+      data: reports,
+      message: `${reports.length} reports generated successfully`,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Bulk export failed',
         details: error.message,
       },
       500
