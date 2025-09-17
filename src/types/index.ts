@@ -41,7 +41,7 @@ export const ReportType = z.enum([
   'master-guest',
   'change-report',
   'merchandise-report',
-  'room-drops'
+  'room-drops',
 ]);
 export type ReportType = z.infer<typeof ReportType>;
 
@@ -180,12 +180,14 @@ export const CreateActivitySchema = z.object({
 });
 export type CreateActivity = z.infer<typeof CreateActivitySchema>;
 
-export const UpdateActivitySchema = CreateActivitySchema.partial().omit({
-  eventId: true,
-  createdBy: true,
-}).extend({
-  allowConflicts: z.boolean().optional().default(false),
-});
+export const UpdateActivitySchema = CreateActivitySchema.partial()
+  .omit({
+    eventId: true,
+    createdBy: true,
+  })
+  .extend({
+    allowConflicts: z.boolean().optional().default(false),
+  });
 export type UpdateActivity = z.infer<typeof UpdateActivitySchema>;
 
 // Activity assignment schemas
@@ -243,7 +245,10 @@ export const CreateTemplateSchema = z
   .refine(
     (data) => {
       // Authentication templates must include otpCode variable
-      if (data.type === 'AUTHENTICATION' && data.category === 'OTP_VERIFICATION') {
+      if (
+        data.type === 'AUTHENTICATION' &&
+        data.category === 'OTP_VERIFICATION'
+      ) {
         return data.html.includes('{{otpCode}}');
       }
       return true;
@@ -282,11 +287,13 @@ export const UserProfileSchema = z.object({
   // Preferred names (always optional, no checkbox needed)
   preferredFirstName: z.string().optional(),
   preferredLastName: z.string().optional(),
-  // Business/Event fields
-  jobTitle: z.string().optional(), // "Production", "Marketing", etc.
-  company: z.string().optional(), // "CBL", "Pernod Ricard", etc.
-  vip: z.boolean().optional(), // VIP status flag
-  host: z.string().optional(), // Host/contact person name
+  // Additional fields for CSV import
+  jobTitle: z.string().optional(),
+  company: z.string().optional(),
+  guestType: z.string().optional(),
+  vip: z.boolean().optional(),
+  initials: z.string().optional(),
+  host: z.string().optional(),
 });
 export type UserProfile = z.infer<typeof UserProfileSchema>;
 
@@ -369,7 +376,7 @@ export const UserAccommodationSchema = z.object({
   earlyCheckIn: z.boolean().optional(),
   lateCheckOut: z.boolean().optional(),
   visaBookingRequired: z.boolean().optional(),
-  
+
   // Room assignment fields (admin-managed)
   roomType: z.string().optional(), // Assigned by admin
   occupancy: z.enum(['single', 'double']).optional(),
@@ -414,8 +421,8 @@ export type UserRequirements = z.infer<typeof UserRequirementsSchema>;
 export const UserMerchandiseSizeSchema = z.object({
   // Singapore Phase 2 addition
   gender: z.enum(['Men', 'Women']).optional(),
-  // Updated to use single size field instead of individual items (max size: XL)
-  size: z.enum(['S', 'M', 'L', 'XL']).optional(),
+  // Updated to use single size field instead of individual items (includes XS)
+  size: z.enum(['XS', 'S', 'M', 'L', 'XL']).optional(),
 
   // Legacy fields (keeping for backward compatibility)
   shirt: z
@@ -509,7 +516,9 @@ export type CreateRoomAssignment = z.infer<typeof CreateRoomAssignmentSchema>;
 export const UpdateRoomAssignmentSchema = z.object({
   roomType: z.string().optional(),
   roomNumber: z.string().optional(),
-  status: z.enum(['pending', 'confirmed', 'checked_in', 'checked_out']).optional(),
+  status: z
+    .enum(['pending', 'confirmed', 'checked_in', 'checked_out'])
+    .optional(),
   hotelNotes: z.string().optional(),
   billingNotes: z.string().optional(),
   bookingConfirmationNumber: z.string().optional(),
@@ -654,7 +663,10 @@ export type RequestOTP = z.infer<typeof RequestOTPSchema>;
 
 export const ValidateOTPSchema = z.object({
   otpId: z.string().min(1, 'OTP ID is required'),
-  otpCode: z.string().length(4, 'OTP code must be 4 digits').regex(/^\d{4}$/, 'OTP code must contain only numbers'),
+  otpCode: z
+    .string()
+    .length(4, 'OTP code must be 4 digits')
+    .regex(/^\d{4}$/, 'OTP code must contain only numbers'),
 });
 export type ValidateOTP = z.infer<typeof ValidateOTPSchema>;
 
@@ -662,12 +674,28 @@ export type ValidateOTP = z.infer<typeof ValidateOTPSchema>;
 // Audit Trail Types
 // ============================================================================
 
-export const AuditActionEnum = z.enum(['CREATE', 'UPDATE', 'DELETE', 'IMPORT', 'EXPORT', 'ASSIGN', 'UNASSIGN']);
-export const ResourceTypeEnum = z.enum(['User', 'Activity', 'Group', 'Event', 'EmailTemplate', 'Admin', 'BulkOperation']);
+export const AuditActionEnum = z.enum([
+  'CREATE',
+  'UPDATE',
+  'DELETE',
+  'IMPORT',
+  'EXPORT',
+  'ASSIGN',
+  'UNASSIGN',
+]);
+export const ResourceTypeEnum = z.enum([
+  'User',
+  'Activity',
+  'Group',
+  'Event',
+  'EmailTemplate',
+  'Admin',
+  'BulkOperation',
+]);
 
 export const GetAuditTrailSchema = z.object({
   eventId: z.string().optional(),
-  performedBy: z.string().optional(), 
+  performedBy: z.string().optional(),
   resourceType: ResourceTypeEnum.optional(),
   action: AuditActionEnum.optional(),
   resourceId: z.string().optional(),
