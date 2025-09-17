@@ -58,15 +58,18 @@ export class ReportsService {
       'Special Requests'
     ];
 
-    const rows = users
+    const rows = [];
+    const rowMetadata = [];
+
+    users
       .filter(user => (user.flight as any)?.inbound)
-      .map(user => {
+      .forEach(user => {
         const profile = user.profile as any;
         const flight = (user.flight as any)?.inbound;
         const accommodation = user.accommodation as any;
         const roomAssignment = user.roomAssignments[0];
 
-        return [
+        rows.push([
           profile?.firstName || '',
           profile?.lastName || '',
           user.guestCategory || 'Standard',
@@ -75,21 +78,30 @@ export class ReportsService {
           flight?.flightNumber || '',
           flight?.airline || '',
           flight?.departureFrom || '',
-          flight?.departureDateTime ? new Date(flight.departureDateTime).toLocaleDateString() : '',
-          flight?.departureDateTime ? new Date(flight.departureDateTime).toLocaleTimeString() : '',
-          flight?.arrivalDateTime ? new Date(flight.arrivalDateTime).toLocaleDateString() : '',
-          flight?.arrivalDateTime ? new Date(flight.arrivalDateTime).toLocaleTimeString() : '',
+          flight?.departureDate || '',
+          flight?.departureTime || '',
+          flight?.arrivalDate || '',
+          flight?.arrivalTime || '',
           flight?.arrivalToTerminal || '',
           roomAssignment?.roomType || accommodation?.roomType || '',
           roomAssignment?.roomNumber || '',
           user.transferRequirements || '',
           accommodation?.specialRequests || '',
-        ];
+        ]);
+
+        // Add metadata for editing capabilities
+        rowMetadata.push({
+          userId: user.id,
+          entityId: user.id,
+          entityType: 'user' as const,
+          editable: true,
+        });
       });
 
     return {
       headers,
       rows,
+      rowMetadata,
       metadata: {
         title: 'Arrival List',
         description: 'Inbound flight coordination and transfer details',
@@ -149,26 +161,29 @@ export class ReportsService {
       'Notes (departure specific)'
     ];
 
-    const rows = users
+    const rows = [];
+    const rowMetadata = [];
+
+    users
       .filter(user => (user.flight as any)?.outbound)
-      .map(user => {
+      .forEach(user => {
         const profile = user.profile as any;
         const flight = (user.flight as any)?.outbound;
         const accommodation = user.accommodation as any;
         const roomAssignment = user.roomAssignments[0];
         const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
 
-        return [
-          flight?.departureDateTime ? new Date(flight.departureDateTime).toLocaleDateString('en-GB') : '',
+        rows.push([
+          flight?.departureDate || '',
           flight?.departureFrom || '',
-          flight?.departureDateTime ? new Date(flight.departureDateTime).toLocaleTimeString('en-GB', { hour12: false }).slice(0, 5) : '',
+          flight?.departureTime || '',
           profile?.firstName || '',
           profile?.lastName || '',
           flight?.departureFrom || '',
           flight?.departureTerminal || '',
           flight?.flightNumber || '',
           flight?.arrivalToAirport || '',
-          flight?.departureDateTime ? new Date(flight.departureDateTime).toLocaleTimeString('en-GB', { hour12: false }).slice(0, 5) : '',
+          flight?.departureTime || '',
           user.guestCategory?.includes('VIP') || user.guestCategory?.includes('Panoramic') || user.guestCategory?.includes('Suite') ? 'Yes' : 'No',
           groupNames,
           '', // Company - not stored in profile
@@ -177,12 +192,21 @@ export class ReportsService {
           '', // Driver name - not stored
           '', // Driver registration - not stored
           accommodation?.specialRequests || roomAssignment?.hotelNotes || '',
-        ];
+        ]);
+
+        // Add metadata for editing capabilities
+        rowMetadata.push({
+          userId: user.id,
+          entityId: user.id,
+          entityType: 'user' as const,
+          editable: true,
+        });
       });
 
     return {
       headers,
       rows,
+      rowMetadata,
       metadata: {
         title: 'Departure List',
         description: 'Outbound flight coordination and checkout details',
@@ -241,14 +265,17 @@ export class ReportsService {
       'Group Assignment'
     ];
 
-    const rows = users.map(user => {
+    const rows = [];
+    const rowMetadata = [];
+
+    users.forEach(user => {
       const profile = user.profile as any;
       const requirements = user.requirements as any;
       const emergency = user.emergencyContact as any;
       const roomAssignment = user.roomAssignments[0];
       const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
 
-      return [
+      rows.push([
         profile?.firstName || '',
         profile?.lastName || '',
         user.guestCategory || 'Standard',
@@ -263,12 +290,21 @@ export class ReportsService {
         emergency?.relationship || '',
         roomAssignment?.roomNumber || '',
         groupNames,
-      ];
+      ]);
+
+      // Add metadata for editing capabilities
+      rowMetadata.push({
+        userId: user.id,
+        entityId: user.id,
+        entityType: 'user' as const,
+        editable: true,
+      });
     });
 
     return {
       headers,
       rows,
+      rowMetadata,
       metadata: {
         title: 'Medical List',
         description: 'Medical requirements and emergency contacts',
@@ -320,13 +356,16 @@ export class ReportsService {
       'Room Number',
     ];
 
-    const rows = users.map(user => {
+    const rows = [];
+    const rowMetadata = [];
+
+    users.forEach(user => {
       const profile = user.profile as any;
       const requirements = user.requirements as any;
       const roomAssignment = user.roomAssignments[0];
       const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
 
-      return [
+      rows.push([
         profile?.firstName || '',
         profile?.lastName || '',
         user.guestCategory || 'Standard',
@@ -337,12 +376,21 @@ export class ReportsService {
         '', // Special meal requests
         groupNames,
         roomAssignment?.roomNumber || '',
-      ];
+      ]);
+
+      // Add metadata for editing capabilities
+      rowMetadata.push({
+        userId: user.id,
+        entityId: user.id,
+        entityType: 'user' as const,
+        editable: true,
+      });
     });
 
     return {
       headers,
       rows,
+      rowMetadata,
       metadata: {
         title: 'Dietary List',
         description: 'Dietary restrictions and catering requirements',
@@ -449,9 +497,9 @@ export class ReportsService {
         profile?.firstName || '',
         groupNames,
         checkIn ? checkIn.toLocaleDateString('en-GB') : '',
-        flight?.inbound?.arrivalDateTime ? new Date(flight.inbound.arrivalDateTime).toLocaleTimeString('en-GB', { hour12: false }).slice(0, 5) : '',
+        flight?.inbound?.arrivalTime || '',
         checkOut ? checkOut.toLocaleDateString('en-GB') : '',
-        flight?.outbound?.departureDateTime ? new Date(flight.outbound.departureDateTime).toLocaleTimeString('en-GB', { hour12: false }).slice(0, 5) : '',
+        flight?.outbound?.departureTime || '',
         ...occupancyData,
         roomAssignment?.roomType || accommodation?.roomType || 'Standard King',
         roomAssignment?.billingNotes || 'All charges to Master Account',
@@ -601,7 +649,8 @@ export class ReportsService {
     ];
 
     const rows: any[][] = [];
-    
+    const rowMetadata = [];
+
     for (const activity of activities) {
       // Get users assigned to the activity's groups
       const users = await prisma.user.findMany({
@@ -634,12 +683,21 @@ export class ReportsService {
           isExcluded ? 'Excluded' : 'Attending',
           exclusion?.reason || '',
         ]);
+
+        // Add metadata for editing capabilities
+        rowMetadata.push({
+          userId: user.id,
+          entityId: user.id,
+          entityType: 'user' as const,
+          editable: true,
+        });
       });
     }
 
     return {
       headers,
       rows,
+      rowMetadata,
       metadata: {
         title: 'Activity Attendance List',
         description: 'Per-activity guest management and attendance tracking',
@@ -690,12 +748,15 @@ export class ReportsService {
       'Registration Date',
     ];
 
-    const rows = users.map(user => {
+    const rows = [];
+    const rowMetadata = [];
+
+    users.forEach(user => {
       const profile = user.profile as any;
       const roomAssignment = user.roomAssignments[0];
       const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
 
-      return [
+      rows.push([
         user.guestCategory || 'Standard',
         profile?.firstName || '',
         profile?.lastName || '',
@@ -706,12 +767,21 @@ export class ReportsService {
         roomAssignment?.roomNumber || '',
         user.roomDropAssigned || '',
         new Date(user.registeredAt).toLocaleDateString('en-GB'),
-      ];
+      ]);
+
+      // Add metadata for editing capabilities
+      rowMetadata.push({
+        userId: user.id,
+        entityId: user.id,
+        entityType: 'user' as const,
+        editable: true,
+      });
     });
 
     return {
       headers,
       rows,
+      rowMetadata,
       metadata: {
         title: 'Guest List by Type',
         description: 'Guests segmented by categories',
@@ -760,16 +830,17 @@ export class ReportsService {
     ];
 
     const rows: any[][] = [];
+    const rowMetadata = [];
 
     for (const group of groups) {
-      const groupUsers = users.filter(user => 
+      const groupUsers = users.filter(user =>
         user.groupIds.includes(group.id)
       );
 
       groupUsers.forEach(user => {
         const profile = user.profile as any;
         const roomAssignment = user.roomAssignments[0];
-        
+
         rows.push([
           group.name,
           profile?.firstName || '',
@@ -781,12 +852,21 @@ export class ReportsService {
           roomAssignment?.roomNumber || '',
           new Date(user.registeredAt).toLocaleDateString(),
         ]);
+
+        // Add metadata for editing capabilities
+        rowMetadata.push({
+          userId: user.id,
+          entityId: user.id,
+          entityType: 'user' as const,
+          editable: true,
+        });
       });
     }
 
     return {
       headers,
       rows,
+      rowMetadata,
       metadata: {
         title: 'Guest List by Group',
         description: 'Guests organized by assigned groups',
@@ -863,7 +943,10 @@ export class ReportsService {
     const activityHeaders = activities.map(activity => activity.title);
     const headers = [...baseHeaders, ...activityHeaders, 'Notes'];
 
-    const rows = users.map(user => {
+    const rows = [];
+    const rowMetadata = [];
+
+    users.forEach(user => {
       const profile = user.profile as any;
       const accommodation = user.accommodation as any;
       const flight = user.flight as any;
@@ -923,12 +1006,21 @@ export class ReportsService {
         }
       });
 
-      return [...baseRow, ...activityAttendance, '']; // Empty notes column
+      rows.push([...baseRow, ...activityAttendance, '']); // Empty notes column
+
+      // Add metadata for editing capabilities
+      rowMetadata.push({
+        userId: user.id,
+        entityId: user.id,
+        entityType: 'user' as const,
+        editable: true,
+      });
     });
 
     return {
       headers,
       rows,
+      rowMetadata,
       metadata: {
         title: 'Master Guest Report',
         description: 'Complete guest data export with activity attendance',
@@ -1119,12 +1211,15 @@ export class ReportsService {
     const roomDrops = (event?.roomDrops as any)?.drops || [];
     const roomDropMap = new Map(roomDrops.map((drop: any) => [drop.id, drop]));
 
-    const rows = users.map(user => {
+    const rows = [];
+    const rowMetadata = [];
+
+    users.forEach(user => {
       const profile = user.profile as any;
       const roomAssignment = user.roomAssignments[0];
       const roomDrop = roomDropMap.get(user.roomDropAssigned);
-      
-      return [
+
+      rows.push([
         profile?.firstName || '',
         profile?.lastName || '',
         profile?.email || '',
@@ -1135,12 +1230,21 @@ export class ReportsService {
         roomAssignment?.roomNumber || '',
         'Pending', // TODO: Add delivery status tracking
         user.updatedAt ? new Date(user.updatedAt).toLocaleDateString() : '',
-      ];
+      ]);
+
+      // Add metadata for editing capabilities
+      rowMetadata.push({
+        userId: user.id,
+        entityId: user.id,
+        entityType: 'user' as const,
+        editable: true,
+      });
     });
 
     return {
       headers,
       rows,
+      rowMetadata,
       metadata: {
         title: 'Room Drops Report',
         description: 'Gift package distribution and delivery tracking',

@@ -295,11 +295,13 @@ export const UserFlightSchema = z.object({
   inbound: z
     .object({
       departureFrom: z.string().optional(), // "Inbound Departure from [station/airport]"
-      departureDateTime: z.coerce.date().optional(), // Combined departure date+time (full datetime)
+      departureDate: z.string().optional(), // Date in dd/mm/yyyy format
+      departureTime: z.string().optional(), // Time in 24hr hh:mm format
       departureTerminal: z.string().optional(), // "Inbound Departure terminal"
       flightNumber: z.string().optional(), // "Inbound Flight number"
       airline: z.string().optional(), // Singapore addition: Airline name
-      arrivalDateTime: z.coerce.date().optional(), // Combined arrival date+time (full datetime)
+      arrivalDate: z.string().optional(), // Date in dd/mm/yyyy format
+      arrivalTime: z.string().optional(), // Time in 24hr hh:mm format
       arrivalToAirport: z.string().optional(), // "Inbound Arrival to airport"
       arrivalToTerminal: z.string().optional(), // "Inbound Arrival to terminal"
     })
@@ -307,11 +309,13 @@ export const UserFlightSchema = z.object({
   outbound: z
     .object({
       departureFrom: z.string().optional(), // "Outbound Departure from [station/airport]"
-      departureDateTime: z.coerce.date().optional(), // Combined departure date+time (full datetime)
+      departureDate: z.string().optional(), // Date in dd/mm/yyyy format
+      departureTime: z.string().optional(), // Time in 24hr hh:mm format
       departureTerminal: z.string().optional(), // "Outbound Departure Terminal"
       flightNumber: z.string().optional(), // "Outbound Flight number"
       airline: z.string().optional(), // Singapore addition: Airline name
-      arrivalDateTime: z.coerce.date().optional(), // Combined arrival date+time (full datetime)
+      arrivalDate: z.string().optional(), // Date in dd/mm/yyyy format
+      arrivalTime: z.string().optional(), // Time in 24hr hh:mm format
       arrivalToAirport: z.string().optional(), // "Outbound Arrival to airport"
       arrivalToTerminal: z.string().optional(), // "Outbound Arrival to terminal"
     })
