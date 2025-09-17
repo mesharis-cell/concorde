@@ -282,6 +282,11 @@ export const UserProfileSchema = z.object({
   // Preferred names (always optional, no checkbox needed)
   preferredFirstName: z.string().optional(),
   preferredLastName: z.string().optional(),
+  // Business/Event fields
+  jobTitle: z.string().optional(), // "Production", "Marketing", etc.
+  company: z.string().optional(), // "CBL", "Pernod Ricard", etc.
+  vip: z.boolean().optional(), // VIP status flag
+  host: z.string().optional(), // Host/contact person name
 });
 export type UserProfile = z.infer<typeof UserProfileSchema>;
 
