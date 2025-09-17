@@ -4,14 +4,15 @@ import type {
   CreateUser,
   Pagination,
   PaginatedResponse,
-  UserSession,
-  UserMagicLink,
 } from '../types/index.js';
 import type { User } from '@prisma/client';
 import { GroupService } from './groups.js';
+import { AuditTrailService } from './audit-trail.js';
+import { JwtService } from '../utils/jwt.js';
+import { ConflictDetectionService } from './conflict-detection.js';
 
 export class UserService {
-  static async create(data: CreateUser): Promise<User> {
+  static async create(data: CreateUser, performedBy?: string): Promise<User> {
     // Normalize email and check if user with same email already exists in this event
     if (data.profile?.email) {
       data.profile.email = data.profile.email.toLowerCase();
@@ -30,6 +31,7 @@ export class UserService {
     const user = await prisma.user.create({
       data: {
         eventId: data.eventId,
+        groupIds: [], // Initialize with empty array
         profile: data.profile,
         communication: data.communication,
         flight: data.flight,
@@ -38,10 +40,24 @@ export class UserService {
         requirements: data.requirements,
         merchandiseSize: data.merchandiseSize,
         emergencyContact: data.emergencyContact,
-        sessions: [],
-        magicLinks: [],
       },
     });
+
+    // Log audit trail
+    if (performedBy) {
+      await AuditTrailService.logCreate(
+        'User',
+        user.id,
+        {
+          email: data.profile?.email,
+          firstName: data.profile?.firstName,
+          lastName: data.profile?.lastName,
+          eventId: data.eventId,
+        },
+        performedBy,
+        data.eventId
+      );
+    }
 
     return user;
   }
@@ -53,9 +69,7 @@ export class UserService {
         event: {
           select: { id: true, name: true, shortName: true },
         },
-        group: {
-          select: { id: true, name: true, description: true },
-        },
+        roomAssignments: true,
       },
     });
   }
@@ -119,7 +133,7 @@ export class UserService {
     }
 
     if (filters.groupId) {
-      where.groupId = filters.groupId;
+      where.groupIds = { hasSome: [filters.groupId] };
     }
 
     // For now, implement basic filtering without JSON path queries
@@ -135,14 +149,9 @@ export class UserService {
         eventId,
         active: true,
         ...(filters.assigned !== undefined && { assigned: filters.assigned }),
-        ...(filters.groupId && { groupId: filters.groupId }),
+        ...(filters.groupId && { groupIds: { hasSome: [filters.groupId] } }),
       },
       orderBy: { registeredAt: 'desc' },
-      include: {
-        group: {
-          select: { id: true, name: true },
-        },
-      },
     });
 
     // Apply client-side filtering for JSON fields
@@ -240,7 +249,7 @@ export class UserService {
     };
   }
 
-  static async update(id: string, data: Partial<CreateUser>): Promise<User> {
+  static async update(id: string, data: Partial<CreateUser>, performedBy?: string): Promise<User> {
     // If email is being updated, normalize and check for duplicates within the same event
     if (data.profile?.email) {
       data.profile.email = data.profile.email.toLowerCase();
@@ -282,91 +291,314 @@ export class UserService {
     if (data.emergencyContact !== undefined)
       updateData.emergencyContact = data.emergencyContact;
 
-    return prisma.user.update({
+    // Get current user data for audit trail
+    const currentUser = performedBy ? await prisma.user.findUnique({ where: { id } }) : null;
+    
+    const updatedUser = await prisma.user.update({
       where: { id },
       data: updateData,
     });
+
+    // Log audit trail
+    if (performedBy && currentUser) {
+      const changedFields = AuditTrailService.getChangedFields(currentUser, updatedUser);
+      if (changedFields.length > 0) {
+        await AuditTrailService.logUpdate(
+          'User',
+          id,
+          currentUser,
+          updatedUser,
+          changedFields,
+          performedBy,
+          updatedUser.eventId
+        );
+      }
+    }
+
+    return updatedUser;
   }
 
-  static async assignToGroup(
+  static async assignToGroups(
     userId: string,
-    groupId: string,
-    adminId: string
-  ): Promise<User> {
-    // Check if user is already assigned to a group
+    groupIds: string[],
+    adminId: string,
+    options: { allowConflicts?: boolean } = {}
+  ): Promise<{
+    user: User;
+    warnings: {
+      capacityIssues: any[];
+      timingConflicts: any[];
+      hasIssues: boolean;
+    };
+  }> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { assigned: true, groupId: true, eventId: true },
+      select: { groupIds: true, eventId: true },
     });
 
     if (!user) {
       throw new Error('User not found');
     }
 
-    if (user.assigned && user.groupId) {
-      throw new Error('User is already assigned to a group');
-    }
-
-    // Verify group exists and belongs to same event
-    const group = await prisma.group.findUnique({
-      where: { id: groupId },
-      select: { eventId: true, active: true, deleted: true },
+    // Verify all groups exist and belong to same event
+    const groups = await prisma.group.findMany({
+      where: { 
+        id: { in: groupIds },
+        eventId: user.eventId,
+        active: true,
+        deleted: false,
+      },
     });
 
-    if (!group || group.deleted || !group.active) {
-      throw new Error('Group not found or inactive');
+    if (groups.length !== groupIds.length) {
+      throw new Error('One or more groups not found or inactive');
     }
 
-    if (group.eventId !== user.eventId) {
-      throw new Error('Group and user must belong to the same event');
+    // Analyze conflicts
+    const conflictAnalysis = await ConflictDetectionService.analyzeAssignmentConflicts([userId], groupIds);
+    
+    // Block assignment if there are high-severity conflicts and conflicts are not allowed
+    if (!options.allowConflicts && conflictAnalysis.hasIssues) {
+      const highSeverityIssues = [
+        ...conflictAnalysis.capacityIssues.filter(i => i.severity === 'high'),
+        ...conflictAnalysis.timingConflicts.filter(c => c.severity === 'high'),
+      ];
+      
+      if (highSeverityIssues.length > 0) {
+        const issueDetails = [
+          ...conflictAnalysis.capacityIssues.map(i => 
+            `Activity "${i.activityTitle}" capacity exceeded (${i.capacity} max, ${i.affectedUserCount + i.capacity} potential attendees)`
+          ),
+          ...conflictAnalysis.timingConflicts.map(c => 
+            `Timing conflict: ${c.activities.length} overlapping activities`
+          ),
+        ].join('; ');
+        
+        throw new Error(`Cannot assign user due to conflicts: ${issueDetails}`);
+      }
+    }
+    
+    // Replace group assignments (not add to existing)
+    const newGroupIds = groupIds; // Use provided groups as the complete new set
+
+    // Update user assignment
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        groupIds: newGroupIds,
+        assigned: newGroupIds.length > 0, // Only assigned if has groups
+        assignedAt: newGroupIds.length > 0 ? new Date() : null,
+        assignedBy: adminId,
+      },
+    });
+
+    // Update all affected group member counts (both old and new groups)
+    const allAffectedGroups = Array.from(new Set([...user.groupIds, ...newGroupIds]));
+    await Promise.all(allAffectedGroups.map(groupId => GroupService.updateMemberCount(groupId)));
+
+    // Update activity attendee counts for all affected activities
+    const activities = await prisma.activity.findMany({
+      where: { groupIds: { hasSome: allAffectedGroups } },
+      select: { id: true },
+    });
+    await ConflictDetectionService.batchUpdateAttendeeCount(activities.map(a => a.id));
+
+    // Log audit trail for added groups
+    const addedGroups = groupIds.filter(id => !user.groupIds.includes(id));
+    for (const groupId of addedGroups) {
+      const [group, admin, userProfile] = await Promise.all([
+        prisma.group.findUnique({
+          where: { id: groupId },
+          select: { name: true }
+        }),
+        prisma.admin.findUnique({
+          where: { id: adminId },
+          select: { email: true, firstName: true, lastName: true }
+        }),
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: { profile: true }
+        })
+      ]);
+
+      const userEmail = (userProfile?.profile as any)?.email || 'Unknown User';
+      const adminEmail = admin?.email || 'Unknown Admin';
+      const summary = `Assigned user ${userEmail} to group "${group?.name || groupId}" (by ${adminEmail})`;
+
+      await AuditTrailService.log({
+        action: 'ASSIGN',
+        resourceType: 'User',
+        resourceId: userId,
+        eventId: updatedUser.eventId,
+        performedBy: adminId,
+        performedByType: 'ADMIN',
+        summary,
+        metadata: {
+          userEmail,
+          adminEmail,
+          groupName: group?.name || groupId,
+          ...(conflictAnalysis.hasIssues ? { conflictsDetected: true } : {})
+        }
+      });
+    }
+
+    // Log audit trail for removed groups
+    const removedGroups = user.groupIds.filter(id => !groupIds.includes(id));
+    for (const groupId of removedGroups) {
+      const [group, admin, userProfile] = await Promise.all([
+        prisma.group.findUnique({
+          where: { id: groupId },
+          select: { name: true }
+        }),
+        prisma.admin.findUnique({
+          where: { id: adminId },
+          select: { email: true, firstName: true, lastName: true }
+        }),
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: { profile: true }
+        })
+      ]);
+
+      const userEmail = (userProfile?.profile as any)?.email || 'Unknown User';
+      const adminEmail = admin?.email || 'Unknown Admin';
+      const summary = `Removed user ${userEmail} from group "${group?.name || groupId}" (by ${adminEmail})`;
+
+      await AuditTrailService.log({
+        action: 'UNASSIGN',
+        resourceType: 'User',
+        resourceId: userId,
+        eventId: updatedUser.eventId,
+        performedBy: adminId,
+        performedByType: 'ADMIN',
+        summary,
+        metadata: {
+          userEmail,
+          adminEmail,
+          groupName: group?.name || groupId,
+        }
+      });
+    }
+
+    return {
+      user: updatedUser,
+      warnings: {
+        capacityIssues: conflictAnalysis.capacityIssues,
+        timingConflicts: conflictAnalysis.timingConflicts,
+        hasIssues: conflictAnalysis.hasIssues,
+      },
+    };
+  }
+
+  // Backward compatibility method
+  static async assignToGroup(
+    userId: string,
+    groupId: string,
+    adminId: string
+  ): Promise<User> {
+    const result = await this.assignToGroups(userId, [groupId], adminId);
+    return result.user;
+  }
+
+  static async unassignFromGroups(
+    userId: string,
+    groupIds: string[],
+    adminId: string
+  ): Promise<{
+    user: User;
+    removedGroups: string[];
+  }> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { groupIds: true, assigned: true, eventId: true },
+    });
+
+    if (!user || !user.assigned || user.groupIds.length === 0) {
+      throw new Error('User is not assigned to any groups');
+    }
+
+    // Filter out the groups to remove
+    const remainingGroupIds = user.groupIds.filter(id => !groupIds.includes(id));
+    const actuallyRemovedGroups = user.groupIds.filter(id => groupIds.includes(id));
+
+    if (actuallyRemovedGroups.length === 0) {
+      throw new Error('User is not assigned to any of the specified groups');
     }
 
     // Update user assignment
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
-        groupId,
-        assigned: true,
-        assignedAt: new Date(),
+        groupIds: remainingGroupIds,
+        assigned: remainingGroupIds.length > 0,
+        assignedAt: remainingGroupIds.length > 0 ? user.assignedAt : null,
         assignedBy: adminId,
       },
     });
 
-    // Update group member count
-    await GroupService.updateMemberCount(groupId);
+    // Update affected group member counts
+    await Promise.all([
+      ...remainingGroupIds.map(groupId => GroupService.updateMemberCount(groupId)),
+      ...actuallyRemovedGroups.map(groupId => GroupService.updateMemberCount(groupId)),
+    ]);
 
-    return updatedUser;
+    // Update activity attendee counts
+    const activities = await prisma.activity.findMany({
+      where: { groupIds: { hasSome: [...remainingGroupIds, ...actuallyRemovedGroups] } },
+      select: { id: true },
+    });
+    await ConflictDetectionService.batchUpdateAttendeeCount(activities.map(a => a.id));
+
+    // Log audit trail for each removed group
+    for (const groupId of actuallyRemovedGroups) {
+      const group = await prisma.group.findUnique({
+        where: { id: groupId },
+        select: { name: true }
+      });
+
+      await AuditTrailService.logUnassign(
+        'User',
+        userId,
+        group?.name || groupId,
+        'group',
+        adminId,
+        user.eventId
+      );
+    }
+
+    return {
+      user: updatedUser,
+      removedGroups: actuallyRemovedGroups,
+    };
   }
 
+  // Backward compatibility method
   static async unassignFromGroup(
     userId: string,
     adminId: string
   ): Promise<User> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { groupId: true, assigned: true },
+      select: { groupIds: true },
     });
 
-    if (!user || !user.assigned || !user.groupId) {
+    if (!user || user.groupIds.length === 0) {
       throw new Error('User is not assigned to any group');
     }
 
-    const oldGroupId = user.groupId;
+    // Remove from all groups for backward compatibility
+    const result = await this.unassignFromGroups(userId, user.groupIds, adminId);
+    return result.user;
+  }
 
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        groupId: null,
-        assigned: false,
-        assignedAt: null,
-        assignedBy: adminId,
-      },
-    });
-
-    // Update old group member count
-    await GroupService.updateMemberCount(oldGroupId);
-
-    return updatedUser;
+  // New method: Remove from specific group
+  static async removeFromGroup(
+    userId: string,
+    groupId: string,
+    adminId: string
+  ): Promise<User> {
+    const result = await this.unassignFromGroups(userId, [groupId], adminId);
+    return result.user;
   }
 
   static async reassignToGroup(
@@ -418,186 +650,8 @@ export class UserService {
     return updatedUser;
   }
 
-  static async createMagicLink(userId: string): Promise<string> {
-    const token = uuidv4();
-    const createdAt = new Date();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { magicLinks: true },
-    });
-
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    const magicLinks = user.magicLinks as UserMagicLink[];
-
-    // Add new magic link
-    magicLinks.push({
-      token,
-      createdAt,
-      expiresAt,
-      used: false,
-    });
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { magicLinks },
-    });
-
-    return token;
-  }
-
-  // Alias for compatibility with controller
-  static async generateMagicLink(userId: string): Promise<{ token: string }> {
-    const token = await this.createMagicLink(userId);
-    return { token };
-  }
-
-  static async validateMagicLink(token: string): Promise<User | null> {
-    // Since MongoDB JSON field querying is complex, get all users and filter in JavaScript
-    const allUsers = await prisma.user.findMany({
-      where: { active: true },
-    });
-
-    let matchingUser: any = null;
-    let linkIndex = -1;
-
-    for (const user of allUsers) {
-      const magicLinks = (user.magicLinks as UserMagicLink[]) || [];
-      const index = magicLinks.findIndex((link) => link.token === token);
-
-      if (index !== -1) {
-        matchingUser = user;
-        linkIndex = index;
-        break;
-      }
-    }
-
-    if (!matchingUser || linkIndex === -1) return null;
-
-    const magicLinks = matchingUser.magicLinks as UserMagicLink[];
-    const link = magicLinks[linkIndex];
-
-    // Check if expired or already used
-    if (link.used || new Date() > new Date(link.expiresAt)) {
-      return null;
-    }
-
-    // Mark as used and update last accessed
-    magicLinks[linkIndex] = {
-      ...link,
-      used: true,
-      lastAccessedAt: new Date(),
-    };
-
-    const updatedUser = await prisma.user.update({
-      where: { id: matchingUser.id },
-      data: {
-        magicLinks,
-        lastLoginAt: new Date(),
-      },
-      include: {
-        event: {
-          select: { id: true, name: true, shortName: true },
-        },
-        group: {
-          select: { id: true, name: true, description: true },
-        },
-      },
-    });
-
-    return updatedUser;
-  }
-
-  // Alias for compatibility with controller
-  static async verifyMagicLink(token: string): Promise<User | null> {
-    return this.validateMagicLink(token);
-  }
-
-  static async createSession(
-    userId: string,
-    sessionToken?: string
-  ): Promise<string> {
-    const token = uuidv4();
-    const createdAt = new Date();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { sessions: true },
-    });
-
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    const sessions = user.sessions as UserSession[];
-
-    // Add new session
-    sessions.push({
-      token,
-      createdAt,
-      expiresAt,
-      used: false,
-    });
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { sessions },
-    });
-
-    return token;
-  }
-
-  static async validateSession(token: string): Promise<User | null> {
-    // Since MongoDB JSON field querying is complex, get all users and filter in JavaScript
-    const allUsers = await prisma.user.findMany({
-      where: { active: true },
-    });
-
-    for (const user of allUsers) {
-      const sessions = (user.sessions as UserSession[]) || [];
-      const session = sessions.find((s) => s.token === token);
-
-      if (
-        session &&
-        !session.used &&
-        new Date() <= new Date(session.expiresAt)
-      ) {
-        return user;
-      }
-    }
-
-    return null;
-  }
-
-  static async invalidateSession(token: string): Promise<void> {
-    // Since MongoDB JSON field querying is complex, get all users and filter in JavaScript
-    const allUsers = await prisma.user.findMany({
-      where: { active: true },
-    });
-
-    for (const user of allUsers) {
-      const sessions = (user.sessions as UserSession[]) || [];
-      const sessionIndex = sessions.findIndex((s) => s.token === token);
-
-      if (sessionIndex !== -1) {
-        sessions[sessionIndex] = {
-          ...sessions[sessionIndex],
-          used: true,
-        };
-
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { sessions },
-        });
-        break;
-      }
-    }
-  }
+  // Magic link and session methods removed - replaced with OTP authentication
+  // See OTPService for new authentication flow
 
   static async deactivate(id: string): Promise<User> {
     return prisma.user.update({
@@ -693,7 +747,9 @@ export class UserService {
     const [users, total] = await prisma.$transaction([
       prisma.user.findMany({
         where: {
-          groupId,
+          groupIds: {
+            has: groupId
+          },
           assigned: true,
           active: true,
         },
@@ -703,7 +759,9 @@ export class UserService {
       }),
       prisma.user.count({
         where: {
-          groupId,
+          groupIds: {
+            has: groupId
+          },
           assigned: true,
           active: true,
         },
@@ -765,7 +823,7 @@ export class UserService {
     return user;
   }
 
-  static async softDelete(userId: string): Promise<User> {
+  static async softDelete(userId: string, performedBy?: string): Promise<User> {
     // First check if user exists and is not already deleted
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -784,14 +842,57 @@ export class UserService {
       where: { id: userId },
       data: {
         active: false,
-        assigned: false, // Unassign from group when deleted
-        groupId: null,
+        assigned: false, // Unassign from all groups when deleted
+        groupIds: [], // Clear all group assignments
       },
     });
 
-    // Update group member count if user was assigned
-    if (user.groupId) {
-      await GroupService.updateMemberCount(user.groupId);
+    // Update group member counts for all groups user was assigned to
+    if (user.groupIds && user.groupIds.length > 0) {
+      await Promise.all(
+        user.groupIds.map(groupId => GroupService.updateMemberCount(groupId))
+      );
+
+      // Update activity attendee counts for all affected activities
+      const activities = await prisma.activity.findMany({
+        where: { groupIds: { hasSome: user.groupIds } },
+        select: { id: true },
+      });
+      
+      if (activities.length > 0) {
+        await ConflictDetectionService.batchUpdateAttendeeCount(activities.map(a => a.id));
+      }
+    }
+
+    // Log audit trail
+    if (performedBy) {
+      const admin = await prisma.admin.findUnique({
+        where: { id: performedBy },
+        select: { email: true, firstName: true, lastName: true }
+      });
+
+      const userEmail = (user.profile as any)?.email || 'Unknown User';
+      const adminEmail = admin?.email || 'Unknown Admin';
+      const summary = `Deleted user ${userEmail} (by ${adminEmail})`;
+
+      await AuditTrailService.log({
+        action: 'DELETE',
+        resourceType: 'User',
+        resourceId: userId,
+        eventId: user.eventId,
+        performedBy: performedBy,
+        performedByType: 'ADMIN',
+        summary,
+        metadata: {
+          userEmail,
+          adminEmail,
+          deletedUserProfile: {
+            email: (user.profile as any)?.email,
+            firstName: (user.profile as any)?.firstName,
+            lastName: (user.profile as any)?.lastName,
+          }
+        }
+      });
     }
 
     return deletedUser;
@@ -847,5 +948,115 @@ export class UserService {
     } catch (error: any) {
       return { success: false, error: error.message };
     }
+  }
+
+  /**
+   * Generate a magic link token for admin preview (no email sent)
+   */
+  static async generateMagicLink(userId: string): Promise<{ token: string; expiresAt: Date }> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId, active: true },
+      select: { eventId: true },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Generate magic link token using JWT service
+    const token = JwtService.generateMagicLinkToken(userId, user.eventId);
+    
+    // Calculate expiration (24 hours from now, matching JWT service)
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+
+    return {
+      token,
+      expiresAt,
+    };
+  }
+
+  /**
+   * Utility method to demonstrate flight data sorting and calculations
+   * Returns users sorted by flight departure dates with duration calculations
+   */
+  static async getFlightAnalytics(eventId: string): Promise<{
+    usersByDeparture: Array<{
+      userId: string;
+      email: string;
+      departureDate: Date | null;
+      arrivalDate: Date | null;
+      flightDuration?: number; // in minutes
+    }>;
+    stats: {
+      totalWithFlights: number;
+      averageFlightDuration: number;
+      earliestDeparture: Date | null;
+      latestArrival: Date | null;
+    };
+  }> {
+    const users = await prisma.user.findMany({
+      where: {
+        eventId,
+        active: true,
+        flight: { not: null },
+      },
+      select: {
+        id: true,
+        profile: true,
+        flight: true,
+      },
+    });
+
+    const userFlightData = users.map(user => {
+      const flight = user.flight as any;
+      const email = (user.profile as any)?.email;
+      
+      const inboundDeparture = flight?.inbound?.departureDate ? new Date(flight.inbound.departureDate) : null;
+      const inboundArrival = flight?.inbound?.arrivalDate ? new Date(flight.inbound.arrivalDate) : null;
+      
+      // Calculate flight duration if both dates are available
+      let flightDuration;
+      if (inboundDeparture && inboundArrival) {
+        flightDuration = Math.round((inboundArrival.getTime() - inboundDeparture.getTime()) / (1000 * 60)); // minutes
+      }
+      
+      return {
+        userId: user.id,
+        email,
+        departureDate: inboundDeparture,
+        arrivalDate: inboundArrival,
+        flightDuration,
+      };
+    });
+
+    // Sort by departure date (nulls last)
+    const sortedUsers = userFlightData.sort((a, b) => {
+      if (!a.departureDate) return 1;
+      if (!b.departureDate) return -1;
+      return a.departureDate.getTime() - b.departureDate.getTime();
+    });
+
+    // Calculate stats
+    const usersWithValidFlights = userFlightData.filter(u => u.departureDate && u.arrivalDate);
+    const durations = usersWithValidFlights.map(u => u.flightDuration).filter(Boolean) as number[];
+    const departureDates = userFlightData.map(u => u.departureDate).filter(Boolean) as Date[];
+    const arrivalDates = userFlightData.map(u => u.arrivalDate).filter(Boolean) as Date[];
+
+    return {
+      usersByDeparture: sortedUsers,
+      stats: {
+        totalWithFlights: users.length,
+        averageFlightDuration: durations.length > 0 
+          ? Math.round(durations.reduce((sum, d) => sum + d, 0) / durations.length)
+          : 0,
+        earliestDeparture: departureDates.length > 0 
+          ? new Date(Math.min(...departureDates.map(d => d.getTime())))
+          : null,
+        latestArrival: arrivalDates.length > 0 
+          ? new Date(Math.max(...arrivalDates.map(d => d.getTime())))
+          : null,
+      },
+    };
   }
 }

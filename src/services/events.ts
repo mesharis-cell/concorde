@@ -116,6 +116,12 @@ export class EventService {
         ...(data.hotelConfig !== undefined && {
           hotelConfig: data.hotelConfig,
         }),
+        ...(data.roomDrops !== undefined && {
+          roomDrops: data.roomDrops,
+        }),
+        ...(data.guestCategories !== undefined && {
+          guestCategories: data.guestCategories,
+        }),
         ...(data.termsConditions !== undefined && {
           termsConditions: data.termsConditions,
         }),

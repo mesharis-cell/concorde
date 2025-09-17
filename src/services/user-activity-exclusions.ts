@@ -17,14 +17,14 @@ export class UserActivityExclusionService {
     // Validate that user is in the group and activity belongs to same group
     const user = await prisma.user.findUnique({
       where: { id: data.userId },
-      select: { groupId: true, eventId: true, assigned: true },
+      select: { groupIds: true, eventId: true, assigned: true },
     });
 
     if (!user) {
       throw new Error('User not found');
     }
 
-    if (!user.assigned || user.groupId !== data.groupId) {
+    if (!user.assigned || !user.groupIds.includes(data.groupId)) {
       throw new Error(
         'User must be assigned to the same group as the activity'
       );

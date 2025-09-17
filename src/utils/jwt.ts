@@ -3,9 +3,9 @@ import { env } from '../config/env.js';
 
 export interface JwtPayload {
   id: string;
-  role?: 'superadmin' | 'admin' | 'user';
+  role?: 'superadmin' | 'admin' | 'user' | 'guest';
   eventId?: string;
-  type: 'access' | 'refresh' | 'magic';
+  type: 'access' | 'refresh' | 'magic' | 'guest';
 }
 
 export class JwtService {
@@ -65,6 +65,18 @@ export class JwtService {
         role: role === 'SUPER' ? 'superadmin' : 'admin',
         type: 'access' 
       }
+    );
+  }
+
+  static generateGuestAccessToken(userId: string, eventId: string): string {
+    return this.sign(
+      { 
+        id: userId, 
+        eventId, 
+        role: 'guest',
+        type: 'guest' 
+      },
+      '7d' // 7-day expiry for guest sessions
     );
   }
 }

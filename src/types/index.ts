@@ -21,12 +21,29 @@ export const MessageType = z.enum([
   'ASSIGNMENT',
   'ACTIVITY_UPDATE',
   'ANNOUNCEMENT',
-  'MAGIC_LINK',
+  'OTP_VERIFICATION',
 ]);
 export type MessageType = z.infer<typeof MessageType>;
 
 export const RecipientType = z.enum(['INDIVIDUAL', 'GROUP', 'ALL']);
 export type RecipientType = z.infer<typeof RecipientType>;
+
+export const ReportType = z.enum([
+  'arrival-list',
+  'departure-list',
+  'medical-list',
+  'dietary-list',
+  'rooming-list',
+  'guest-list-alpha',
+  'activity-attendance',
+  'guest-list-type',
+  'guest-list-group',
+  'master-guest',
+  'change-report',
+  'merchandise-report',
+  'room-drops',
+]);
+export type ReportType = z.infer<typeof ReportType>;
 
 // ============================================================================
 // Event Types
@@ -82,6 +99,26 @@ export const CreateEventSchema = z.object({
     })
     .nullable()
     .optional(),
+  roomDrops: z
+    .object({
+      drops: z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          description: z.string(),
+          stock: z.number().min(0),
+          assigned: z.number().default(0),
+        })
+      ),
+    })
+    .nullable()
+    .optional(),
+  guestCategories: z
+    .object({
+      categories: z.array(z.string()),
+    })
+    .nullable()
+    .optional(),
   termsConditions: z.string().nullable().optional(),
   privacyPolicy: z.string().nullable().optional(),
 });
@@ -119,6 +156,13 @@ export const ActivityContentSchema = z.object({
 });
 export type ActivityContent = z.infer<typeof ActivityContentSchema>;
 
+export const ActivityTimingEntrySchema = z.object({
+  enabled: z.boolean(),
+  time: z.string(), // "18:00"
+  description: z.string(),
+  location: z.string().optional(),
+});
+
 export const CreateActivitySchema = z.object({
   eventId: z.string(),
   groupIds: z.array(z.string()).default([]), // Array of group IDs
@@ -130,12 +174,20 @@ export const CreateActivitySchema = z.object({
   category: ActivityCategory.default('OTHER'),
   location: ActivityLocationSchema.optional(),
   content: ActivityContentSchema,
+  capacity: z.number().int().positive().optional(), // Optional capacity limit
+  timingTable: z.array(ActivityTimingEntrySchema).default([]), // Structured timing details
+  allowConflicts: z.boolean().optional().default(false), // Allow capacity conflicts
 });
 export type CreateActivity = z.infer<typeof CreateActivitySchema>;
 
-export const UpdateActivitySchema = CreateActivitySchema.partial().omit({
-  eventId: true,
-});
+export const UpdateActivitySchema = CreateActivitySchema.partial()
+  .omit({
+    eventId: true,
+    createdBy: true,
+  })
+  .extend({
+    allowConflicts: z.boolean().optional().default(false),
+  });
 export type UpdateActivity = z.infer<typeof UpdateActivitySchema>;
 
 // Activity assignment schemas
@@ -177,7 +229,7 @@ export const TemplateCategoryEnum = z.enum([
   'ASSIGNMENT',
   'ACTIVITY_UPDATE',
   'ANNOUNCEMENT',
-  'MAGIC_LINK',
+  'OTP_VERIFICATION',
   'CUSTOM',
 ]);
 
@@ -192,15 +244,18 @@ export const CreateTemplateSchema = z
   })
   .refine(
     (data) => {
-      // Authentication templates must include magicLink variable
-      if (data.type === 'AUTHENTICATION' && data.category === 'MAGIC_LINK') {
-        return data.html.includes('{{magicLink}}');
+      // Authentication templates must include otpCode variable
+      if (
+        data.type === 'AUTHENTICATION' &&
+        data.category === 'OTP_VERIFICATION'
+      ) {
+        return data.html.includes('{{otpCode}}');
       }
       return true;
     },
     {
       message:
-        'Authentication templates must include {{magicLink}} variable in the content',
+        'Authentication templates must include {{otpCode}} variable in the content',
       path: ['html'],
     }
   );
@@ -232,6 +287,13 @@ export const UserProfileSchema = z.object({
   // Preferred names (always optional, no checkbox needed)
   preferredFirstName: z.string().optional(),
   preferredLastName: z.string().optional(),
+  // Additional fields for CSV import
+  jobTitle: z.string().optional(),
+  company: z.string().optional(),
+  guestType: z.string().optional(),
+  vip: z.boolean().optional(),
+  initials: z.string().optional(),
+  host: z.string().optional(),
 });
 export type UserProfile = z.infer<typeof UserProfileSchema>;
 
@@ -245,11 +307,13 @@ export const UserFlightSchema = z.object({
   inbound: z
     .object({
       departureFrom: z.string().optional(), // "Inbound Departure from [station/airport]"
-      departureDateTime: z.coerce.date().optional(), // Combined departure date+time (full datetime)
+      departureDate: z.string().optional(), // Date in dd/mm/yyyy format
+      departureTime: z.string().optional(), // Time in 24hr hh:mm format
       departureTerminal: z.string().optional(), // "Inbound Departure terminal"
       flightNumber: z.string().optional(), // "Inbound Flight number"
       airline: z.string().optional(), // Singapore addition: Airline name
-      arrivalDateTime: z.coerce.date().optional(), // Combined arrival date+time (full datetime)
+      arrivalDate: z.string().optional(), // Date in dd/mm/yyyy format
+      arrivalTime: z.string().optional(), // Time in 24hr hh:mm format
       arrivalToAirport: z.string().optional(), // "Inbound Arrival to airport"
       arrivalToTerminal: z.string().optional(), // "Inbound Arrival to terminal"
     })
@@ -257,11 +321,13 @@ export const UserFlightSchema = z.object({
   outbound: z
     .object({
       departureFrom: z.string().optional(), // "Outbound Departure from [station/airport]"
-      departureDateTime: z.coerce.date().optional(), // Combined departure date+time (full datetime)
+      departureDate: z.string().optional(), // Date in dd/mm/yyyy format
+      departureTime: z.string().optional(), // Time in 24hr hh:mm format
       departureTerminal: z.string().optional(), // "Outbound Departure Terminal"
       flightNumber: z.string().optional(), // "Outbound Flight number"
       airline: z.string().optional(), // Singapore addition: Airline name
-      arrivalDateTime: z.coerce.date().optional(), // Combined arrival date+time (full datetime)
+      arrivalDate: z.string().optional(), // Date in dd/mm/yyyy format
+      arrivalTime: z.string().optional(), // Time in 24hr hh:mm format
       arrivalToAirport: z.string().optional(), // "Outbound Arrival to airport"
       arrivalToTerminal: z.string().optional(), // "Outbound Arrival to terminal"
     })
@@ -310,6 +376,15 @@ export const UserAccommodationSchema = z.object({
   earlyCheckIn: z.boolean().optional(),
   lateCheckOut: z.boolean().optional(),
   visaBookingRequired: z.boolean().optional(),
+
+  // Room assignment fields (admin-managed)
+  roomType: z.string().optional(), // Assigned by admin
+  occupancy: z.enum(['single', 'double']).optional(),
+  guestName: z.string().optional(), // If double occupancy
+  guestRelation: z.string().optional(), // "Spouse", "Partner", etc.
+  nightsCount: z.number().optional(), // Auto-computed
+  roomNumber: z.string().optional(), // From RoomAssignment
+  roomDropId: z.string().optional(), // References event.roomDrops[].id
 });
 export type UserAccommodation = z.infer<typeof UserAccommodationSchema>;
 
@@ -346,8 +421,8 @@ export type UserRequirements = z.infer<typeof UserRequirementsSchema>;
 export const UserMerchandiseSizeSchema = z.object({
   // Singapore Phase 2 addition
   gender: z.enum(['Men', 'Women']).optional(),
-  // Updated to use single size field instead of individual items (max size: XL)
-  size: z.enum(['S', 'M', 'L', 'XL']).optional(),
+  // Updated to use single size field instead of individual items (includes XS)
+  size: z.enum(['XS', 'S', 'M', 'L', 'XL']).optional(),
 
   // Legacy fields (keeping for backward compatibility)
   shirt: z
@@ -380,22 +455,7 @@ export const UserEmergencyContactSchema = z.object({
 });
 export type UserEmergencyContact = z.infer<typeof UserEmergencyContactSchema>;
 
-export const UserSessionSchema = z.object({
-  token: z.string(),
-  createdAt: z.coerce.date(),
-  expiresAt: z.coerce.date(),
-  used: z.boolean(),
-});
-export type UserSession = z.infer<typeof UserSessionSchema>;
-
-export const UserMagicLinkSchema = z.object({
-  token: z.string(),
-  createdAt: z.coerce.date(),
-  expiresAt: z.coerce.date(),
-  lastAccessedAt: z.coerce.date().optional(),
-  used: z.boolean(),
-});
-export type UserMagicLink = z.infer<typeof UserMagicLinkSchema>;
+// Session and magic link schemas removed - replaced with JWT + OTP authentication
 
 export const CreateUserSchema = z.object({
   eventId: z.string(),
@@ -438,6 +498,48 @@ export const AdminUpdateUserSchema = CreateUserSchema.omit({
   communication: true,
 }).partial();
 export type AdminUpdateUser = z.infer<typeof AdminUpdateUserSchema>;
+
+// ============================================================================
+// Room Assignment Types
+// ============================================================================
+
+export const CreateRoomAssignmentSchema = z.object({
+  userId: z.string().min(1),
+  eventId: z.string().min(1),
+  roomType: z.string().min(1),
+  hotelNotes: z.string().optional(),
+  billingNotes: z.string().optional(),
+  bookingConfirmationNumber: z.string().optional(),
+});
+export type CreateRoomAssignment = z.infer<typeof CreateRoomAssignmentSchema>;
+
+export const UpdateRoomAssignmentSchema = z.object({
+  roomType: z.string().optional(),
+  roomNumber: z.string().optional(),
+  status: z
+    .enum(['pending', 'confirmed', 'checked_in', 'checked_out'])
+    .optional(),
+  hotelNotes: z.string().optional(),
+  billingNotes: z.string().optional(),
+  bookingConfirmationNumber: z.string().optional(),
+});
+export type UpdateRoomAssignment = z.infer<typeof UpdateRoomAssignmentSchema>;
+
+export const GuestCategorySchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  priority: z.number().default(0), // For ordering
+});
+export type GuestCategory = z.infer<typeof GuestCategorySchema>;
+
+export const RoomDropSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1),
+  description: z.string(),
+  stock: z.number().min(0),
+  assigned: z.number().default(0), // Track how many are assigned
+});
+export type RoomDrop = z.infer<typeof RoomDropSchema>;
 
 // ============================================================================
 // Admin Types
@@ -547,3 +649,79 @@ export type PaginatedResponse<T = any> = {
     totalPages: number;
   };
 };
+
+// ============================================================================
+// OTP Types
+// ============================================================================
+
+export const RequestOTPSchema = z.object({
+  email: z.string().email('Valid email address is required'),
+  eventId: z.string().min(1, 'Event ID is required'),
+  channel: z.enum(['email', 'sms']).default('email'),
+});
+export type RequestOTP = z.infer<typeof RequestOTPSchema>;
+
+export const ValidateOTPSchema = z.object({
+  otpId: z.string().min(1, 'OTP ID is required'),
+  otpCode: z
+    .string()
+    .length(4, 'OTP code must be 4 digits')
+    .regex(/^\d{4}$/, 'OTP code must contain only numbers'),
+});
+export type ValidateOTP = z.infer<typeof ValidateOTPSchema>;
+
+// ============================================================================
+// Audit Trail Types
+// ============================================================================
+
+export const AuditActionEnum = z.enum([
+  'CREATE',
+  'UPDATE',
+  'DELETE',
+  'IMPORT',
+  'EXPORT',
+  'ASSIGN',
+  'UNASSIGN',
+]);
+export const ResourceTypeEnum = z.enum([
+  'User',
+  'Activity',
+  'Group',
+  'Event',
+  'EmailTemplate',
+  'Admin',
+  'BulkOperation',
+]);
+
+export const GetAuditTrailSchema = z.object({
+  eventId: z.string().optional(),
+  performedBy: z.string().optional(),
+  resourceType: ResourceTypeEnum.optional(),
+  action: AuditActionEnum.optional(),
+  resourceId: z.string().optional(),
+  dateFrom: z.string().datetime().optional(),
+  dateTo: z.string().datetime().optional(),
+});
+
+export type GetAuditTrail = z.infer<typeof GetAuditTrailSchema>;
+
+// ============================================================================
+// Reports Types
+// ============================================================================
+
+export const ReportExportRequestSchema = z.object({
+  eventId: z.string(),
+  reportType: ReportType,
+  format: z.enum(['excel', 'csv']).default('excel'),
+  activityId: z.string().optional(),
+  dateFrom: z.string().datetime().optional(),
+  dateTo: z.string().datetime().optional(),
+});
+export type ReportExportRequest = z.infer<typeof ReportExportRequestSchema>;
+
+export const BulkExportRequestSchema = z.object({
+  eventId: z.string(),
+  reportTypes: z.array(ReportType),
+  format: z.enum(['excel', 'csv']).default('excel'),
+});
+export type BulkExportRequest = z.infer<typeof BulkExportRequestSchema>;

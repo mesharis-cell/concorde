@@ -36,7 +36,7 @@ enum MessageType {
   ASSIGNMENT
   ACTIVITY_UPDATE
   ANNOUNCEMENT
-  MAGIC_LINK
+  OTP_VERIFICATION
 }
 
 enum TemplateType {
@@ -49,7 +49,7 @@ enum TemplateCategory {
   ASSIGNMENT
   ACTIVITY_UPDATE
   ANNOUNCEMENT
-  MAGIC_LINK
+  OTP_VERIFICATION
   CUSTOM
 }
 
@@ -57,6 +57,16 @@ enum RecipientType {
   INDIVIDUAL
   GROUP
   ALL
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  IMPORT
+  EXPORT
+  ASSIGN
+  UNASSIGN
 }
 
 // ============================================================================
@@ -74,6 +84,8 @@ model Event {
 
   // Singapore Phase 2 additions
   hotelConfig     Json? // Hotel inventory and configuration
+  roomDrops       Json? // Room drop packages configuration
+  guestCategories Json? // Guest tier categories configuration
   termsConditions String? // HTML from TipTap editor  
   privacyPolicy   String? // HTML from TipTap editor
 
@@ -85,11 +97,14 @@ model Event {
   groups      Group[]
   activities  Activity[]
   users       User[]
+  otps        UserOTP[]
   messages    Message[]
   adminEvents AdminEvent[]
   communicationLogs CommunicationLog[]
   userActivityExclusions UserActivityExclusion[]
   emailTemplates EmailTemplate[]
+  auditTrails AuditTrail[]
+  roomAssignments RoomAssignment[]
 
   @@map("events")
 }
@@ -112,7 +127,6 @@ model Group {
   // Relations
   event      Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
   activities Activity[] @relation(fields: [activityIds], references: [id])
-  users      User[]
   communicationLogs CommunicationLog[]
   userActivityExclusions UserActivityExclusion[]
 
@@ -140,19 +154,27 @@ model Activity {
   // Content
   content Json // { html: string }
 
+  // Capacity management
+  capacity         Int?      // null = unlimited capacity
+  currentAttendees Int       @default(0) // Auto-computed from assignments
+
+  // Timing details for structured scheduling
+  timingTable Json[] // [{ enabled: Boolean, time: String, description: String, location?: String }]
+
   active         Boolean   @default(true)
   deleted        Boolean   @default(false)
   createdBy      String    @db.ObjectId
-  lastModifiedBy String    @db.ObjectId
+  lastModifiedBy String?   @db.ObjectId // Optional for creation
+  lastModifiedAt DateTime? // Track modification time
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
   // Relations
-  event                 Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event                 Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
   groups                Group[] @relation(fields: [groupIds], references: [id])
-  createdByAdmin        Admin  @relation("ActivityCreator", fields: [createdBy], references: [id])
-  lastModifiedByAdmin   Admin  @relation("ActivityModifier", fields: [lastModifiedBy], references: [id])
+  createdByAdmin        Admin   @relation("ActivityCreator", fields: [createdBy], references: [id])
+  lastModifiedByAdmin   Admin?  @relation("ActivityModifier", fields: [lastModifiedBy], references: [id])
   userExclusions        UserActivityExclusion[]
 
   // Prisma v6 optimized indexes for timeline queries
@@ -161,13 +183,14 @@ model Activity {
   @@index([groupIds, active, deleted])
   @@index([createdBy])
   @@index([lastModifiedBy])
+  @@index([capacity, currentAttendees]) // For capacity monitoring
   @@map("activities")
 }
 
 model User {
-  id      String  @id @default(auto()) @map("_id") @db.ObjectId
-  eventId String  @db.ObjectId
-  groupId String? @db.ObjectId
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  eventId  String   @db.ObjectId
+  groupIds String[] @db.ObjectId // Multiple group assignments
 
   // Profile
   profile Json // { email, firstName, lastName, phone, preferredFirstName, preferredLastName }
@@ -175,15 +198,13 @@ model User {
   // Admin-managed ticket numbers
   ticketNumbers String[] @default([]) // Array of ticket numbers (e.g., ["XXX123", "XXX456"])
 
-  // Authentication
-  sessions   Json[] // [{ token, createdAt, expiresAt, used }]
-  magicLinks Json[] // [{ token, createdAt, expiresAt, lastAccessedAt, used }]
+  // Authentication - 7-day JWT sessions only (OTPs are handled separately)
 
   // Communication preferences
   communication Json // { emailOptIn, whatsappOptIn }
 
   // Travel & accommodation details
-  flight               Json? // { inbound: { departureFrom, departureDateTime, departureTerminal, flightNumber, airline, arrivalDateTime, arrivalToAirport, arrivalToTerminal }, outbound: { departureFrom, departureDateTime, departureTerminal, flightNumber, airline, arrivalDateTime, arrivalToAirport, arrivalToTerminal } }
+  flight               Json? // { inbound: { departureFrom, departureDate, departureTime, departureTerminal, flightNumber, airline, arrivalDate, arrivalTime, arrivalToAirport, arrivalToTerminal }, outbound: { departureFrom, departureDate, departureTime, departureTerminal, flightNumber, airline, arrivalDate, arrivalTime, arrivalToAirport, arrivalToTerminal } }
   accommodation        Json? // { required, hotel, checkIn, checkOut, specialRequests, doubleOccupancy: { enabled, guestType, guestName, guestRelation }, twinOccupancy: { enabled, guestType }, earlyCheckIn, lateCheckOut, visaBookingRequired }
   transferRequirements String?
 
@@ -196,14 +217,18 @@ model User {
   // Emergency contact
   emergencyContact Json? // { name, relationship, phone, email }
 
-  // Assignment status
-  assigned   Boolean   @default(false)
-  assignedAt DateTime?
-  assignedBy String?   @db.ObjectId
+  // Assignment status (now supports multiple groups)
+  assigned   Boolean   @default(false) // true if assigned to any group
+  assignedAt DateTime? // last assignment date
+  assignedBy String?   @db.ObjectId // last admin who assigned
   
   // Notification status
   groupAssignmentNotified Boolean @default(false)
   groupAssignmentNotifiedAt DateTime?
+
+  // Hotel & room management
+  guestCategory String? // Admin-assigned guest tier (VIP, Standard, etc.)
+  roomDropAssigned String? // ID of assigned room drop package
 
   // Status & timestamps
   active       Boolean   @default(true)
@@ -212,18 +237,52 @@ model User {
   updatedAt    DateTime  @updatedAt
 
   // Relations
-  event Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  group Group? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  otps UserOTP[]
   communicationLogs CommunicationLog[]
   activityExclusions UserActivityExclusion[]
   emailTracking EmailTracking[]
+  roomAssignments RoomAssignment[]
 
   // Prisma v6 optimized indexes
   @@index([eventId, active])
   @@index([eventId, assigned])
-  @@index([groupId])
+  @@index([groupIds])
   @@index([groupAssignmentNotified])
   @@map("users")
+}
+
+model UserOTP {
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId   String   @db.ObjectId
+  eventId  String   @db.ObjectId
+  
+  // OTP details
+  otpCode    String   // 4-digit OTP
+  channel    String   // "email" | "sms" (extensible for future channels)
+  
+  // Rate limiting & security
+  attempts   Int      @default(0)
+  verified   Boolean  @default(false)
+  
+  // Expiry (10 minutes)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  verifiedAt DateTime?
+  
+  // User context
+  userEmail String   // Store email for quick lookup
+  
+  // Relations
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  // Indexes for performance and rate limiting
+  @@index([userId, createdAt])
+  @@index([userEmail, createdAt])
+  @@index([otpCode, verified])
+  @@index([expiresAt])
+  @@map("user_otps")
 }
 
 model CommunicationLog {
@@ -289,6 +348,9 @@ model Admin {
   lastModifiedActivities Activity[] @relation("ActivityModifier")
   createdExclusions     UserActivityExclusion[] @relation("ExclusionCreator")
   createdTemplates      EmailTemplate[] @relation("TemplateCreator")
+  auditTrails           AuditTrail[]
+  roomAssignments       RoomAssignment[] @relation("RoomAssigner")
+  roomUpdates           RoomAssignment[] @relation("RoomUpdater")
 
   @@map("admins")
 }
@@ -437,4 +499,76 @@ model Migration {
 
   @@index([batch])
   @@map("migrations")
+}
+
+model RoomAssignment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  eventId   String   @db.ObjectId
+
+  // Assignment details
+  roomType    String
+  roomNumber  String?  // Assigned by hotel
+  status      String   @default("pending") // "pending", "confirmed", "checked_in", "checked_out"
+
+  // Operational fields
+  assignedBy  String   @db.ObjectId // Admin who assigned the room
+  assignedAt  DateTime @default(now())
+  updatedBy   String   @db.ObjectId
+  updatedAt   DateTime @updatedAt
+  hotelNotes  String?  // Notes from hotel
+  billingNotes String? // Billing information
+  bookingConfirmationNumber String? // Hotel booking reference
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  assignedByAdmin Admin @relation("RoomAssigner", fields: [assignedBy], references: [id])
+  updatedByAdmin Admin @relation("RoomUpdater", fields: [updatedBy], references: [id])
+
+  @@unique([userId, eventId])
+  @@index([eventId, status])
+  @@index([roomType])
+  @@index([assignedBy])
+  @@index([updatedBy])
+  @@map("room_assignments")
+}
+
+model AuditTrail {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // What was changed
+  action      AuditAction // CREATE, UPDATE, DELETE, etc.
+  resourceType String     // "User", "Activity", "Group", "Event", etc.
+  resourceId  String      @db.ObjectId // ID of the affected resource
+  
+  // Context information
+  eventId     String?     @db.ObjectId // Event context (if applicable)
+  
+  // Who made the change
+  performedBy String      @db.ObjectId // Admin ID who performed the action
+  performedByType String  // "ADMIN" or "SYSTEM" (for automated actions)
+  
+  // Change details
+  changes     Json?       // Before/after values for updates, full object for creates/deletes
+  summary     String      // Human-readable summary of what happened
+  
+  // Additional context
+  metadata    Json?       // Additional context like IP address, user agent, bulk operation details, etc.
+  
+  // Timestamps
+  createdAt   DateTime    @default(now())
+  
+  // Relations
+  event       Event?      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  admin       Admin       @relation(fields: [performedBy], references: [id], onDelete: Restrict)
+  
+  // Indexes for efficient querying
+  @@index([eventId, createdAt])
+  @@index([performedBy, createdAt])
+  @@index([resourceType, createdAt])
+  @@index([resourceId, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt]) // For timeline ordering
+  @@map("audit_trails")
 }
