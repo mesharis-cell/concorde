@@ -105,6 +105,8 @@ model Event {
   emailTemplates EmailTemplate[]
   auditTrails AuditTrail[]
   roomAssignments RoomAssignment[]
+  hotels      Hotel[]
+  roomTypes   RoomType[]
 
   @@map("events")
 }
@@ -229,6 +231,12 @@ model User {
   // Hotel & room management
   guestCategory String? // Admin-assigned guest tier (VIP, Standard, etc.)
   roomDropAssigned String? // ID of assigned room drop package
+  hotelId String? @db.ObjectId // Reference to assigned hotel
+
+  // Report-specific notes
+  arrivalNotes String? // Notes specific to arrival logistics
+  departureNotes String? // Notes specific to departure logistics
+  masterGuestNotes String? // General notes for master guest report
 
   // Status & timestamps
   active       Boolean   @default(true)
@@ -238,6 +246,7 @@ model User {
 
   // Relations
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  hotel Hotel? @relation("UserHotel", fields: [hotelId], references: [id], onDelete: SetNull)
   otps UserOTP[]
   communicationLogs CommunicationLog[]
   activityExclusions UserActivityExclusion[]
@@ -505,11 +514,8 @@ model RoomAssignment {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   userId    String   @db.ObjectId
   eventId   String   @db.ObjectId
-
-  // Assignment details
-  roomType    String
-  roomNumber  String?  // Assigned by hotel
-  status      String   @default("pending") // "pending", "confirmed", "checked_in", "checked_out"
+  hotelId   String   @db.ObjectId // Reference to hotel
+  roomTypeId String  @db.ObjectId // Reference to room type
 
   // Operational fields
   assignedBy  String   @db.ObjectId // Admin who assigned the room
@@ -523,46 +529,100 @@ model RoomAssignment {
   // Relations
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  hotel       Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  roomType    RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
   assignedByAdmin Admin @relation("RoomAssigner", fields: [assignedBy], references: [id])
   updatedByAdmin Admin @relation("RoomUpdater", fields: [updatedBy], references: [id])
 
   @@unique([userId, eventId])
-  @@index([eventId, status])
-  @@index([roomType])
+  @@index([eventId])
+  @@index([hotelId])
+  @@index([roomTypeId])
   @@index([assignedBy])
   @@index([updatedBy])
   @@map("room_assignments")
 }
 
+model Hotel {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  eventId     String   @db.ObjectId
+  name        String
+  isDefault   Boolean  @default(false)
+  checkInTime String   // "15:00"
+  checkOutTime String  // "11:00"
+  address     String?
+  phone       String?
+  email       String?
+  website     String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  event       Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  roomTypes   RoomType[]
+  users       User[]       @relation("UserHotel")
+  roomAssignments RoomAssignment[]
+
+  @@index([eventId])
+  @@index([eventId, active])
+  @@map("hotels")
+}
+
+model RoomType {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  eventId     String   @db.ObjectId
+  hotelId     String   @db.ObjectId
+  name        String   // "Deluxe Twin", "Club Suite", etc.
+  description String?
+  maxOccupancy Int     @default(2)
+  amenities   String[] // ["WiFi", "Air Conditioning", "Mini Bar"]
+  basePrice   Float?   // Optional pricing information
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  event       Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  hotel       Hotel          @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  roomAssignments RoomAssignment[]
+
+  @@index([eventId])
+  @@index([hotelId])
+  @@index([eventId, active])
+  @@index([hotelId, active])
+  @@map("room_types")
+}
+
 model AuditTrail {
   id        String      @id @default(auto()) @map("_id") @db.ObjectId
-  
+
   // What was changed
   action      AuditAction // CREATE, UPDATE, DELETE, etc.
   resourceType String     // "User", "Activity", "Group", "Event", etc.
   resourceId  String      @db.ObjectId // ID of the affected resource
-  
+
   // Context information
   eventId     String?     @db.ObjectId // Event context (if applicable)
-  
+
   // Who made the change
   performedBy String      @db.ObjectId // Admin ID who performed the action
   performedByType String  // "ADMIN" or "SYSTEM" (for automated actions)
-  
+
   // Change details
   changes     Json?       // Before/after values for updates, full object for creates/deletes
   summary     String      // Human-readable summary of what happened
-  
+
   // Additional context
   metadata    Json?       // Additional context like IP address, user agent, bulk operation details, etc.
-  
+
   // Timestamps
   createdAt   DateTime    @default(now())
-  
+
   // Relations
   event       Event?      @relation(fields: [eventId], references: [id], onDelete: Cascade)
   admin       Admin       @relation(fields: [performedBy], references: [id], onDelete: Restrict)
-  
+
   // Indexes for efficient querying
   @@index([eventId, createdAt])
   @@index([performedBy, createdAt])

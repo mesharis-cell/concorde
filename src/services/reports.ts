@@ -41,6 +41,9 @@ export class ReportsService {
     const headers = [
       'First Name',
       'Surname',
+      'Job Title',
+      'Company',
+      'VIP Status',
       'Guest Category',
       'Email',
       'Phone',
@@ -53,7 +56,6 @@ export class ReportsService {
       'Arrival Time',
       'Arrival Terminal',
       'Room Type',
-      'Room Number',
       'Transfer Requirements',
       'Special Requests'
     ];
@@ -72,6 +74,9 @@ export class ReportsService {
         rows.push([
           profile?.firstName || '',
           profile?.lastName || '',
+          profile?.jobTitle || '',
+          profile?.company || '',
+          profile?.vip ? 'Yes' : 'No',
           user.guestCategory || 'Standard',
           profile?.email || '',
           profile?.phone || '',
@@ -84,7 +89,6 @@ export class ReportsService {
           flight?.arrivalTime || '',
           flight?.arrivalToTerminal || '',
           roomAssignment?.roomType || accommodation?.roomType || '',
-          roomAssignment?.roomNumber || '',
           user.transferRequirements || '',
           accommodation?.specialRequests || '',
         ]);
@@ -184,9 +188,9 @@ export class ReportsService {
           flight?.flightNumber || '',
           flight?.arrivalToAirport || '',
           flight?.departureTime || '',
-          user.guestCategory?.includes('VIP') || user.guestCategory?.includes('Panoramic') || user.guestCategory?.includes('Suite') ? 'Yes' : 'No',
+          profile?.vip ? 'Yes' : 'No',
           groupNames,
-          '', // Company - not stored in profile
+          profile?.company || '',
           user.guestCategory || 'Standard',
           '1', // Default vehicle allocation
           '', // Driver name - not stored
@@ -261,7 +265,6 @@ export class ReportsService {
       'Emergency Contact Phone',
       'Emergency Contact Email',
       'Relationship',
-      'Room Number',
       'Group Assignment'
     ];
 
@@ -288,7 +291,6 @@ export class ReportsService {
         emergency?.phone || '',
         emergency?.email || '',
         emergency?.relationship || '',
-        roomAssignment?.roomNumber || '',
         groupNames,
       ]);
 
@@ -353,7 +355,6 @@ export class ReportsService {
       'Allergies/Intolerances',
       'Special Meal Requests',
       'Group Assignment',
-      'Room Number',
     ];
 
     const rows = [];
@@ -375,7 +376,6 @@ export class ReportsService {
         requirements?.allergiesIntolerances?.enabled ? requirements.allergiesIntolerances.details || 'Yes' : '',
         '', // Special meal requests
         groupNames,
-        roomAssignment?.roomNumber || '',
       ]);
 
       // Add metadata for editing capabilities
@@ -418,6 +418,10 @@ export class ReportsService {
         include: {
           roomAssignments: {
             where: { eventId },
+            include: {
+              roomType: { select: { name: true } },
+              hotel: { select: { name: true } },
+            },
           },
         },
         orderBy: [
@@ -485,29 +489,29 @@ export class ReportsService {
       const checkOut = accommodation?.checkOut ? new Date(accommodation.checkOut) : null;
       const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
 
-      // Calculate occupancy for each event date (1 for occupied, empty for not)
+      // Calculate occupancy for each event date (1 for occupied, null for not)
       const occupancyData = eventDates.map(dateStr => {
         const date = new Date(dateStr);
         const isOccupied = checkIn && checkOut && date >= checkIn && date < checkOut;
-        return isOccupied ? '1' : '';
+        return isOccupied ? '1' : null;
       });
 
       rows.push([
-        profile?.lastName || '',
-        profile?.firstName || '',
+        profile?.lastName,
+        profile?.firstName,
         groupNames,
-        checkIn ? checkIn.toLocaleDateString('en-GB') : '',
-        flight?.inbound?.arrivalTime || '',
-        checkOut ? checkOut.toLocaleDateString('en-GB') : '',
-        flight?.outbound?.departureTime || '',
+        checkIn ? checkIn.toLocaleDateString('en-GB') : null,
+        flight?.inbound?.arrivalTime,
+        checkOut ? checkOut.toLocaleDateString('en-GB') : null,
+        flight?.outbound?.departureTime,
         ...occupancyData,
-        roomAssignment?.roomType || accommodation?.roomType || 'Standard King',
-        roomAssignment?.billingNotes || 'All charges to Master Account',
-        roomAssignment?.bookingConfirmationNumber || '',
-        'Single', // Default occupancy
-        user.guestCategory || 'Production',
-        user.roomDropAssigned ? user.roomDropAssigned : '',
-        accommodation?.specialRequests || roomAssignment?.hotelNotes || '',
+        roomAssignment?.roomType?.name || roomAssignment?.roomType,
+        roomAssignment?.billingNotes,
+        roomAssignment?.bookingConfirmationNumber,
+        null, // No default occupancy
+        user.guestCategory,
+        user.roomDropAssigned,
+        accommodation?.specialRequests || roomAssignment?.hotelNotes,
       ]);
 
       // Add metadata for editing capabilities
@@ -565,7 +569,6 @@ export class ReportsService {
       'Guest Category',
       'Group Assignment',
       'Room Type',
-      'Room Number',
       'Registration Date',
     ];
 
@@ -585,7 +588,6 @@ export class ReportsService {
         user.guestCategory || 'Standard',
         groupNames,
         roomAssignment?.roomType || '',
-        roomAssignment?.roomNumber || '',
         new Date(user.registeredAt).toLocaleDateString('en-GB'),
       ]);
 
@@ -743,7 +745,6 @@ export class ReportsService {
       'Phone',
       'Group Assignment',
       'Room Type',
-      'Room Number',
       'Room Drop Package',
       'Registration Date',
     ];
@@ -764,7 +765,6 @@ export class ReportsService {
         profile?.phone || '',
         groupNames,
         roomAssignment?.roomType || '',
-        roomAssignment?.roomNumber || '',
         user.roomDropAssigned || '',
         new Date(user.registeredAt).toLocaleDateString('en-GB'),
       ]);
@@ -825,7 +825,6 @@ export class ReportsService {
       'Email',
       'Phone',
       'Room Type',
-      'Room Number',
       'Registration Date',
     ];
 
@@ -849,7 +848,6 @@ export class ReportsService {
           profile?.email || '',
           profile?.phone || '',
           roomAssignment?.roomType || '',
-          roomAssignment?.roomNumber || '',
           new Date(user.registeredAt).toLocaleDateString(),
         ]);
 
@@ -967,9 +965,9 @@ export class ReportsService {
         profile?.firstName || '',
         profile?.lastName || '',
         user.guestCategory || 'Standard',
-        '', // Job Title - not stored in profile
-        '', // Company - not stored in profile
-        user.guestCategory?.includes('VIP') || user.guestCategory?.includes('Panoramic') || user.guestCategory?.includes('Suite') ? 'Yes' : 'No',
+        profile?.jobTitle || '',
+        profile?.company || '',
+        profile?.vip ? 'Yes' : 'No',
         '', // Country - not stored
         profile?.email || '',
         profile?.phone || '',
@@ -1128,7 +1126,6 @@ export class ReportsService {
       'Gender',
       'Size',
       'Group Assignment',
-      'Room Number',
     ];
 
     const rows = [];
@@ -1148,7 +1145,6 @@ export class ReportsService {
         merchandise?.gender || '',
         merchandise?.size || merchandise?.shirt || '',
         groupNames,
-        roomAssignment?.roomNumber || '',
       ]);
 
       rowMetadata.push({
@@ -1203,7 +1199,6 @@ export class ReportsService {
       'Room Drop Package',
       'Package Description',
       'Room Type',
-      'Room Number',
       'Delivery Status',
       'Assigned Date',
     ];
@@ -1227,7 +1222,6 @@ export class ReportsService {
         roomDrop?.name || user.roomDropAssigned || '',
         roomDrop?.description || '',
         roomAssignment?.roomType || '',
-        roomAssignment?.roomNumber || '',
         'Pending', // TODO: Add delivery status tracking
         user.updatedAt ? new Date(user.updatedAt).toLocaleDateString() : '',
       ]);

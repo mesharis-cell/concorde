@@ -69,7 +69,15 @@ export class UserService {
         event: {
           select: { id: true, name: true, shortName: true },
         },
-        roomAssignments: true,
+        hotel: {
+          select: { id: true, name: true },
+        },
+        roomAssignments: {
+          include: {
+            hotel: { select: { name: true } },
+            roomType: { select: { name: true } },
+          },
+        },
       },
     });
   }

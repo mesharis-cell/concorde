@@ -87,7 +87,7 @@ export const CreateEventSchema = z.object({
           contractedRooms: z
             .array(
               z.object({
-                date: z.coerce.date(),
+                date: z.string(), // Changed to string to support dd/MM/yyyy format
                 roomType: z.string(),
                 quantity: z.number(),
                 allocated: z.number(),
@@ -342,6 +342,7 @@ export const UserAccommodationSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => (val === null ? undefined : val)),
+  hotelId: z.string().optional(), // Reference to Hotel ID
   checkIn: z.coerce
     .date()
     .nullable()
@@ -467,6 +468,13 @@ export const CreateUserSchema = z.object({
   requirements: UserRequirementsSchema.optional(),
   merchandiseSize: UserMerchandiseSizeSchema.optional(),
   emergencyContact: UserEmergencyContactSchema.optional(),
+  guestCategory: z.string().optional(),
+  ticketNumbers: z.array(z.string()).optional().default([]),
+
+  // Report-specific notes
+  arrivalNotes: z.string().optional(),
+  departureNotes: z.string().optional(),
+  masterGuestNotes: z.string().optional(),
 });
 export type CreateUser = z.infer<typeof CreateUserSchema>;
 
@@ -506,7 +514,8 @@ export type AdminUpdateUser = z.infer<typeof AdminUpdateUserSchema>;
 export const CreateRoomAssignmentSchema = z.object({
   userId: z.string().min(1),
   eventId: z.string().min(1),
-  roomType: z.string().min(1),
+  hotelId: z.string().min(1),
+  roomTypeId: z.string().min(1),
   hotelNotes: z.string().optional(),
   billingNotes: z.string().optional(),
   bookingConfirmationNumber: z.string().optional(),
@@ -514,11 +523,8 @@ export const CreateRoomAssignmentSchema = z.object({
 export type CreateRoomAssignment = z.infer<typeof CreateRoomAssignmentSchema>;
 
 export const UpdateRoomAssignmentSchema = z.object({
-  roomType: z.string().optional(),
-  roomNumber: z.string().optional(),
-  status: z
-    .enum(['pending', 'confirmed', 'checked_in', 'checked_out'])
-    .optional(),
+  hotelId: z.string().optional(),
+  roomTypeId: z.string().optional(),
   hotelNotes: z.string().optional(),
   billingNotes: z.string().optional(),
   bookingConfirmationNumber: z.string().optional(),
@@ -540,6 +546,68 @@ export const RoomDropSchema = z.object({
   assigned: z.number().default(0), // Track how many are assigned
 });
 export type RoomDrop = z.infer<typeof RoomDropSchema>;
+
+export const HotelSchema = z.object({
+  id: z.string(),
+  eventId: z.string(),
+  name: z.string().min(1),
+  isDefault: z.boolean().default(false),
+  checkInTime: z.string(), // "15:00"
+  checkOutTime: z.string(), // "11:00"
+  address: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().optional(),
+  website: z.string().optional(),
+  active: z.boolean().default(true),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type Hotel = z.infer<typeof HotelSchema>;
+
+export const CreateHotelSchema = z.object({
+  eventId: z.string().min(1),
+  name: z.string().min(1),
+  isDefault: z.boolean().default(false),
+  checkInTime: z.string().min(1),
+  checkOutTime: z.string().min(1),
+  address: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().optional(),
+  website: z.string().optional(),
+});
+export type CreateHotel = z.infer<typeof CreateHotelSchema>;
+
+export const UpdateHotelSchema = CreateHotelSchema.partial().omit({ eventId: true });
+export type UpdateHotel = z.infer<typeof UpdateHotelSchema>;
+
+export const RoomTypeSchema = z.object({
+  id: z.string(),
+  eventId: z.string(),
+  hotelId: z.string(),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  maxOccupancy: z.number().int().positive().default(2),
+  amenities: z.array(z.string()).default([]),
+  basePrice: z.number().optional(),
+  active: z.boolean().default(true),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type RoomType = z.infer<typeof RoomTypeSchema>;
+
+export const CreateRoomTypeSchema = z.object({
+  eventId: z.string().min(1),
+  hotelId: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  maxOccupancy: z.number().int().positive().default(2),
+  amenities: z.array(z.string()).default([]),
+  basePrice: z.number().optional(),
+});
+export type CreateRoomType = z.infer<typeof CreateRoomTypeSchema>;
+
+export const UpdateRoomTypeSchema = CreateRoomTypeSchema.partial().omit({ eventId: true, hotelId: true });
+export type UpdateRoomType = z.infer<typeof UpdateRoomTypeSchema>;
 
 // ============================================================================
 // Admin Types

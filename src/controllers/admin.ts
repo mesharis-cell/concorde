@@ -34,6 +34,12 @@ import {
   ReportType,
   ReportExportRequestSchema,
   BulkExportRequestSchema,
+  CreateHotelSchema,
+  UpdateHotelSchema,
+  CreateRoomTypeSchema,
+  UpdateRoomTypeSchema,
+  CreateRoomAssignmentSchema,
+  UpdateRoomAssignmentSchema,
 } from '../types/index.js';
 import { AuditTrailService } from '../services/audit-trail.js';
 import { ConflictDetectionService } from '../services/conflict-detection.js';
@@ -859,7 +865,7 @@ app.openapi(updateUserRoute, async (c) => {
 
     // Handle profile fields - support both nested and flat structure
     const profileUpdates = updates.profile || {};
-    const profileFields = ['firstName', 'lastName', 'email', 'phone'];
+    const profileFields = ['firstName', 'lastName', 'preferredFirstName', 'email', 'phone', 'jobTitle', 'company', 'guestType', 'vip', 'initials', 'host'];
 
     // Check for profile updates in nested structure or at root level
     const hasProfileUpdates = profileFields.some(
@@ -877,18 +883,39 @@ app.openapi(updateUserRoute, async (c) => {
       const currentProfile = (currentUser.profile as any) || {};
       updatePayload.profile = {
         ...currentProfile,
-        // Handle nested profile structure (preferred)
+        // Handle nested profile structure (preferred) - include ALL profile fields
         ...(profileUpdates.firstName !== undefined && {
           firstName: profileUpdates.firstName,
         }),
         ...(profileUpdates.lastName !== undefined && {
           lastName: profileUpdates.lastName,
         }),
+        ...(profileUpdates.preferredFirstName !== undefined && {
+          preferredFirstName: profileUpdates.preferredFirstName,
+        }),
         ...(profileUpdates.email !== undefined && {
           email: profileUpdates.email,
         }),
         ...(profileUpdates.phone !== undefined && {
           phone: profileUpdates.phone,
+        }),
+        ...(profileUpdates.jobTitle !== undefined && {
+          jobTitle: profileUpdates.jobTitle,
+        }),
+        ...(profileUpdates.company !== undefined && {
+          company: profileUpdates.company,
+        }),
+        ...(profileUpdates.guestType !== undefined && {
+          guestType: profileUpdates.guestType,
+        }),
+        ...(profileUpdates.vip !== undefined && {
+          vip: profileUpdates.vip,
+        }),
+        ...(profileUpdates.initials !== undefined && {
+          initials: profileUpdates.initials,
+        }),
+        ...(profileUpdates.host !== undefined && {
+          host: profileUpdates.host,
         }),
         // Handle flat structure for backward compatibility
         ...(updates.firstName !== undefined &&
@@ -1218,14 +1245,7 @@ const assignRoomRoute = createRoute({
     body: {
       content: {
         'application/json': {
-          schema: z.object({
-            roomType: z.string().min(1),
-            roomNumber: z.string().optional(),
-            status: z.string().optional(),
-            hotelNotes: z.string().optional(),
-            billingNotes: z.string().optional(),
-            bookingConfirmationNumber: z.string().optional(),
-          }),
+          schema: CreateRoomAssignmentSchema.omit({ userId: true, eventId: true }),
         },
       },
     },
@@ -1280,9 +1300,9 @@ app.openapi(assignRoomRoute, async (c) => {
     const assignment = await RoomAssignmentService.assignRoom({
       userId,
       eventId,
-      roomType: data.roomType,
+      hotelId: data.hotelId,
+      roomTypeId: data.roomTypeId,
       roomNumber: data.roomNumber,
-      status: data.status,
       assignedBy: authUser.id,
       hotelNotes: data.hotelNotes,
       billingNotes: data.billingNotes,
@@ -6665,6 +6685,414 @@ app.openapi(bulkExportReportsRoute, async (c) => {
       {
         success: false,
         error: 'Bulk export failed',
+        details: error.message,
+      },
+      500
+    );
+  }
+});
+
+// =============================================================================
+// HOTEL MANAGEMENT ROUTES
+// =============================================================================
+
+const getHotelsRoute = createRoute({
+  method: 'get',
+  path: '/hotels',
+  tags: ['Admin - Hotels'],
+  summary: 'Get all hotels for an event',
+  request: {
+    query: z.object({
+      eventId: z.string().min(1),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Hotels retrieved successfully',
+    },
+  },
+});
+
+app.openapi(getHotelsRoute, async (c) => {
+  try {
+    const { eventId } = c.req.valid('query');
+
+    const hotels = await prisma.hotel.findMany({
+      where: {
+        eventId,
+        active: true,
+      },
+      include: {
+        roomTypes: {
+          where: { active: true },
+          orderBy: { name: 'asc' },
+        },
+        _count: {
+          select: {
+            users: true,
+            roomAssignments: true,
+          },
+        },
+      },
+      orderBy: [
+        { isDefault: 'desc' },
+        { name: 'asc' },
+      ],
+    });
+
+    return c.json({
+      success: true,
+      data: { hotels },
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to fetch hotels',
+        details: error.message,
+      },
+      500
+    );
+  }
+});
+
+const createHotelRoute = createRoute({
+  method: 'post',
+  path: '/hotels',
+  tags: ['Admin - Hotels'],
+  summary: 'Create a new hotel',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: CreateHotelSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Hotel created successfully',
+    },
+  },
+});
+
+app.openapi(createHotelRoute, async (c) => {
+  try {
+    const validatedData = c.req.valid('json');
+
+    // If this is set as default, unset other default hotels for this event
+    if (validatedData.isDefault) {
+      await prisma.hotel.updateMany({
+        where: {
+          eventId: validatedData.eventId,
+          isDefault: true,
+        },
+        data: {
+          isDefault: false,
+        },
+      });
+    }
+
+    const hotel = await prisma.hotel.create({
+      data: validatedData,
+      include: {
+        roomTypes: {
+          where: { active: true },
+          orderBy: { name: 'asc' },
+        },
+        _count: {
+          select: {
+            users: true,
+            roomAssignments: true,
+          },
+        },
+      },
+    });
+
+    return c.json({
+      success: true,
+      data: { hotel },
+      message: 'Hotel created successfully',
+    }, 201);
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to create hotel',
+        details: error.message,
+      },
+      500
+    );
+  }
+});
+
+const updateHotelRoute = createRoute({
+  method: 'put',
+  path: '/hotels/{hotelId}',
+  tags: ['Admin - Hotels'],
+  summary: 'Update a hotel',
+  request: {
+    params: z.object({
+      hotelId: z.string().min(1),
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: UpdateHotelSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Hotel updated successfully',
+    },
+  },
+});
+
+app.openapi(updateHotelRoute, async (c) => {
+  try {
+    const { hotelId } = c.req.valid('param');
+    const validatedData = c.req.valid('json');
+
+    // Check if hotel exists
+    const existingHotel = await prisma.hotel.findUnique({
+      where: { id: hotelId },
+    });
+
+    if (!existingHotel) {
+      return c.json(
+        {
+          success: false,
+          error: 'Hotel not found',
+        },
+        404
+      );
+    }
+
+    // If this is set as default, unset other default hotels for this event
+    if (validatedData.isDefault) {
+      await prisma.hotel.updateMany({
+        where: {
+          eventId: existingHotel.eventId,
+          isDefault: true,
+          id: { not: hotelId },
+        },
+        data: {
+          isDefault: false,
+        },
+      });
+    }
+
+    const hotel = await prisma.hotel.update({
+      where: { id: hotelId },
+      data: validatedData,
+      include: {
+        roomTypes: {
+          where: { active: true },
+          orderBy: { name: 'asc' },
+        },
+        _count: {
+          select: {
+            users: true,
+            roomAssignments: true,
+          },
+        },
+      },
+    });
+
+    return c.json({
+      success: true,
+      data: { hotel },
+      message: 'Hotel updated successfully',
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to update hotel',
+        details: error.message,
+      },
+      500
+    );
+  }
+});
+
+// =============================================================================
+// ROOM TYPE MANAGEMENT ROUTES
+// =============================================================================
+
+const getRoomTypesRoute = createRoute({
+  method: 'get',
+  path: '/room-types',
+  tags: ['Admin - Room Types'],
+  summary: 'Get all room types for an event or hotel',
+  request: {
+    query: z.object({
+      eventId: z.string().min(1),
+      hotelId: z.string().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Room types retrieved successfully',
+    },
+  },
+});
+
+app.openapi(getRoomTypesRoute, async (c) => {
+  try {
+    const { eventId, hotelId } = c.req.valid('query');
+
+    const where: any = {
+      eventId,
+      active: true,
+    };
+
+    if (hotelId) {
+      where.hotelId = hotelId;
+    }
+
+    const roomTypes = await prisma.roomType.findMany({
+      where,
+      include: {
+        hotel: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        _count: {
+          select: {
+            roomAssignments: true,
+          },
+        },
+      },
+      orderBy: [
+        { hotel: { name: 'asc' } },
+        { name: 'asc' },
+      ],
+    });
+
+    return c.json({
+      success: true,
+      data: { roomTypes },
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to fetch room types',
+        details: error.message,
+      },
+      500
+    );
+  }
+});
+
+const createRoomTypeRoute = createRoute({
+  method: 'post',
+  path: '/room-types',
+  tags: ['Admin - Room Types'],
+  summary: 'Create a new room type',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: CreateRoomTypeSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Room type created successfully',
+    },
+  },
+});
+
+app.openapi(createRoomTypeRoute, async (c) => {
+  try {
+    const validatedData = c.req.valid('json');
+
+    // Verify hotel exists and belongs to the event
+    const hotel = await prisma.hotel.findUnique({
+      where: { id: validatedData.hotelId },
+    });
+
+    if (!hotel) {
+      return c.json(
+        {
+          success: false,
+          error: 'Hotel not found',
+        },
+        404
+      );
+    }
+
+    if (hotel.eventId !== validatedData.eventId) {
+      return c.json(
+        {
+          success: false,
+          error: 'Hotel does not belong to the specified event',
+        },
+        400
+      );
+    }
+
+    const roomType = await prisma.roomType.create({
+      data: validatedData,
+      include: {
+        hotel: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        _count: {
+          select: {
+            roomAssignments: true,
+          },
+        },
+      },
+    });
+
+    return c.json({
+      success: true,
+      data: { roomType },
+      message: 'Room type created successfully',
+    }, 201);
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to create room type',
         details: error.message,
       },
       500
