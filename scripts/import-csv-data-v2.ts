@@ -3,12 +3,17 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import bcrypt from 'bcrypt';
+import * as dateFnsTz from 'date-fns-tz';
+import * as ExcelJS from 'exceljs';
 import { RoomAssignmentService } from '../src/services/room-assignments.js';
 import { GroupService } from '../src/services/groups.js';
 
 const prisma = new PrismaClient({
   log: ['error']
 });
+
+// Event timezone for proper date handling
+const EVENT_TIMEZONE = 'Asia/Singapore';
 
 // Dynamic group cache for created groups
 const groupCache = new Map<string, string>();
@@ -94,30 +99,27 @@ const hotelConfig = {
   name: "Mondrian Singapore Duxton",
   isDefault: true,
   checkInTime: "15:00",
-  checkOutTime: "11:00",
-  address: "1 Duxton Hill, Singapore 089597",
-  phone: "+65 6922 8001",
-  email: "reservations@mondrian-singapore.com"
+  checkOutTime: "12:00",
+  address: "",
+  phone: "",
+  email: ""
 };
 
 const roomTypes = [
   {
     name: "Signature King",
     description: "Spacious king room with city views",
-    maxOccupancy: 2,
-    basePrice: 500
+    basePrice: 0
   },
   {
     name: "Signature Twin",
     description: "Twin beds with city views",
-    maxOccupancy: 2,
-    basePrice: 500
+    basePrice: 0
   },
   {
     name: "Shophouse suite",
     description: "Premium suite in heritage shophouse",
-    maxOccupancy: 4,
-    basePrice: 800
+    basePrice: 0
   }
 ];
 
@@ -138,12 +140,14 @@ const parseDate = (dateStr: string): Date | null => {
     // Handle 2-digit years
     const fullYear = year < 100 ? (year < 50 ? 2000 + year : 1900 + year) : year;
 
-    const date = new Date(fullYear, month, day);
+    // 🎯 TIMEZONE FIX: Create date at noon Singapore time to avoid boundary issues
+    const singaporeDate = new Date(fullYear, month, day, 12, 0, 0);
 
     // Check if date is valid
-    if (isNaN(date.getTime())) return null;
+    if (isNaN(singaporeDate.getTime())) return null;
 
-    return date;
+    // 🎯 CRITICAL: Convert Singapore time to UTC for consistent storage
+    return dateFnsTz.fromZonedTime(singaporeDate, EVENT_TIMEZONE);
   }
 
   return null;
@@ -233,85 +237,9 @@ async function main() {
           categories: ["CBL", "Global Creators", "Global Media", "Chivas market host", "Cultural Creator", "Media", "Trade", "CEO", "APAC CODI", "Agent/Manager", "Cultural creator"]
         },
         termsConditions: `
-          <h2>Event Terms and Conditions</h2>
-          <p>Welcome to the Singapore Grand Prix 2025 exclusive hospitality experience.</p>
-
-          <h3>1. Registration & Attendance</h3>
-          <ul>
-            <li>Registration confirmation required for all attendees</li>
-            <li>Valid photo identification must be presented at check-in</li>
-            <li>Dress code: Smart casual for all events</li>
-          </ul>
-
-          <h3>2. Hotel & Accommodation</h3>
-          <ul>
-            <li>Room assignments are final and cannot be changed 48 hours prior to event</li>
-            <li>Early check-in and late check-out subject to availability</li>
-            <li>Special requests will be accommodated when possible</li>
-          </ul>
-
-          <h3>3. Communication Preferences</h3>
-          <ul>
-            <li>Email communications are mandatory for event updates</li>
-            <li>WhatsApp communications are optional but recommended</li>
-            <li>Unsubscribe options available at any time</li>
-          </ul>
-
-          <h3>4. Privacy & Data Protection</h3>
-          <p>Your personal information will be handled in accordance with our Privacy Policy.</p>
-
-          <p><strong>By registering, you agree to these terms and conditions.</strong></p>
-        `,
+          <h2>Event Terms and Conditions</h2>`,
         privacyPolicy: `
-          <h2>Privacy Policy</h2>
-          <p><em>Last updated: September 2025</em></p>
-
-          <h3>Data Collection</h3>
-          <p>We collect personal information necessary for event management including:</p>
-          <ul>
-            <li>Contact details (name, email, phone)</li>
-            <li>Travel information (flight details, accommodation preferences)</li>
-            <li>Dietary and medical requirements</li>
-            <li>Emergency contact information</li>
-          </ul>
-
-          <h3>Data Usage</h3>
-          <p>Your information is used exclusively for:</p>
-          <ul>
-            <li>Event logistics and coordination</li>
-            <li>Communication about event updates</li>
-            <li>Accommodation and travel arrangements</li>
-            <li>Dietary and accessibility accommodations</li>
-          </ul>
-
-          <h3>Data Sharing</h3>
-          <p>We share your information only with:</p>
-          <ul>
-            <li>Hotel partners for accommodation arrangements</li>
-            <li>Catering services for dietary requirements</li>
-            <li>Medical staff for health-related needs</li>
-            <li>Emergency contacts as necessary</li>
-          </ul>
-
-          <h3>Data Retention</h3>
-          <p>Personal data is retained for 12 months post-event for:</p>
-          <ul>
-            <li>Follow-up communications</li>
-            <li>Future event invitations</li>
-            <li>Preference management</li>
-          </ul>
-
-          <h3>Your Rights</h3>
-          <p>You have the right to:</p>
-          <ul>
-            <li>Access your personal data</li>
-            <li>Correct inaccurate information</li>
-            <li>Request data deletion</li>
-            <li>Opt-out of communications</li>
-          </ul>
-
-          <p>For privacy questions, contact: privacy@company.com</p>
-        `,
+          <h2>Privacy Policy</h2>`,
         active: true
       }
     });
@@ -322,7 +250,7 @@ async function main() {
     console.log('👤 Creating super admin...');
     const superAdmin = await prisma.admin.create({
       data: {
-        email: 'admin@eventconcierge.com',
+        email: 'meshari.s@homeofpmg.com',
         firstName: 'System',
         lastName: 'Administrator',
         role: 'SUPER',
@@ -364,7 +292,7 @@ async function main() {
           hotelId: hotel.id,
           name: roomType.name,
           description: roomType.description,
-          maxOccupancy: roomType.maxOccupancy,
+          maxOccupancy: 2, // Default value for schema compatibility
           basePrice: roomType.basePrice,
           amenities: [],
           active: true
@@ -387,7 +315,9 @@ async function main() {
             checkOutTime: hotel.checkOutTime,
             contractedRooms: [
               // Signature King rooms
-              { date: "28/09/2025", roomType: "Signature King", quantity: 50, allocated: 0 },
+              { date: "25/09/2025", roomType: "Signature King", quantity: 50, allocated: 0 },
+              { date: "26/09/2025", roomType: "Signature King", quantity: 50, allocated: 0 },
+              { date: "27/09/2025", roomType: "Signature King", quantity: 50, allocated: 0 },
               { date: "29/09/2025", roomType: "Signature King", quantity: 50, allocated: 0 },
               { date: "30/09/2025", roomType: "Signature King", quantity: 50, allocated: 0 },
               { date: "01/10/2025", roomType: "Signature King", quantity: 50, allocated: 0 },
@@ -397,6 +327,9 @@ async function main() {
               { date: "05/10/2025", roomType: "Signature King", quantity: 50, allocated: 0 },
               { date: "06/10/2025", roomType: "Signature King", quantity: 50, allocated: 0 },
               // Signature Twin rooms
+              { date: "25/09/2025", roomType: "Signature Twin", quantity: 30, allocated: 0 },
+              { date: "26/09/2025", roomType: "Signature Twin", quantity: 30, allocated: 0 },
+              { date: "27/09/2025", roomType: "Signature Twin", quantity: 30, allocated: 0 },
               { date: "28/09/2025", roomType: "Signature Twin", quantity: 30, allocated: 0 },
               { date: "29/09/2025", roomType: "Signature Twin", quantity: 30, allocated: 0 },
               { date: "30/09/2025", roomType: "Signature Twin", quantity: 30, allocated: 0 },
@@ -405,13 +338,19 @@ async function main() {
               { date: "03/10/2025", roomType: "Signature Twin", quantity: 30, allocated: 0 },
               { date: "04/10/2025", roomType: "Signature Twin", quantity: 30, allocated: 0 },
               { date: "05/10/2025", roomType: "Signature Twin", quantity: 15, allocated: 0 },
+              { date: "06/10/2025", roomType: "Signature Twin", quantity: 15, allocated: 0 },
               // Shophouse suite rooms
+              { date: "25/09/2025", roomType: "Shophouse suite", quantity: 5, allocated: 0 },
+              { date: "26/09/2025", roomType: "Shophouse suite", quantity: 5, allocated: 0 },
+              { date: "27/09/2025", roomType: "Shophouse suite", quantity: 5, allocated: 0 },
+              { date: "28/09/2025", roomType: "Shophouse suite", quantity: 5, allocated: 0 },
               { date: "30/09/2025", roomType: "Shophouse suite", quantity: 5, allocated: 0 },
               { date: "01/10/2025", roomType: "Shophouse suite", quantity: 5, allocated: 0 },
               { date: "02/10/2025", roomType: "Shophouse suite", quantity: 5, allocated: 0 },
               { date: "03/10/2025", roomType: "Shophouse suite", quantity: 5, allocated: 0 },
               { date: "04/10/2025", roomType: "Shophouse suite", quantity: 5, allocated: 0 },
-              { date: "05/10/2025", roomType: "Shophouse suite", quantity: 2, allocated: 0 }
+              { date: "05/10/2025", roomType: "Shophouse suite", quantity: 5, allocated: 0 },
+              { date: "06/10/2025", roomType: "Shophouse suite", quantity: 2, allocated: 0 },
             ]
           }]
         }
@@ -449,11 +388,21 @@ async function main() {
     // Step 5: Import users
     let imported = 0;
     let skipped = 0;
+    const successfulImports: CSVRow[] = [];
+    const failedImports: Array<{ record: CSVRow; error: string; rowNumber: number }> = [];
+    const skippedImports: Array<{ record: CSVRow; reason: string; rowNumber: number }> = [];
 
     for (const record of records) {
+      const rowNumber = records.indexOf(record) + 2;
       try {
         // Skip empty rows or rows without names
         if (!record.firstName && !record.lastName) {
+          console.log(`⏭️ Skipping empty, row number: ${rowNumber}`);
+          skippedImports.push({
+            record,
+            reason: 'Empty row - missing first name and last name',
+            rowNumber
+          });
           skipped++;
           continue;
         }
@@ -476,6 +425,31 @@ async function main() {
           nightsCount = parseInt(record.numberOfNights) || 0;
         }
 
+        // ALLOW DUPLICATE USERS
+        // Check for duplicate users early (track as skipped rather than failed)
+        // const emailToCheck = cleanValue(record.email);
+        // if (emailToCheck) {
+        //   const users = await prisma.user.findMany({
+        //     where: { eventId: event.id, active: true },
+        //   });
+
+        //   const duplicate = users.find((user) => {
+        //     const profile = user.profile as any;
+        //     return profile?.email?.toLowerCase() === emailToCheck.toLowerCase();
+        //   });
+
+        //   if (duplicate) {
+        //     console.log(`⏭️ Skipping duplicate user: ${emailToCheck}`);
+        //     skippedImports.push({
+        //       record,
+        //       reason: `Duplicate email address: ${emailToCheck}`,
+        //       rowNumber
+        //     });
+        //     skipped++;
+        //     continue;
+        //   }
+        // }
+
         // Create user data structure
         const userData = {
           eventId: event.id,
@@ -496,7 +470,7 @@ async function main() {
             emailOptIn: true,
             whatsappOptIn: false
           },
-          guestCategory: cleanValue(record.guestType) || 'Standard',
+          guestCategory: cleanValue(record.guestType) || undefined,
           ticketNumbers: [],
           merchandiseSize: {
             gender: convertGender(record.gender),
@@ -510,6 +484,12 @@ async function main() {
             checkOut: checkOutDate || undefined,
             nightsCount: nightsCount,
             specialRequests: cleanValue(record.notes) || undefined,
+            // 🎯 FIX: Store actual occupancy type without auto-defaulting N/A values
+            occupancy: record.occupancy === 'Single' ? 'single' :
+              record.occupancy === 'Double' ? 'double' :
+                record.occupancy === 'Twin' ? 'twin' :
+                  record.occupancy === 'Room Sharer' ? 'room_sharer' :
+                    (record.occupancy === 'N/A' || !record.occupancy || record.occupancy.trim() === '') ? 'N/A' : undefined,
             doubleOccupancy: {
               enabled: record.occupancy === 'Double' || record.occupancy === 'Twin' || record.occupancy === 'Room Sharer'
             },
@@ -592,25 +572,37 @@ async function main() {
           console.log(`🛏️ Looking for room type: "${userData.accommodation?.roomType}" - Found: ${roomType ? 'YES' : 'NO'}`);
 
           if (roomType) {
-            await RoomAssignmentService.assignRoom({
-              userId: user.id,
-              eventId: event.id,
-              hotelId: hotel.id,
-              roomTypeId: roomType.id,
-              roomNumber: undefined,
-              assignedBy: superAdmin.id,
-              hotelNotes: userData.accommodation.specialRequests || '',
-              billingNotes: '',
-            });
-            console.log(`🛏️ Room assigned for ${user.profile.firstName} ${user.profile.lastName}`);
+            try {
+              await RoomAssignmentService.assignRoom({
+                userId: user.id,
+                eventId: event.id,
+                hotelId: hotel.id,
+                roomTypeId: roomType.id,
+                assignedBy: superAdmin.id,
+                hotelNotes: userData.accommodation.specialRequests || '',
+                billingNotes: '',
+              });
+              console.log(`🛏️ Room assigned for ${(user.profile as any).firstName} ${(user.profile as any).lastName}`);
+            } catch (roomError: any) {
+              console.warn(`⚠️ Room assignment failed for ${(user.profile as any).firstName} ${(user.profile as any).lastName}: ${roomError.message}`);
+              // Don't fail the entire import - just log the issue
+            }
+          } else {
+            console.warn(`⚠️ Room type "${userData.accommodation.roomType}" not found for ${(user.profile as any).firstName} ${(user.profile as any).lastName}`);
           }
         }
 
         imported++;
-        console.log(`✅ Imported user ${imported}: ${user.profile.firstName} ${user.profile.lastName} (${user.profile.email || 'no email'})`);
+        successfulImports.push(record);
+        console.log(`✅ Imported user ${imported}: ${(user.profile as any).firstName} ${(user.profile as any).lastName} (${(user.profile as any).email || 'no email'})`);
 
-      } catch (error) {
+      } catch (error: any) {
         console.error(`❌ Failed to import record:`, record.firstName, record.lastName, error);
+        failedImports.push({
+          record,
+          error: error.message || error.toString(),
+          rowNumber
+        });
         skipped++;
       }
     }
@@ -618,7 +610,8 @@ async function main() {
 
     console.log('📈 Import Summary:');
     console.log(`✅ Successfully imported: ${imported} users`);
-    console.log(`⏭️ Skipped: ${skipped} records`);
+    console.log(`❌ Failed: ${failedImports.length} records`);
+    console.log(`⏭️ Skipped: ${skippedImports.length} records`);
     console.log(`🏨 Created: 1 hotel (${hotel.name})`);
     console.log(`🛏️ Created: ${createdRoomTypes.length} room types`);
     console.log(`👥 Created/used: ${groupCache.size} groups`);
@@ -630,6 +623,99 @@ async function main() {
         console.log(`   - ${groupName} (${groupId})`);
       }
     }
+
+    if (failedImports.length > 0) {
+      console.log('\n❌ Failed imports:');
+      failedImports.forEach(({ record, error, rowNumber }) => {
+        console.log(`   Row ${rowNumber}: ${record.firstName} ${record.lastName} - ${error}`);
+      });
+    }
+
+    if (skippedImports.length > 0) {
+      console.log('\n⏭️ Skipped imports:');
+      skippedImports.forEach(({ record, reason, rowNumber }) => {
+        console.log(`   Row ${rowNumber}: ${record.firstName || 'N/A'} ${record.lastName || 'N/A'} - ${reason}`);
+      });
+    }
+
+    // Step 6: Generate Excel report
+    console.log('📊 Generating import report...');
+    const workbook = new ExcelJS.Workbook();
+
+    // Get original CSV headers
+    const csvHeaders = Object.keys(records[0] || {});
+
+    // Successful imports sheet
+    const successSheet = workbook.addWorksheet('Successfully Imported');
+    successSheet.addRow(csvHeaders);
+
+    successfulImports.forEach(record => {
+      const row = csvHeaders.map(header => (record as any)[header] || '');
+      successSheet.addRow(row);
+    });
+
+    // Style the successful sheet
+    successSheet.getRow(1).font = { bold: true };
+    successSheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF90EE90' } // Light green header
+    };
+
+    // Failed imports sheet
+    const failedSheet = workbook.addWorksheet('Failed to Import');
+    failedSheet.addRow([...csvHeaders, 'Error Reason', 'Row Number']);
+
+    failedImports.forEach(({ record, error, rowNumber }) => {
+      const row = csvHeaders.map(header => (record as any)[header] || '');
+      row.push(error, rowNumber.toString());
+      failedSheet.addRow(row);
+    });
+
+    // Style the failed sheet
+    failedSheet.getRow(1).font = { bold: true };
+    failedSheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFFF6B6B' } // Light red header
+    };
+
+    // Skipped imports sheet
+    const skippedSheet = workbook.addWorksheet('Skipped Records');
+    skippedSheet.addRow([...csvHeaders, 'Skip Reason', 'Row Number']);
+
+    skippedImports.forEach(({ record, reason, rowNumber }) => {
+      const row = csvHeaders.map(header => (record as any)[header] || '');
+      row.push(reason, rowNumber.toString());
+      skippedSheet.addRow(row);
+    });
+
+    // Style the skipped sheet
+    skippedSheet.getRow(1).font = { bold: true };
+    skippedSheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFFFFF99' } // Light yellow header
+    };
+
+    // Auto-fit columns for all sheets
+    [successSheet, failedSheet, skippedSheet].forEach(sheet => {
+      sheet.columns.forEach(column => {
+        column.width = 15; // Set reasonable default width
+      });
+    });
+
+    // Save the Excel file
+    const reportPath = path.join(process.cwd(), '.project/reports/output', `import-report-${new Date().toISOString().split('T')[0]}.xlsx`);
+
+    // Ensure output directory exists
+    const outputDir = path.dirname(reportPath);
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    await workbook.xlsx.writeFile(reportPath);
+    console.log(`📋 Import report saved: ${reportPath}`);
 
     console.log('\n🎉 CSV import completed successfully!');
 

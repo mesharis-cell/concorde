@@ -1206,13 +1206,13 @@ const getEventConflictsRoute = createRoute({
 app.openapi(getEventConflictsRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
-    
+
     const conflicts = await ConflictDetectionService.getAllEventConflicts(eventId);
-    
+
     return c.json({
       success: true,
       data: conflicts,
-      message: conflicts.hasIssues 
+      message: conflicts.hasIssues
         ? `Found ${conflicts.summary.totalIssues} issues (${conflicts.summary.highSeverityCount} high priority)`
         : 'No conflicts detected',
     });
@@ -1354,9 +1354,9 @@ const getRoomAllocationSummaryRoute = createRoute({
 app.openapi(getRoomAllocationSummaryRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
-    
+
     const summary = await RoomAssignmentService.getAllocationSummary(eventId);
-    
+
     return c.json({
       success: true,
       data: summary,
@@ -1409,7 +1409,7 @@ app.openapi(getUsersRequiringRoomsRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
     const query = c.req.valid('query');
-    
+
     const users = await RoomAssignmentService.getUsersRequiringRooms(
       eventId,
       { page: query.page, limit: query.limit },
@@ -1419,7 +1419,7 @@ app.openapi(getUsersRequiringRoomsRoute, async (c) => {
         guestCategory: query.guestCategory,
       }
     );
-    
+
     return c.json({
       success: true,
       data: users,
@@ -1432,6 +1432,64 @@ app.openapi(getUsersRequiringRoomsRoute, async (c) => {
         details: error.message,
       },
       400
+    );
+  }
+});
+
+// Room Matrix Validation
+const validateRoomMatrixRoute = createRoute({
+  method: 'get',
+  path: '/events/{eventId}/room-matrix/validate',
+  tags: ['Admin - Room Management'],
+  summary: 'Validate room matrix integrity',
+  request: {
+    params: z.object({
+      eventId: z.string().min(1),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Room matrix validation completed',
+    },
+  },
+});
+
+app.openapi(validateRoomMatrixRoute, async (c) => {
+  try {
+    const { eventId } = c.req.valid('param');
+    const authUser = c.get('user');
+
+    // Verify admin has access to this event
+    if (authUser.adminData?.role !== 'SUPER') {
+      const hasAccess = await AdminService.verifyEventAccess(authUser.adminData.id, eventId);
+      if (!hasAccess) {
+        return c.json({
+          success: false,
+          error: 'Access denied to this event',
+        }, 403);
+      }
+    }
+
+    const validation = await RoomAssignmentService.validateRoomMatrix(eventId);
+
+    return c.json({
+      success: true,
+      data: validation,
+      message: validation.isValid ? 'Room matrix is valid' : 'Room matrix has integrity issues',
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to validate room matrix',
+        details: error.message,
+      },
+      500
     );
   }
 });
@@ -1464,9 +1522,9 @@ const exportRoomingListRoute = createRoute({
 app.openapi(exportRoomingListRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
-    
+
     const roomingList = await RoomAssignmentService.exportRoomingList(eventId);
-    
+
     return c.json({
       success: true,
       data: roomingList,
@@ -1629,7 +1687,7 @@ app.openapi(assignUserToMultipleGroupsRoute, async (c) => {
           timingConflicts: result.warnings.timingConflicts,
         },
       },
-      message: result.warnings.hasIssues 
+      message: result.warnings.hasIssues
         ? `User assigned with ${result.warnings.capacityIssues.length + result.warnings.timingConflicts.length} warnings`
         : 'User assigned successfully',
     });
@@ -1685,7 +1743,7 @@ app.openapi(analyzeAssignmentConflictsRoute, async (c) => {
     return c.json({
       success: true,
       data: analysis,
-      message: analysis.hasIssues 
+      message: analysis.hasIssues
         ? `Found ${analysis.summary.totalIssues} potential issues`
         : 'No conflicts detected',
     });
@@ -6113,9 +6171,9 @@ const getActivityCapacityStatusRoute = createRoute({
 app.openapi(getActivityCapacityStatusRoute, async (c) => {
   try {
     const { activityId } = c.req.valid('param');
-    
+
     const status = await ConflictDetectionService.getActivityCapacityStatus(activityId);
-    
+
     if (!status) {
       return c.json(
         {

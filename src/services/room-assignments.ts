@@ -93,8 +93,8 @@ export class RoomAssignmentService {
     // Verify user exists and requires accommodation
     const user = await prisma.user.findUnique({
       where: { id: data.userId },
-      select: { 
-        accommodation: true, 
+      select: {
+        accommodation: true,
         profile: true,
         eventId: true,
       },
@@ -370,10 +370,17 @@ export class RoomAssignmentService {
   static async getRoomAvailability(
     eventId: string,
     roomTypeId: string
-  ): Promise<{ allocated: number; maxOccupancy: number; available: number }> {
-    const roomType = await prisma.roomType.findUnique({
-      where: { id: roomTypeId },
-    });
+  ): Promise<{ allocated: number; capacity: number; available: number }> {
+    const [roomType, event] = await Promise.all([
+      prisma.roomType.findUnique({
+        where: { id: roomTypeId },
+        select: { id: true, name: true, eventId: true },
+      }),
+      prisma.event.findUnique({
+        where: { id: eventId },
+        select: { hotelConfig: true },
+      }),
+    ]);
 
     if (!roomType || roomType.eventId !== eventId) {
       throw new Error('Room type not found or does not belong to this event');
@@ -387,13 +394,27 @@ export class RoomAssignmentService {
       },
     });
 
-    // Use room type max occupancy as base capacity, multiply by reasonable factor
-    const baseCapacity = roomType.maxOccupancy * 50; // 50 rooms of each type as default inventory
+    // 🎯 FIX: Calculate real capacity from hotel configuration
+    let capacity = 0;
+    if (event?.hotelConfig) {
+      const hotelConfig = event.hotelConfig as any;
+      if (hotelConfig.hotels) {
+        for (const hotel of hotelConfig.hotels) {
+          if (hotel.contractedRooms) {
+            for (const contractedRoom of hotel.contractedRooms) {
+              if (contractedRoom.roomType === roomType.name) {
+                capacity += contractedRoom.quantity || 0;
+              }
+            }
+          }
+        }
+      }
+    }
 
     return {
       allocated,
-      maxOccupancy: baseCapacity,
-      available: baseCapacity - allocated,
+      capacity,
+      available: capacity - allocated,
     };
   }
 
@@ -401,7 +422,7 @@ export class RoomAssignmentService {
    * Get room allocation summary for an event
    */
   static async getAllocationSummary(eventId: string): Promise<RoomAllocationSummary> {
-    const [users, assignments, roomTypes] = await Promise.all([
+    const [users, assignments, roomTypes, event] = await Promise.all([
       prisma.user.findMany({
         where: { eventId, active: true },
         select: { accommodation: true },
@@ -409,12 +430,16 @@ export class RoomAssignmentService {
       prisma.roomAssignment.findMany({
         where: { eventId },
         include: {
-          roomType: { select: { name: true, maxOccupancy: true } },
+          roomType: { select: { name: true } }, // 🎯 Removed maxOccupancy - not needed
         },
       }),
       prisma.roomType.findMany({
         where: { eventId, active: true },
-        select: { id: true, name: true, maxOccupancy: true },
+        select: { id: true, name: true }, // 🎯 Removed maxOccupancy - not needed
+      }),
+      prisma.event.findUnique({
+        where: { id: eventId },
+        select: { hotelConfig: true },
       }),
     ]);
 
@@ -430,9 +455,26 @@ export class RoomAssignmentService {
         (roomTypeAssignments[roomTypeName] || 0) + 1;
     }
 
+    // Calculate real capacity from hotel configuration
+    const roomTypeCapacities: Record<string, number> = {};
+    if (event?.hotelConfig) {
+      const hotelConfig = event.hotelConfig as any;
+      if (hotelConfig.hotels) {
+        for (const hotel of hotelConfig.hotels) {
+          if (hotel.contractedRooms) {
+            for (const contractedRoom of hotel.contractedRooms) {
+              const roomTypeName = contractedRoom.roomType;
+              roomTypeCapacities[roomTypeName] =
+                (roomTypeCapacities[roomTypeName] || 0) + (contractedRoom.quantity || 0);
+            }
+          }
+        }
+      }
+    }
+
     const roomTypeBreakdown = roomTypes.map(roomType => {
       const assigned = roomTypeAssignments[roomType.name] || 0;
-      const capacity = roomType.maxOccupancy * 50; // 50 rooms per type as default inventory
+      const capacity = roomTypeCapacities[roomType.name] || 0; // 🎯 FIX: Use actual room inventory
 
       return {
         roomType: roomType.name,
@@ -551,7 +593,7 @@ export class RoomAssignmentService {
   ): Promise<void> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { 
+      select: {
         profile: true,
         guestCategory: true,
         roomDropAssigned: true,
@@ -609,12 +651,35 @@ export class RoomAssignmentService {
    * Get room inventory dashboard data
    */
   static async getRoomInventory(eventId: string): Promise<RoomInventory[]> {
-    const roomTypes = await prisma.roomType.findMany({
-      where: { eventId, active: true },
-      include: {
-        hotel: { select: { id: true, name: true } },
-      },
-    });
+    const [roomTypes, event] = await Promise.all([
+      prisma.roomType.findMany({
+        where: { eventId, active: true },
+        include: {
+          hotel: { select: { id: true, name: true } },
+        },
+      }),
+      prisma.event.findUnique({
+        where: { id: eventId },
+        select: { hotelConfig: true },
+      }),
+    ]);
+
+    // Calculate room capacities from hotel configuration
+    const roomTypeCapacities: Record<string, number> = {};
+    if (event?.hotelConfig) {
+      const hotelConfig = event.hotelConfig as any;
+      if (hotelConfig.hotels) {
+        for (const hotel of hotelConfig.hotels) {
+          if (hotel.contractedRooms) {
+            for (const contractedRoom of hotel.contractedRooms) {
+              const roomTypeName = contractedRoom.roomType;
+              roomTypeCapacities[roomTypeName] =
+                (roomTypeCapacities[roomTypeName] || 0) + (contractedRoom.quantity || 0);
+            }
+          }
+        }
+      }
+    }
 
     const inventory: RoomInventory[] = [];
 
@@ -627,7 +692,7 @@ export class RoomAssignmentService {
         },
       });
 
-      const baseCapacity = roomType.maxOccupancy * 50;
+      const capacity = roomTypeCapacities[roomType.name] || 0; // 🎯 FIX: Use real room inventory
 
       inventory.push({
         roomTypeId: roomType.id,
@@ -635,8 +700,8 @@ export class RoomAssignmentService {
         hotelId: roomType.hotelId,
         hotelName: roomType.hotel.name,
         allocated,
-        maxOccupancy: baseCapacity,
-        available: baseCapacity - allocated,
+        maxOccupancy: capacity, // Keep interface compatibility but use real capacity
+        available: capacity - allocated,
       });
     }
 
@@ -747,7 +812,7 @@ export class RoomAssignmentService {
    */
   private static calculateNights(checkIn: any, checkOut: any): number {
     if (!checkIn || !checkOut) return 0;
-    
+
     const start = new Date(checkIn);
     const end = new Date(checkOut);
     const diffTime = end.getTime() - start.getTime();
@@ -822,6 +887,62 @@ export class RoomAssignmentService {
   /**
    * Update event hotel configuration with real-time allocated counts
    */
+  /**
+   * Validate room matrix integrity
+   */
+  static async validateRoomMatrix(eventId: string): Promise<{
+    isValid: boolean;
+    errors: string[];
+    summary: {
+      totalContractedRooms: number;
+      totalAllocatedRooms: number;
+      overAllocatedDates: string[];
+    };
+  }> {
+    const errors: string[] = [];
+    const overAllocatedDates: string[] = [];
+    let totalContractedRooms = 0;
+    let totalAllocatedRooms = 0;
+
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { hotelConfig: true },
+    });
+
+    if (!event?.hotelConfig) {
+      return {
+        isValid: false,
+        errors: ['No hotel configuration found'],
+        summary: { totalContractedRooms: 0, totalAllocatedRooms: 0, overAllocatedDates: [] }
+      };
+    }
+
+    const hotelConfig = event.hotelConfig as any;
+
+    for (const hotel of hotelConfig.hotels || []) {
+      for (const contractedRoom of hotel.contractedRooms || []) {
+        totalContractedRooms += contractedRoom.quantity;
+        totalAllocatedRooms += contractedRoom.allocated || 0;
+
+        if ((contractedRoom.allocated || 0) > contractedRoom.quantity) {
+          const overageAmount = (contractedRoom.allocated || 0) - contractedRoom.quantity;
+          overAllocatedDates.push(`${hotel.name} - ${contractedRoom.roomType} on ${contractedRoom.date}: ${overageAmount} over capacity`);
+          errors.push(`Over-allocated: ${hotel.name} - ${contractedRoom.roomType} on ${contractedRoom.date}`);
+        }
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      summary: {
+        totalContractedRooms,
+        totalAllocatedRooms,
+        overAllocatedDates
+      }
+    };
+  }
+
   static async updateEventRoomAllocations(eventId: string): Promise<void> {
     try {
       const event = await prisma.event.findUnique({
@@ -910,7 +1031,13 @@ export class RoomAssignmentService {
         },
       });
 
-      console.log(`✅ Updated room allocations for event ${eventId}`);
+      // Validate room matrix integrity after update
+      const validation = await this.validateRoomMatrix(eventId);
+      if (!validation.isValid) {
+        console.warn(`⚠️ Room matrix integrity issues for event ${eventId}:`, validation.errors);
+      } else {
+        console.log(`✅ Updated room allocations for event ${eventId} - Matrix validated: ${validation.summary.totalAllocatedRooms}/${validation.summary.totalContractedRooms} rooms allocated`);
+      }
     } catch (error) {
       console.error('❌ Failed to update event room allocations:', error);
     }

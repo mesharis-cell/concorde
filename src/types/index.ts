@@ -380,7 +380,7 @@ export const UserAccommodationSchema = z.object({
 
   // Room assignment fields (admin-managed)
   roomType: z.string().optional(), // Assigned by admin
-  occupancy: z.enum(['single', 'double']).optional(),
+  occupancy: z.enum(['single', 'double', 'twin', 'room_sharer']).optional(),
   guestName: z.string().optional(), // If double occupancy
   guestRelation: z.string().optional(), // "Spouse", "Partner", etc.
   nightsCount: z.number().optional(), // Auto-computed

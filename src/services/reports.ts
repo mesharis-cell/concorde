@@ -1,5 +1,6 @@
 import { prisma } from '../config/database.js';
 import * as ExcelJS from 'exceljs';
+import { toZonedTime, format } from 'date-fns-tz';
 import type { Pagination } from '../types/index.js';
 
 export interface ReportData {
@@ -25,43 +26,48 @@ export class ReportsService {
    * 1. Arrival List - Transfer coordination for inbound flights
    */
   static async getArrivalListReport(eventId: string): Promise<ReportData> {
-    const users = await prisma.user.findMany({
-      where: {
-        eventId,
-        active: true,
-        flight: { not: null },
-      },
-      include: {
-        roomAssignments: {
-          where: { eventId },
+    const [users, groups] = await Promise.all([
+      prisma.user.findMany({
+        where: {
+          eventId,
+          active: true,
+          flight: { not: null },
         },
-      },
-    });
+        include: {
+          roomAssignments: {
+            where: { eventId },
+          },
+        },
+      }),
+      prisma.group.findMany({
+        where: { eventId, active: true, deleted: false },
+        select: { id: true, name: true },
+      }),
+    ]);
 
     const headers = [
-      'First Name',
-      'Surname',
-      'Job Title',
-      'Company',
-      'VIP Status',
-      'Guest Category',
-      'Email',
-      'Phone',
-      'Flight Number',
-      'Airline',
-      'Departure From',
-      'Departure Date',
-      'Departure Time',
-      'Arrival Date',
-      'Arrival Time',
-      'Arrival Terminal',
-      'Room Type',
+      'Inbound Departure date [dd/mm/yyy]',
+      'Inbound Departure time [24hr hh:mm]',
+      'Inbound Departure from [station/airport]',
+      'Inbound Departure terminal',
+      'Inbound Flight number',
+      'Inbound Arrival date [dd/mm/yyy]',
+      'Inbound Arrival time [24hr hh:mm]',
+      'Inbound Arrival to [station/airport]',
+      'First Name *as shown on Passport',
+      'Surname *as shown on Passport',
+      'Guest type [Chivas market host, Cultural creator, Media, CEO/MD, Trade, Photographer/Videographer, Accompanying guest, Agent/Manager]',
+      'Market',
+      'Contact mobile number *including area code',
+      'market host to keep on cc for all comms',
+      'Hotel Booking Required for Visa Y/N',
       'Transfer Requirements',
-      'Special Requests'
+      'Arrival Notes'
     ];
 
     const rows = [];
     const rowMetadata = [];
+    const groupMap = new Map(groups.map(g => [g.id, g.name]));
 
     users
       .filter(user => (user.flight as any)?.inbound)
@@ -71,26 +77,27 @@ export class ReportsService {
         const accommodation = user.accommodation as any;
         const roomAssignment = user.roomAssignments[0];
 
+        // Get market/group names
+        const marketNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
+
         rows.push([
-          profile?.firstName || '',
-          profile?.lastName || '',
-          profile?.jobTitle || '',
-          profile?.company || '',
-          profile?.vip ? 'Yes' : 'No',
-          user.guestCategory || 'Standard',
-          profile?.email || '',
-          profile?.phone || '',
-          flight?.flightNumber || '',
-          flight?.airline || '',
-          flight?.departureFrom || '',
           flight?.departureDate || '',
           flight?.departureTime || '',
+          flight?.departureFrom || '',
+          flight?.departureTerminal || '',
+          flight?.flightNumber || '',
           flight?.arrivalDate || '',
           flight?.arrivalTime || '',
-          flight?.arrivalToTerminal || '',
-          roomAssignment?.roomType || accommodation?.roomType || '',
-          user.transferRequirements || '',
-          accommodation?.specialRequests || '',
+          flight?.arrivalToAirport || '',
+          profile?.firstName || '',
+          profile?.lastName || '',
+          profile?.guestType || '',
+          marketNames || '',
+          profile?.phone || '',
+          profile?.host || '',
+          accommodation?.visaBookingRequired ? 'Y' : 'N',
+          user.transferRequirements || '', // 🎯 Transfer requirements column
+          user.arrivalNotes || '',          // 🎯 Arrival-specific notes
         ]);
 
         // Add metadata for editing capabilities
@@ -145,24 +152,22 @@ export class ReportsService {
     const groupMap = new Map(groups.map(g => [g.id, g.name]));
 
     const headers = [
-      'Outbound Departure Date',
-      'Departure From',
-      'Departure Time',
+      'Hotel',
+      'Outbound Departure from [station/airport]',
+      'Outbound Departure date [dd/mm/yyy]',
+      'Outbound Departure time [hh:mm]',
+      'Outbound Departure Terminal',
+      'Outbound Flight number',
+      'Outbound Arrival to',
       'First Name',
       'Surname',
-      'Outbound Departure From',
-      'Outbound Departure Terminal',
-      'Outbound Flight Number',
-      'Outbound Arrival To',
-      'Outbound Flight Departure Time',
-      'VIP',
-      'Group',
-      'Company',
-      'Guest Type',
-      'Vehicle to be Allocated',
-      'Driver Name',
-      'Driver Reg',
-      'Notes (departure specific)'
+      'Guest type',
+      'Market',
+      'Contact mobile number',
+      'Market host',
+      'VIP Guest',
+      'Transfer Requirements',
+      'Notes'
     ];
 
     const rows = [];
@@ -177,25 +182,29 @@ export class ReportsService {
         const roomAssignment = user.roomAssignments[0];
         const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
 
+        // Get hotel checkout time from room assignment or accommodation
+        const hotelName = accommodation?.hotel || roomAssignment?.hotel?.name || '';
+        const hotelDepartureTime = accommodation?.checkOut ?
+          new Date(accommodation.checkOut).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) :
+          '12:00'; // Default checkout time
+
         rows.push([
+          hotelName,
+          flight?.departureFrom || '',
           flight?.departureDate || '',
-          flight?.departureFrom || '',
           flight?.departureTime || '',
-          profile?.firstName || '',
-          profile?.lastName || '',
-          flight?.departureFrom || '',
           flight?.departureTerminal || '',
           flight?.flightNumber || '',
           flight?.arrivalToAirport || '',
-          flight?.departureTime || '',
-          profile?.vip ? 'Yes' : 'No',
+          profile?.firstName || '',
+          profile?.lastName || '',
+          profile?.guestType || '',
           groupNames,
-          profile?.company || '',
-          user.guestCategory || 'Standard',
-          '1', // Default vehicle allocation
-          '', // Driver name - not stored
-          '', // Driver registration - not stored
-          accommodation?.specialRequests || roomAssignment?.hotelNotes || '',
+          profile?.phone || '',
+          profile?.host || '',
+          profile?.vip ? 'Y' : 'N', // 🎯 VIP status to match consolidated format
+          user.transferRequirements || '', // 🎯 Transport requirements
+          user.departureNotes || '', // 🎯 Departure-specific notes
         ]);
 
         // Add metadata for editing capabilities
@@ -435,14 +444,23 @@ export class ReportsService {
       throw new Error('Event date range not configured');
     }
 
-    // Generate date columns for occupancy grid
+    // 🎯 FIX: Generate date columns with proper timezone handling
     const dateRange = event.dateRange as any;
-    const startDate = new Date(dateRange.start);
-    const endDate = new Date(dateRange.end);
+    const EVENT_TIMEZONE = 'Asia/Singapore'; // Use event timezone
+
+    // Convert UTC event dates to Singapore timezone for proper calendar dates
+    const startDate = toZonedTime(new Date(dateRange.start), EVENT_TIMEZONE);
+    const endDate = toZonedTime(new Date(dateRange.end), EVENT_TIMEZONE);
+
     const eventDates = [];
-    
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      eventDates.push(new Date(d).toLocaleDateString());
+    const current = new Date(startDate);
+    current.setHours(12, 0, 0, 0); // Set to noon to avoid boundary issues
+
+    while (current <= endDate) {
+      // Format as YYYY-MM-DD for consistent comparison
+      const dateStr = format(current, 'yyyy-MM-dd', { timeZone: EVENT_TIMEZONE });
+      eventDates.push(dateStr);
+      current.setDate(current.getDate() + 1);
     }
 
     const headers = [
@@ -453,10 +471,12 @@ export class ReportsService {
       'Flight Arrival Time - Hotel',
       'Check-out Date',
       'Departure Time - Hotel',
-      ...eventDates.map((date, index) => {
-        const d = new Date(date);
-        const day = d.toLocaleDateString('en-US', { weekday: 'long' });
-        const shortDate = d.toLocaleDateString('en-GB');
+      ...eventDates.map((dateStr) => {
+        // 🎯 FIX: Format headers in Singapore timezone
+        const date = new Date(dateStr + 'T12:00:00'); // Noon to avoid timezone issues
+        const singaporeDate = toZonedTime(date, EVENT_TIMEZONE);
+        const day = format(singaporeDate, 'EEEE', { timeZone: EVENT_TIMEZONE }); // Monday, Tuesday, etc.
+        const shortDate = format(singaporeDate, 'dd/MM/yyyy', { timeZone: EVENT_TIMEZONE }); // 29/09/2025
         return `${day}\n${shortDate}`;
       }),
       'Room Category',
@@ -489,11 +509,36 @@ export class ReportsService {
       const checkOut = accommodation?.checkOut ? new Date(accommodation.checkOut) : null;
       const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
 
-      // Calculate occupancy for each event date (1 for occupied, null for not)
+      // 🎯 FIX: Calculate occupancy with proper date comparison
       const occupancyData = eventDates.map(dateStr => {
-        const date = new Date(dateStr);
-        const isOccupied = checkIn && checkOut && date >= checkIn && date < checkOut;
-        return isOccupied ? '1' : null;
+        if (!checkIn || !checkOut) return null;
+
+        // Convert event date to Date object for comparison
+        const eventDate = new Date(dateStr + 'T12:00:00'); // Noon Singapore time
+
+        // Normalize check-in/check-out to Singapore timezone dates
+        let checkInSg: Date;
+        let checkOutSg: Date;
+
+        if (typeof accommodation.checkIn === 'string' && accommodation.checkIn.includes('/')) {
+          // Parse dd/MM/yyyy format
+          const [day, month, year] = accommodation.checkIn.split('/').map(n => parseInt(n));
+          checkInSg = new Date(year, month - 1, day, 12, 0, 0); // Noon Singapore
+        } else {
+          checkInSg = toZonedTime(checkIn, EVENT_TIMEZONE);
+        }
+
+        if (typeof accommodation.checkOut === 'string' && accommodation.checkOut.includes('/')) {
+          // Parse dd/MM/yyyy format  
+          const [day, month, year] = accommodation.checkOut.split('/').map(n => parseInt(n));
+          checkOutSg = new Date(year, month - 1, day, 12, 0, 0); // Noon Singapore
+        } else {
+          checkOutSg = toZonedTime(checkOut, EVENT_TIMEZONE);
+        }
+
+        // Check if guest is staying on this date (inclusive of check-in, exclusive of check-out)
+        const isStaying = eventDate >= checkInSg && eventDate < checkOutSg;
+        return isStaying ? '1' : null;
       });
 
       rows.push([
@@ -508,7 +553,7 @@ export class ReportsService {
         roomAssignment?.roomType?.name || roomAssignment?.roomType,
         roomAssignment?.billingNotes,
         roomAssignment?.bookingConfirmationNumber,
-        null, // No default occupancy
+        accommodation?.occupancy, // 🎯 FIX: Read actual occupancy
         user.guestCategory,
         user.roomDropAssigned,
         accommodation?.specialRequests || roomAssignment?.hotelNotes,
@@ -1032,13 +1077,13 @@ export class ReportsService {
    * 11. Change Report - Timestamped audit trail
    */
   static async getChangeReport(
-    eventId: string, 
+    eventId: string,
     pagination: Pagination,
     dateFrom?: Date,
     dateTo?: Date
   ): Promise<ReportData> {
     const where: any = { eventId };
-    
+
     if (dateFrom || dateTo) {
       where.createdAt = {};
       if (dateFrom) where.createdAt.gte = dateFrom;
@@ -1060,7 +1105,7 @@ export class ReportsService {
     const headers = [
       'Timestamp',
       'Action',
-      'Resource Type', 
+      'Resource Type',
       'Resource ID',
       'Summary',
       'Performed By',
