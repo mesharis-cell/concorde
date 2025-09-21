@@ -40,6 +40,8 @@ export class UserService {
         requirements: data.requirements,
         merchandiseSize: data.merchandiseSize,
         emergencyContact: data.emergencyContact,
+        tickets: data.tickets || [],
+        carNumbers: data.carNumbers || [], // Transport assignments
       },
     });
 
@@ -69,7 +71,15 @@ export class UserService {
         event: {
           select: { id: true, name: true, shortName: true },
         },
-        roomAssignments: true,
+        hotel: {
+          select: { id: true, name: true },
+        },
+        roomAssignments: {
+          include: {
+            hotel: { select: { name: true } },
+            roomType: { select: { name: true } },
+          },
+        },
       },
     });
   }
@@ -291,9 +301,29 @@ export class UserService {
     if (data.emergencyContact !== undefined)
       updateData.emergencyContact = data.emergencyContact;
 
+    // 🚨 CRITICAL FIX: Add ALL missing fields that were being ignored
+    if (data.masterGuestNotes !== undefined)
+      updateData.masterGuestNotes = data.masterGuestNotes;
+    if (data.arrivalNotes !== undefined)
+      updateData.arrivalNotes = data.arrivalNotes;
+    if (data.departureNotes !== undefined)
+      updateData.departureNotes = data.departureNotes;
+    if (data.tickets !== undefined)
+      updateData.tickets = data.tickets;
+    if (data.guestCategory !== undefined)
+      updateData.guestCategory = data.guestCategory;
+    if (data.hotelId !== undefined)
+      updateData.hotelId = data.hotelId;
+    if (data.carNumbers !== undefined)
+      updateData.carNumbers = data.carNumbers;
+    if (data.roomDropAssigned !== undefined)
+      updateData.roomDropAssigned = data.roomDropAssigned;
+    if (data.active !== undefined)
+      updateData.active = data.active;
+
     // Get current user data for audit trail
     const currentUser = performedBy ? await prisma.user.findUnique({ where: { id } }) : null;
-    
+
     const updatedUser = await prisma.user.update({
       where: { id },
       data: updateData,
@@ -342,7 +372,7 @@ export class UserService {
 
     // Verify all groups exist and belong to same event
     const groups = await prisma.group.findMany({
-      where: { 
+      where: {
         id: { in: groupIds },
         eventId: user.eventId,
         active: true,
@@ -356,28 +386,28 @@ export class UserService {
 
     // Analyze conflicts
     const conflictAnalysis = await ConflictDetectionService.analyzeAssignmentConflicts([userId], groupIds);
-    
+
     // Block assignment if there are high-severity conflicts and conflicts are not allowed
     if (!options.allowConflicts && conflictAnalysis.hasIssues) {
       const highSeverityIssues = [
         ...conflictAnalysis.capacityIssues.filter(i => i.severity === 'high'),
         ...conflictAnalysis.timingConflicts.filter(c => c.severity === 'high'),
       ];
-      
+
       if (highSeverityIssues.length > 0) {
         const issueDetails = [
-          ...conflictAnalysis.capacityIssues.map(i => 
+          ...conflictAnalysis.capacityIssues.map(i =>
             `Activity "${i.activityTitle}" capacity exceeded (${i.capacity} max, ${i.affectedUserCount + i.capacity} potential attendees)`
           ),
-          ...conflictAnalysis.timingConflicts.map(c => 
+          ...conflictAnalysis.timingConflicts.map(c =>
             `Timing conflict: ${c.activities.length} overlapping activities`
           ),
         ].join('; ');
-        
+
         throw new Error(`Cannot assign user due to conflicts: ${issueDetails}`);
       }
     }
-    
+
     // Replace group assignments (not add to existing)
     const newGroupIds = groupIds; // Use provided groups as the complete new set
 
@@ -858,7 +888,7 @@ export class UserService {
         where: { groupIds: { hasSome: user.groupIds } },
         select: { id: true },
       });
-      
+
       if (activities.length > 0) {
         await ConflictDetectionService.batchUpdateAttendeeCount(activities.map(a => a.id));
       }
@@ -965,7 +995,7 @@ export class UserService {
 
     // Generate magic link token using JWT service
     const token = JwtService.generateMagicLinkToken(userId, user.eventId);
-    
+
     // Calculate expiration (24 hours from now, matching JWT service)
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
@@ -1011,16 +1041,16 @@ export class UserService {
     const userFlightData = users.map(user => {
       const flight = user.flight as any;
       const email = (user.profile as any)?.email;
-      
+
       const inboundDeparture = flight?.inbound?.departureDate ? new Date(flight.inbound.departureDate) : null;
       const inboundArrival = flight?.inbound?.arrivalDate ? new Date(flight.inbound.arrivalDate) : null;
-      
+
       // Calculate flight duration if both dates are available
       let flightDuration;
       if (inboundDeparture && inboundArrival) {
         flightDuration = Math.round((inboundArrival.getTime() - inboundDeparture.getTime()) / (1000 * 60)); // minutes
       }
-      
+
       return {
         userId: user.id,
         email,
@@ -1047,13 +1077,13 @@ export class UserService {
       usersByDeparture: sortedUsers,
       stats: {
         totalWithFlights: users.length,
-        averageFlightDuration: durations.length > 0 
+        averageFlightDuration: durations.length > 0
           ? Math.round(durations.reduce((sum, d) => sum + d, 0) / durations.length)
           : 0,
-        earliestDeparture: departureDates.length > 0 
+        earliestDeparture: departureDates.length > 0
           ? new Date(Math.min(...departureDates.map(d => d.getTime())))
           : null,
-        latestArrival: arrivalDates.length > 0 
+        latestArrival: arrivalDates.length > 0
           ? new Date(Math.max(...arrivalDates.map(d => d.getTime())))
           : null,
       },

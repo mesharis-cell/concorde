@@ -128,6 +128,9 @@ export class EventService {
         ...(data.privacyPolicy !== undefined && {
           privacyPolicy: data.privacyPolicy,
         }),
+        ...(data.carConfig !== undefined && {
+          carConfig: data.carConfig,
+        }),
       },
     });
   }

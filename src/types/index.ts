@@ -39,9 +39,14 @@ export const ReportType = z.enum([
   'guest-list-type',
   'guest-list-group',
   'master-guest',
-  'change-report',
+  'change-report-user',
+  'change-report-activity',
+  'change-report-group',
+  'change-report-event',
+  'change-report-operations',
   'merchandise-report',
   'room-drops',
+  'car-assignment',
 ]);
 export type ReportType = z.infer<typeof ReportType>;
 
@@ -87,7 +92,7 @@ export const CreateEventSchema = z.object({
           contractedRooms: z
             .array(
               z.object({
-                date: z.coerce.date(),
+                date: z.string(), // Changed to string to support dd/MM/yyyy format
                 roomType: z.string(),
                 quantity: z.number(),
                 allocated: z.number(),
@@ -119,6 +124,21 @@ export const CreateEventSchema = z.object({
     })
     .nullable()
     .optional(),
+  carConfig: z
+    .object({
+      cars: z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          type: z.string(),
+          plate: z.string(),
+          driver: z.string(),
+        })
+      ),
+      lastUpdated: z.string().optional(),
+    })
+    .nullable()
+    .optional(),
   termsConditions: z.string().nullable().optional(),
   privacyPolicy: z.string().nullable().optional(),
 });
@@ -132,6 +152,8 @@ export const CreateGroupSchema = z.object({
   eventId: z.string(),
   name: z.string().min(1),
   description: z.string(),
+  // Transport assignments - default cars for group members
+  carNumbers: z.array(z.string()).optional().default([]), // ["car-1", "car-2"] - inherited by all group members
 });
 export type CreateGroup = z.infer<typeof CreateGroupSchema>;
 
@@ -342,21 +364,27 @@ export const UserAccommodationSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => (val === null ? undefined : val)),
-  checkIn: z.coerce
-    .date()
-    .nullable()
-    .optional()
-    .transform((val) => (val === null ? undefined : val)),
-  checkOut: z.coerce
-    .date()
-    .nullable()
-    .optional()
-    .transform((val) => (val === null ? undefined : val)),
-  specialRequests: z
+  hotelId: z.string().optional(), // Reference to Hotel ID
+  checkIn: z
     .string()
+    .refine((val) => {
+      if (!val || val === '') return true; // Allow empty
+      return /^(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)$/.test(val);
+    }, 'Must be DD/MM/YYYY or ISO date format')
     .nullable()
     .optional()
-    .transform((val) => (val === null ? undefined : val)),
+    .transform((val) => (val === null || val === '' ? undefined : val)),
+  checkOut: z
+    .string()
+    .refine((val) => {
+      if (!val || val === '') return true; // Allow empty
+      return /^(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)$/.test(val);
+    }, 'Must be DD/MM/YYYY or ISO date format')
+    .nullable()
+    .optional()
+    .transform((val) => (val === null || val === '' ? undefined : val)),
+  // Hotel notes for pre-assignment planning (restored to accommodation)
+  hotelNotes: z.string().optional(),
 
   // Singapore Phase 2 additions - Enhanced occupancy options
   doubleOccupancy: z
@@ -379,10 +407,10 @@ export const UserAccommodationSchema = z.object({
 
   // Room assignment fields (admin-managed)
   roomType: z.string().optional(), // Assigned by admin
-  occupancy: z.enum(['single', 'double']).optional(),
+  occupancy: z.enum(['single', 'double', 'twin', 'room_sharer']).optional(),
   guestName: z.string().optional(), // If double occupancy
   guestRelation: z.string().optional(), // "Spouse", "Partner", etc.
-  nightsCount: z.number().optional(), // Auto-computed
+  nightsCount: z.number().nullable().optional().transform((val) => (val === null ? undefined : val)), // Auto-computed
   roomNumber: z.string().optional(), // From RoomAssignment
   roomDropId: z.string().optional(), // References event.roomDrops[].id
 });
@@ -420,7 +448,7 @@ export type UserRequirements = z.infer<typeof UserRequirementsSchema>;
 
 export const UserMerchandiseSizeSchema = z.object({
   // Singapore Phase 2 addition
-  gender: z.enum(['Men', 'Women']).optional(),
+  gender: z.enum(['Men', 'Women']).optional().or(z.literal('')).transform(val => val === '' ? undefined : val),
   // Updated to use single size field instead of individual items (includes XS)
   size: z.enum(['XS', 'S', 'M', 'L', 'XL']).optional(),
 
@@ -463,10 +491,31 @@ export const CreateUserSchema = z.object({
   communication: UserCommunicationSchema,
   flight: UserFlightSchema.optional(),
   accommodation: UserAccommodationSchema.optional(),
-  transferRequirements: z.string().optional(),
+  transferRequirements: z.boolean().optional().default(false),
   requirements: UserRequirementsSchema.optional(),
   merchandiseSize: UserMerchandiseSizeSchema.optional(),
   emergencyContact: UserEmergencyContactSchema.optional(),
+  guestCategory: z.string().nullable().optional().transform((val) => (val === null ? undefined : val)),
+  tickets: z.array(z.object({
+    name: z.string().min(1, 'Ticket name is required'),
+    number: z.string().min(1, 'Ticket number is required'),
+    valid: z.boolean().default(true)
+  })).optional().default([]),
+
+  // Transport assignments - individual car overrides
+  carNumbers: z.array(z.string()).optional().default([]), // [] = inherit from group, ["car-5"] = override
+
+  // Report-specific notes
+  arrivalNotes: z.string().optional(),
+  departureNotes: z.string().nullable().optional().transform((val) => (val === null ? undefined : val)),
+  masterGuestNotes: z.string().nullable().optional().transform((val) => (val === null ? undefined : val)),
+
+  // Hotel & room management
+  hotelId: z.string().nullable().optional().transform((val) => (val === null ? undefined : val)),
+  roomDropAssigned: z.string().nullable().optional().transform((val) => (val === null ? undefined : val)),
+
+  // Admin controls
+  active: z.boolean().optional().default(true),
 });
 export type CreateUser = z.infer<typeof CreateUserSchema>;
 
@@ -478,8 +527,8 @@ export const PublicRegistrationSchema = z.object({
     emailOptIn: true,
     whatsappOptIn: false,
   }),
-  transferRequirements: z.string().nullable().optional(),
-  requirements: UserRequirementsSchema.optional(), // Optional: dietary, medical, accessibility, specialRequests
+  transferRequirements: z.boolean().optional().default(false),
+  requirements: UserRequirementsSchema.optional(), // Optional: dietary, medical, accessibility
   merchandiseSize: UserMerchandiseSizeSchema.optional(), // Enhanced: gender + size
   emergencyContact: UserEmergencyContactSchema.optional(), // Optional: name, relationship, phone, email
 
@@ -506,7 +555,8 @@ export type AdminUpdateUser = z.infer<typeof AdminUpdateUserSchema>;
 export const CreateRoomAssignmentSchema = z.object({
   userId: z.string().min(1),
   eventId: z.string().min(1),
-  roomType: z.string().min(1),
+  hotelId: z.string().min(1),
+  roomTypeId: z.string().min(1),
   hotelNotes: z.string().optional(),
   billingNotes: z.string().optional(),
   bookingConfirmationNumber: z.string().optional(),
@@ -514,11 +564,8 @@ export const CreateRoomAssignmentSchema = z.object({
 export type CreateRoomAssignment = z.infer<typeof CreateRoomAssignmentSchema>;
 
 export const UpdateRoomAssignmentSchema = z.object({
-  roomType: z.string().optional(),
-  roomNumber: z.string().optional(),
-  status: z
-    .enum(['pending', 'confirmed', 'checked_in', 'checked_out'])
-    .optional(),
+  hotelId: z.string().optional(),
+  roomTypeId: z.string().optional(),
   hotelNotes: z.string().optional(),
   billingNotes: z.string().optional(),
   bookingConfirmationNumber: z.string().optional(),
@@ -540,6 +587,68 @@ export const RoomDropSchema = z.object({
   assigned: z.number().default(0), // Track how many are assigned
 });
 export type RoomDrop = z.infer<typeof RoomDropSchema>;
+
+export const HotelSchema = z.object({
+  id: z.string(),
+  eventId: z.string(),
+  name: z.string().min(1),
+  isDefault: z.boolean().default(false),
+  checkInTime: z.string(), // "15:00"
+  checkOutTime: z.string(), // "11:00"
+  address: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().optional(),
+  website: z.string().optional(),
+  active: z.boolean().default(true),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type Hotel = z.infer<typeof HotelSchema>;
+
+export const CreateHotelSchema = z.object({
+  eventId: z.string().min(1),
+  name: z.string().min(1),
+  isDefault: z.boolean().default(false),
+  checkInTime: z.string().min(1),
+  checkOutTime: z.string().min(1),
+  address: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().optional(),
+  website: z.string().optional(),
+});
+export type CreateHotel = z.infer<typeof CreateHotelSchema>;
+
+export const UpdateHotelSchema = CreateHotelSchema.partial().omit({ eventId: true });
+export type UpdateHotel = z.infer<typeof UpdateHotelSchema>;
+
+export const RoomTypeSchema = z.object({
+  id: z.string(),
+  eventId: z.string(),
+  hotelId: z.string(),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  maxOccupancy: z.number().int().positive().default(2),
+  amenities: z.array(z.string()).default([]),
+  basePrice: z.number().optional(),
+  active: z.boolean().default(true),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+export type RoomType = z.infer<typeof RoomTypeSchema>;
+
+export const CreateRoomTypeSchema = z.object({
+  eventId: z.string().min(1),
+  hotelId: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  maxOccupancy: z.number().int().positive().default(2),
+  amenities: z.array(z.string()).default([]),
+  basePrice: z.number().optional(),
+});
+export type CreateRoomType = z.infer<typeof CreateRoomTypeSchema>;
+
+export const UpdateRoomTypeSchema = CreateRoomTypeSchema.partial().omit({ eventId: true, hotelId: true });
+export type UpdateRoomType = z.infer<typeof UpdateRoomTypeSchema>;
 
 // ============================================================================
 // Admin Types
