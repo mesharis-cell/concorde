@@ -9,6 +9,7 @@ export class GroupService {
         eventId: data.eventId,
         name: data.name,
         description: data.description,
+        carNumbers: data.carNumbers || [], // Default car assignments
       },
     });
   }
@@ -38,11 +39,11 @@ export class GroupService {
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
 
-    const where: any = { 
-      eventId, 
-      deleted: false 
+    const where: any = {
+      eventId,
+      deleted: false
     };
-    
+
     if (filters.active !== undefined) {
       where.active = filters.active;
     }
@@ -116,7 +117,7 @@ export class GroupService {
 
   static async updateMemberCount(groupId: string): Promise<void> {
     const count = await prisma.user.count({
-      where: { 
+      where: {
         groupIds: { has: groupId }, // User has this group in their groupIds array
         assigned: true,
         active: true,
@@ -155,7 +156,7 @@ export class GroupService {
 
     return prisma.group.update({
       where: { id },
-      data: { 
+      data: {
         deleted: true,
         deletedAt: new Date(),
         active: false,
@@ -202,7 +203,7 @@ export class GroupService {
   }
 
   static async getMembers(
-    groupId: string, 
+    groupId: string,
     pagination: Pagination,
     filters: {
       search?: string;
@@ -212,8 +213,8 @@ export class GroupService {
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
 
-    const where: any = { 
-      groupId, 
+    const where: any = {
+      groupId,
       assigned: true,
       active: true,
     };
@@ -221,7 +222,7 @@ export class GroupService {
     // Get all users first, then filter in JavaScript (MongoDB JSON field limitations)
     const allUsers = await prisma.user.findMany({
       where: {
-        groupId, 
+        groupId,
         assigned: true,
         active: true,
       },
@@ -249,18 +250,18 @@ export class GroupService {
         const firstName = profile?.firstName?.toLowerCase() || '';
         const lastName = profile?.lastName?.toLowerCase() || '';
         const email = profile?.email?.toLowerCase() || '';
-        return firstName.includes(searchLower) || 
-               lastName.includes(searchLower) || 
-               email.includes(searchLower);
+        return firstName.includes(searchLower) ||
+          lastName.includes(searchLower) ||
+          email.includes(searchLower);
       });
     }
 
     if (filters.hasRequirements) {
       filteredUsers = filteredUsers.filter(user => {
         const requirements = user.requirements as any;
-        return requirements?.dietary || 
-               requirements?.medical || 
-               requirements?.accessibility;
+        return requirements?.dietary ||
+          requirements?.medical ||
+          requirements?.accessibility;
       });
     }
 

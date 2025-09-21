@@ -10,7 +10,10 @@ import { TemplateService } from '../services/templates.js';
 import { CommunicationLogService } from '../services/communication-logs.js';
 import { CommunicationsService } from '../services/communications.js';
 import { S3Service } from '../services/s3.js';
+import { RoomMatrixDetailedService } from '../services/room-matrix-detailed.js';
 import { JwtService } from '../utils/jwt.js';
+import { TransportService } from '../services/transport.js';
+import { ImprovedTransportConflictService } from '../services/transport-conflicts.js';
 import {
   AdminLoginSchema,
   CreateGroupSchema,
@@ -47,6 +50,20 @@ import { RoomAssignmentService } from '../services/room-assignments.js';
 import { ReportsService } from '../services/reports.js';
 
 const app = new OpenAPIHono();
+
+// Helper function to safely parse accommodation dates
+const parseAccommodationDate = (dateInput: any): Date | null => {
+  if (!dateInput) return null;
+
+  if (typeof dateInput === 'string' && dateInput.includes('/')) {
+    // DD/MM/YYYY format
+    const [day, month, year] = dateInput.split('/').map(n => parseInt(n));
+    return new Date(year, month - 1, day, 12, 0, 0); // Noon to avoid timezone issues
+  } else {
+    // ISO string or Date object (backward compatibility)
+    return new Date(dateInput);
+  }
+};
 
 // =============================================================================
 // 1. ADMIN AUTHENTICATION
@@ -343,10 +360,10 @@ app.openapi(exportUsersRoute, async (c) => {
           accommodation.required ? 'Yes' : 'No',
           accommodation.hotel || '',
           accommodation.checkIn
-            ? new Date(accommodation.checkIn).toISOString().split('T')[0]
+            ? (parseAccommodationDate(accommodation.checkIn)?.toISOString().split('T')[0] || '')
             : '',
           accommodation.checkOut
-            ? new Date(accommodation.checkOut).toISOString().split('T')[0]
+            ? (parseAccommodationDate(accommodation.checkOut)?.toISOString().split('T')[0] || '')
             : '',
           flight.arrival
             ? new Date(flight.arrival)
@@ -1355,6 +1372,9 @@ app.openapi(getRoomAllocationSummaryRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
 
+    // 🎯 CRITICAL: Auto-sync room allocations on load to ensure accuracy
+    await RoomAssignmentService.updateEventRoomAllocations(eventId);
+
     const summary = await RoomAssignmentService.getAllocationSummary(eventId);
 
     return c.json({
@@ -1372,6 +1392,160 @@ app.openapi(getRoomAllocationSummaryRoute, async (c) => {
     );
   }
 });
+
+// ============================================================================
+// ENHANCED ROOM MATRIX ENDPOINTS
+// ============================================================================
+
+// Enhanced Room Matrix with Auto-Sync
+const getRoomMatrixDetailedRoute = createRoute({
+  method: 'get',
+  path: '/events/{eventId}/room-matrix-detailed',
+  tags: ['Admin - Room Management'],
+  summary: 'Get detailed room matrix with automatic sync and over-allocation detection',
+  request: {
+    params: z.object({
+      eventId: z.string().min(1),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            data: z.any(), // DetailedRoomMatrix interface
+          }),
+        },
+      },
+    },
+  },
+});
+
+app.openapi(getRoomMatrixDetailedRoute, async (c) => {
+  try {
+    const { eventId } = c.req.valid('param');
+
+    const detailedMatrix = await RoomMatrixDetailedService.getDetailedRoomMatrix(eventId);
+
+    return c.json({
+      success: true,
+      data: detailedMatrix,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to get detailed room matrix',
+        details: error.message,
+      },
+      400
+    );
+  }
+});
+
+// Manual Room Allocation Recalculation
+const recalculateRoomAllocationsRoute = createRoute({
+  method: 'post',
+  path: '/events/{eventId}/recalculate-room-allocations',
+  tags: ['Admin - Room Management'],
+  summary: 'Force recalculation of room allocations and detect conflicts',
+  request: {
+    params: z.object({
+      eventId: z.string().min(1),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            data: z.object({
+              success: z.boolean(),
+              message: z.string(),
+              validation: z.any().nullable(),
+            }),
+          }),
+        },
+      },
+    },
+  },
+});
+
+app.openapi(recalculateRoomAllocationsRoute, async (c) => {
+  try {
+    const { eventId } = c.req.valid('param');
+
+    const result = await RoomMatrixDetailedService.forceRecalculation(eventId);
+
+    return c.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to recalculate room allocations',
+        details: error.message,
+      },
+      500
+    );
+  }
+});
+
+// Room Matrix Integrity Check
+const checkRoomMatrixIntegrityRoute = createRoute({
+  method: 'get',
+  path: '/events/{eventId}/room-matrix-integrity',
+  tags: ['Admin - Room Management'],
+  summary: 'Check room matrix integrity and get validation report',
+  request: {
+    params: z.object({
+      eventId: z.string().min(1),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            data: z.any(),
+          }),
+        },
+      },
+    },
+  },
+});
+
+app.openapi(checkRoomMatrixIntegrityRoute, async (c) => {
+  try {
+    const { eventId } = c.req.valid('param');
+
+    const validation = await RoomAssignmentService.validateRoomMatrix(eventId);
+
+    return c.json({
+      success: true,
+      data: {
+        ...validation,
+        checkedAt: new Date().toISOString(),
+      },
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to check matrix integrity',
+        details: error.message,
+      },
+      400
+    );
+  }
+});
+
+// ============================================================================
 
 // Get Users Requiring Rooms
 const getUsersRequiringRoomsRoute = createRoute({
@@ -4831,10 +5005,10 @@ app.openapi(importUsersRoute, async (c) => {
               userData.accommodation.hotel = value;
               break;
             case 'checkInDate':
-              userData.accommodation.checkIn = new Date(value);
+              userData.accommodation.checkIn = value; // 🎯 FIX: Keep ISO string as-is, no conversion
               break;
             case 'checkOutDate':
-              userData.accommodation.checkOut = new Date(value);
+              userData.accommodation.checkOut = value; // 🎯 FIX: Keep ISO string as-is, no conversion
               break;
             case 'flightArrival':
               userData.flight.arrival = new Date(value);
@@ -5977,7 +6151,7 @@ const getAuditTrailRoute = createRoute({
         param: { name: 'performedBy', in: 'query' },
         example: '68c1a6975faa5f8e91d9e847',
       }),
-      resourceType: z.enum(['User', 'Activity', 'Group', 'Event', 'EmailTemplate', 'Admin', 'BulkOperation']).optional().openapi({
+      resourceType: z.enum(['User', 'Activity', 'Group', 'Event', 'EmailTemplate', 'Admin', 'BulkOperation', 'RoomAssignment']).optional().openapi({
         param: { name: 'resourceType', in: 'query' },
         example: 'User',
       }),
@@ -6394,8 +6568,40 @@ app.openapi(exportReportRoute, async (c) => {
       case 'master-guest':
         reportData = await ReportsService.getMasterGuestReport(eventId);
         break;
-      case 'change-report':
-        reportData = await ReportsService.getChangeReport(
+      case 'change-report-user':
+        reportData = await ReportsService.getUserChangeReport(
+          eventId,
+          pagination,
+          dateFrom ? new Date(dateFrom) : undefined,
+          dateTo ? new Date(dateTo) : undefined
+        );
+        break;
+      case 'change-report-activity':
+        reportData = await ReportsService.getActivityChangeReport(
+          eventId,
+          pagination,
+          undefined,
+          undefined
+        );
+        break;
+      case 'change-report-group':
+        reportData = await ReportsService.getGroupChangeReport(
+          eventId,
+          pagination,
+          undefined,
+          undefined
+        );
+        break;
+      case 'change-report-event':
+        reportData = await ReportsService.getEventChangeReport(
+          eventId,
+          pagination,
+          undefined,
+          undefined
+        );
+        break;
+      case 'change-report-operations':
+        reportData = await ReportsService.getOperationsChangeReport(
           eventId,
           pagination,
           undefined,
@@ -6407,6 +6613,9 @@ app.openapi(exportReportRoute, async (c) => {
         break;
       case 'room-drops':
         reportData = await ReportsService.getRoomDropsReport(eventId);
+        break;
+      case 'car-assignment':
+        reportData = await ReportsService.getCarAssignmentReport(eventId);
         break;
       default:
         return c.json(
@@ -6463,6 +6672,8 @@ const previewReportRoute = createRoute({
       activityId: z.string().optional(),
       page: z.coerce.number().min(1).default(1),
       limit: z.coerce.number().min(1).max(1000).default(100),
+      dateFrom: z.string().datetime().optional(),
+      dateTo: z.string().datetime().optional(),
     }),
   },
   responses: {
@@ -6488,7 +6699,7 @@ const previewReportRoute = createRoute({
 app.openapi(previewReportRoute, async (c) => {
   try {
     const { reportType } = c.req.valid('param');
-    const { eventId, activityId, page, limit } = c.req.valid('query');
+    const { eventId, activityId, page, limit, dateFrom, dateTo } = c.req.valid('query');
     const authUser = c.get('user');
 
     // Check if admin has access to this event
@@ -6538,12 +6749,45 @@ app.openapi(previewReportRoute, async (c) => {
       case 'master-guest':
         reportData = await ReportsService.getMasterGuestReport(eventId);
         break;
-      case 'change-report':
-        reportData = await ReportsService.getChangeReport(
+      case 'change-report-user':
+        const userChangeReportPagination = { page: 1, limit: 50000 };
+        reportData = await ReportsService.getUserChangeReport(
           eventId,
-          { page, limit },
-          undefined,
-          undefined
+          userChangeReportPagination,
+          dateFrom ? new Date(dateFrom) : undefined,
+          dateTo ? new Date(dateTo) : undefined
+        );
+        break;
+      case 'change-report-activity':
+        reportData = await ReportsService.getActivityChangeReport(
+          eventId,
+          { page: 1, limit: 50000 },
+          dateFrom ? new Date(dateFrom) : undefined,
+          dateTo ? new Date(dateTo) : undefined
+        );
+        break;
+      case 'change-report-group':
+        reportData = await ReportsService.getGroupChangeReport(
+          eventId,
+          { page: 1, limit: 50000 },
+          dateFrom ? new Date(dateFrom) : undefined,
+          dateTo ? new Date(dateTo) : undefined
+        );
+        break;
+      case 'change-report-event':
+        reportData = await ReportsService.getEventChangeReport(
+          eventId,
+          { page: 1, limit: 50000 },
+          dateFrom ? new Date(dateFrom) : undefined,
+          dateTo ? new Date(dateTo) : undefined
+        );
+        break;
+      case 'change-report-operations':
+        reportData = await ReportsService.getOperationsChangeReport(
+          eventId,
+          { page: 1, limit: 50000 },
+          dateFrom ? new Date(dateFrom) : undefined,
+          dateTo ? new Date(dateTo) : undefined
         );
         break;
       case 'merchandise-report':
@@ -6551,6 +6795,9 @@ app.openapi(previewReportRoute, async (c) => {
         break;
       case 'room-drops':
         reportData = await ReportsService.getRoomDropsReport(eventId);
+        break;
+      case 'car-assignment':
+        reportData = await ReportsService.getCarAssignmentReport(eventId);
         break;
       default:
         return c.json(
@@ -6683,14 +6930,30 @@ app.openapi(bulkExportReportsRoute, async (c) => {
         case 'master-guest':
           reportData = await ReportsService.getMasterGuestReport(eventId);
           break;
-        case 'change-report':
-          reportData = await ReportsService.getChangeReport(eventId, pagination, undefined, undefined);
+        case 'change-report-user':
+          const userChangeReportPagination = { page: 1, limit: 50000 };
+          reportData = await ReportsService.getUserChangeReport(eventId, userChangeReportPagination, undefined, undefined);
+          break;
+        case 'change-report-activity':
+          reportData = await ReportsService.getActivityChangeReport(eventId, { page: 1, limit: 50000 }, undefined, undefined);
+          break;
+        case 'change-report-group':
+          reportData = await ReportsService.getGroupChangeReport(eventId, { page: 1, limit: 50000 }, undefined, undefined);
+          break;
+        case 'change-report-event':
+          reportData = await ReportsService.getEventChangeReport(eventId, { page: 1, limit: 50000 }, undefined, undefined);
+          break;
+        case 'change-report-operations':
+          reportData = await ReportsService.getOperationsChangeReport(eventId, { page: 1, limit: 50000 }, undefined, undefined);
           break;
         case 'merchandise-report':
           reportData = await ReportsService.getMerchandiseReport(eventId);
           break;
         case 'room-drops':
           reportData = await ReportsService.getRoomDropsReport(eventId);
+          break;
+        case 'car-assignment':
+          reportData = await ReportsService.getCarAssignmentReport(eventId);
           break;
         default:
           continue;
@@ -7152,6 +7415,362 @@ app.openapi(createRoomTypeRoute, async (c) => {
         success: false,
         error: 'Failed to create room type',
         details: error.message,
+      },
+      500
+    );
+  }
+});
+
+// =============================================================================
+// Event Car Configuration Routes (inline for proper path handling)
+// =============================================================================
+
+/**
+ * Get event car configuration
+ */
+app.get('/events/:eventId/car-config', async (c) => {
+  try {
+    const eventId = c.req.param('eventId');
+    const cars = await TransportService.getEventCarConfig(eventId);
+
+    return c.json({
+      success: true,
+      message: 'Car configuration retrieved successfully',
+      data: { cars },
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: error.message || 'Failed to retrieve car configuration',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * Update event car configuration
+ */
+app.put('/events/:eventId/car-config', async (c) => {
+  try {
+    const eventId = c.req.param('eventId');
+    const body = await c.req.json();
+
+    await TransportService.updateEventCarConfig(eventId, body.cars);
+
+    return c.json({
+      success: true,
+      message: 'Car configuration updated successfully',
+      data: {},
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: error.message || 'Failed to update car configuration',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * Get car assignments for all users in event
+ */
+app.get('/transport/assignments/:eventId', async (c) => {
+  try {
+    const eventId = c.req.param('eventId');
+
+    // Get car assignments with additional user data
+    const assignments = await TransportService.getCarAssignments(eventId);
+
+    // Enhance with flight/contact data for transport management
+    const enhancedAssignments = await Promise.all(
+      assignments.map(async (assignment) => {
+        const user = await prisma.user.findUnique({
+          where: { id: assignment.userId },
+          select: {
+            profile: true,
+            flight: true,
+            accommodation: true
+          },
+        });
+
+        const profile = user?.profile as any;
+        const flight = user?.flight as any;
+        const accommodation = user?.accommodation as any;
+
+        return {
+          ...assignment,
+          contactNumber: profile?.phone || '',
+          arrivalDate: flight?.inbound?.arrivalDate || accommodation?.checkIn || '',
+          departureDate: flight?.outbound?.departureDate || accommodation?.checkOut || '',
+        };
+      })
+    );
+
+    return c.json({
+      success: true,
+      message: 'Car assignments retrieved successfully',
+      data: enhancedAssignments,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: error.message || 'Failed to retrieve car assignments',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * Get car usage analysis
+ */
+app.get('/transport/usage/:eventId', async (c) => {
+  try {
+    const eventId = c.req.param('eventId');
+    const usage = await TransportService.getCarUsage(eventId);
+
+    return c.json({
+      success: true,
+      message: 'Car usage analysis retrieved successfully',
+      data: usage,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: error.message || 'Failed to retrieve car usage',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * Get available change dates for reports
+ */
+app.get('/reports/change-dates/:eventId', async (c) => {
+  try {
+    const eventId = c.req.param('eventId');
+    const authUser = c.get('user');
+
+    // Check if admin has access to this event
+    if (authUser.adminData?.role !== 'SUPER') {
+      const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
+      if (!hasAccess) {
+        return c.json(
+          {
+            success: false,
+            error: 'Access denied to this event',
+          },
+          403
+        );
+      }
+    }
+
+    const dates = await ReportsService.getAvailableChangeDates(eventId);
+
+    return c.json({ dates });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: error.message || 'Failed to retrieve available change dates',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * Check if a car can be safely deleted
+ */
+app.get('/events/:eventId/cars/:carId/can-delete', async (c) => {
+  try {
+    const eventId = c.req.param('eventId');
+    const carId = c.req.param('carId');
+    const authUser = c.get('user');
+
+    // Check if admin has access to this event
+    if (authUser.adminData?.role !== 'SUPER') {
+      const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
+      if (!hasAccess) {
+        return c.json(
+          {
+            success: false,
+            error: 'Access denied to this event',
+          },
+          403
+        );
+      }
+    }
+
+    const deleteCheck = await TransportService.canDeleteCar(eventId, carId);
+
+    return c.json({
+      success: true,
+      data: deleteCheck,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: error.message || 'Failed to check car deletion safety',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * Bulk assign cars to multiple groups (single API call)
+ * NOTE: This route MUST come before /groups/:groupId/cars to avoid route conflicts
+ */
+app.put('/groups/bulk/cars', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { groupIds, carNumbers } = body;
+
+    const authUser = c.get('user');
+
+    await TransportService.bulkAssignCarsToGroups(groupIds, carNumbers, authUser.id);
+
+    return c.json({
+      success: true,
+      message: `Car assignment updated for ${groupIds.length} groups`,
+      data: { updatedGroups: groupIds.length },
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: error.message || 'Failed to update group car assignments',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * Bulk remove cars from multiple groups (single API call)
+ * NOTE: This route MUST come before /groups/:groupId/cars to avoid route conflicts
+ */
+app.delete('/groups/bulk/cars', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { groupIds } = body;
+
+    const authUser = c.get('user');
+
+    await TransportService.bulkRemoveCarsFromGroups(groupIds, authUser.id);
+
+    return c.json({
+      success: true,
+      message: `Cleared car assignments from ${groupIds.length} groups`,
+      data: { updatedGroups: groupIds.length },
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: error.message || 'Failed to clear group car assignments',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * Assign cars to group
+ */
+app.put('/groups/:groupId/cars', async (c) => {
+  try {
+    const groupId = c.req.param('groupId');
+    const body = await c.req.json();
+
+    const authUser = c.get('user');
+
+    await TransportService.assignCarsToGroup(groupId, body.carNumbers, authUser.id);
+
+    return c.json({
+      success: true,
+      message: 'Group car assignment updated successfully',
+      data: {},
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: error.message || 'Failed to update group car assignment',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * Bulk assign cars to users (single transaction)
+ */
+app.put('/users/bulk/cars', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { userIds, carNumbers } = body;
+
+    const authUser = c.get('user');
+
+    // Single database transaction for all user updates
+    await prisma.$transaction(
+      userIds.map((userId: string) =>
+        prisma.user.update({
+          where: { id: userId },
+          data: { carNumbers },
+        })
+      )
+    );
+
+    return c.json({
+      success: true,
+      message: `Car assignment updated for ${userIds.length} users`,
+      data: { updatedUsers: userIds.length },
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: error.message || 'Failed to complete bulk car assignment',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * Get airport timing conflicts for transport coordination
+ */
+app.get('/transport/conflicts/:eventId', async (c) => {
+  try {
+    const eventId = c.req.param('eventId');
+    // Use improved conflict detection with configurable buffer
+    const conflicts = await ImprovedTransportConflictService.detectAirportTimingConflictsOptimized(eventId, {
+      windowMinutes: 180, // 3 hour conflict window
+      includeBuffer: true, // Add buffer for airport travel time
+      airportDistanceMinutes: 60 // 1 hour to/from airport
+    });
+
+    return c.json({
+      success: true,
+      message: 'Airport timing conflicts retrieved successfully',
+      data: conflicts,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: error.message || 'Failed to retrieve timing conflicts',
       },
       500
     );

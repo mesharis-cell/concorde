@@ -39,9 +39,14 @@ export const ReportType = z.enum([
   'guest-list-type',
   'guest-list-group',
   'master-guest',
-  'change-report',
+  'change-report-user',
+  'change-report-activity',
+  'change-report-group',
+  'change-report-event',
+  'change-report-operations',
   'merchandise-report',
   'room-drops',
+  'car-assignment',
 ]);
 export type ReportType = z.infer<typeof ReportType>;
 
@@ -119,6 +124,21 @@ export const CreateEventSchema = z.object({
     })
     .nullable()
     .optional(),
+  carConfig: z
+    .object({
+      cars: z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          type: z.string(),
+          plate: z.string(),
+          driver: z.string(),
+        })
+      ),
+      lastUpdated: z.string().optional(),
+    })
+    .nullable()
+    .optional(),
   termsConditions: z.string().nullable().optional(),
   privacyPolicy: z.string().nullable().optional(),
 });
@@ -132,6 +152,8 @@ export const CreateGroupSchema = z.object({
   eventId: z.string(),
   name: z.string().min(1),
   description: z.string(),
+  // Transport assignments - default cars for group members
+  carNumbers: z.array(z.string()).optional().default([]), // ["car-1", "car-2"] - inherited by all group members
 });
 export type CreateGroup = z.infer<typeof CreateGroupSchema>;
 
@@ -343,21 +365,26 @@ export const UserAccommodationSchema = z.object({
     .optional()
     .transform((val) => (val === null ? undefined : val)),
   hotelId: z.string().optional(), // Reference to Hotel ID
-  checkIn: z.coerce
-    .date()
-    .nullable()
-    .optional()
-    .transform((val) => (val === null ? undefined : val)),
-  checkOut: z.coerce
-    .date()
-    .nullable()
-    .optional()
-    .transform((val) => (val === null ? undefined : val)),
-  specialRequests: z
+  checkIn: z
     .string()
+    .refine((val) => {
+      if (!val || val === '') return true; // Allow empty
+      return /^(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)$/.test(val);
+    }, 'Must be DD/MM/YYYY or ISO date format')
     .nullable()
     .optional()
-    .transform((val) => (val === null ? undefined : val)),
+    .transform((val) => (val === null || val === '' ? undefined : val)),
+  checkOut: z
+    .string()
+    .refine((val) => {
+      if (!val || val === '') return true; // Allow empty
+      return /^(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)$/.test(val);
+    }, 'Must be DD/MM/YYYY or ISO date format')
+    .nullable()
+    .optional()
+    .transform((val) => (val === null || val === '' ? undefined : val)),
+  // Hotel notes for pre-assignment planning (restored to accommodation)
+  hotelNotes: z.string().optional(),
 
   // Singapore Phase 2 additions - Enhanced occupancy options
   doubleOccupancy: z
@@ -383,7 +410,7 @@ export const UserAccommodationSchema = z.object({
   occupancy: z.enum(['single', 'double', 'twin', 'room_sharer']).optional(),
   guestName: z.string().optional(), // If double occupancy
   guestRelation: z.string().optional(), // "Spouse", "Partner", etc.
-  nightsCount: z.number().optional(), // Auto-computed
+  nightsCount: z.number().nullable().optional().transform((val) => (val === null ? undefined : val)), // Auto-computed
   roomNumber: z.string().optional(), // From RoomAssignment
   roomDropId: z.string().optional(), // References event.roomDrops[].id
 });
@@ -421,7 +448,7 @@ export type UserRequirements = z.infer<typeof UserRequirementsSchema>;
 
 export const UserMerchandiseSizeSchema = z.object({
   // Singapore Phase 2 addition
-  gender: z.enum(['Men', 'Women']).optional(),
+  gender: z.enum(['Men', 'Women']).optional().or(z.literal('')).transform(val => val === '' ? undefined : val),
   // Updated to use single size field instead of individual items (includes XS)
   size: z.enum(['XS', 'S', 'M', 'L', 'XL']).optional(),
 
@@ -464,17 +491,31 @@ export const CreateUserSchema = z.object({
   communication: UserCommunicationSchema,
   flight: UserFlightSchema.optional(),
   accommodation: UserAccommodationSchema.optional(),
-  transferRequirements: z.string().optional(),
+  transferRequirements: z.boolean().optional().default(false),
   requirements: UserRequirementsSchema.optional(),
   merchandiseSize: UserMerchandiseSizeSchema.optional(),
   emergencyContact: UserEmergencyContactSchema.optional(),
-  guestCategory: z.string().optional(),
-  ticketNumbers: z.array(z.string()).optional().default([]),
+  guestCategory: z.string().nullable().optional().transform((val) => (val === null ? undefined : val)),
+  tickets: z.array(z.object({
+    name: z.string().min(1, 'Ticket name is required'),
+    number: z.string().min(1, 'Ticket number is required'),
+    valid: z.boolean().default(true)
+  })).optional().default([]),
+
+  // Transport assignments - individual car overrides
+  carNumbers: z.array(z.string()).optional().default([]), // [] = inherit from group, ["car-5"] = override
 
   // Report-specific notes
   arrivalNotes: z.string().optional(),
-  departureNotes: z.string().optional(),
-  masterGuestNotes: z.string().optional(),
+  departureNotes: z.string().nullable().optional().transform((val) => (val === null ? undefined : val)),
+  masterGuestNotes: z.string().nullable().optional().transform((val) => (val === null ? undefined : val)),
+
+  // Hotel & room management
+  hotelId: z.string().nullable().optional().transform((val) => (val === null ? undefined : val)),
+  roomDropAssigned: z.string().nullable().optional().transform((val) => (val === null ? undefined : val)),
+
+  // Admin controls
+  active: z.boolean().optional().default(true),
 });
 export type CreateUser = z.infer<typeof CreateUserSchema>;
 
@@ -486,8 +527,8 @@ export const PublicRegistrationSchema = z.object({
     emailOptIn: true,
     whatsappOptIn: false,
   }),
-  transferRequirements: z.string().nullable().optional(),
-  requirements: UserRequirementsSchema.optional(), // Optional: dietary, medical, accessibility, specialRequests
+  transferRequirements: z.boolean().optional().default(false),
+  requirements: UserRequirementsSchema.optional(), // Optional: dietary, medical, accessibility
   merchandiseSize: UserMerchandiseSizeSchema.optional(), // Enhanced: gender + size
   emergencyContact: UserEmergencyContactSchema.optional(), // Optional: name, relationship, phone, email
 

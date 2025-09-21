@@ -1,8 +1,9 @@
 import { prisma } from '../config/database.js';
 import type { Pagination, PaginatedResponse } from '../types/index.js';
+import { ObjectId } from 'mongodb';
 
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'IMPORT' | 'EXPORT' | 'ASSIGN' | 'UNASSIGN';
-export type ResourceType = 'User' | 'Activity' | 'Group' | 'Event' | 'EmailTemplate' | 'Admin' | 'BulkOperation';
+export type ResourceType = 'User' | 'Activity' | 'Group' | 'Event' | 'EmailTemplate' | 'Admin' | 'BulkOperation' | 'RoomAssignment';
 export type PerformedByType = 'ADMIN' | 'SYSTEM';
 
 export interface AuditLogRequest {
@@ -78,7 +79,7 @@ export class AuditTrailService {
     metadata?: any
   ): Promise<void> {
     const summary = `Created ${resourceType.toLowerCase()} "${this.getResourceName(resourceData)}"`;
-    
+
     await this.log({
       action: 'CREATE',
       resourceType,
@@ -106,7 +107,7 @@ export class AuditTrailService {
     metadata?: any
   ): Promise<void> {
     const summary = `Updated ${resourceType.toLowerCase()} "${this.getResourceName(afterData)}" - Changed: ${changedFields.join(', ')}`;
-    
+
     await this.log({
       action: 'UPDATE',
       resourceType,
@@ -136,7 +137,7 @@ export class AuditTrailService {
     metadata?: any
   ): Promise<void> {
     const summary = `Deleted ${resourceType.toLowerCase()} "${this.getResourceName(resourceData)}"`;
-    
+
     await this.log({
       action: 'DELETE',
       resourceType,
@@ -163,7 +164,7 @@ export class AuditTrailService {
     metadata?: any
   ): Promise<void> {
     const summary = `Assigned ${resourceType.toLowerCase()} to ${assignmentType} "${assignmentTarget}"`;
-    
+
     await this.log({
       action: 'ASSIGN',
       resourceType,
@@ -193,7 +194,7 @@ export class AuditTrailService {
     metadata?: any
   ): Promise<void> {
     const summary = `Unassigned ${resourceType.toLowerCase()} from ${assignmentType} "${assignmentTarget}"`;
-    
+
     await this.log({
       action: 'UNASSIGN',
       resourceType,
@@ -224,11 +225,11 @@ export class AuditTrailService {
     metadata?: any
   ): Promise<void> {
     const summary = `Imported ${resourceType.toLowerCase()}s - ${successCount}/${totalItems} successful`;
-    
+
     await this.log({
       action: 'IMPORT',
       resourceType: 'BulkOperation',
-      resourceId: `import-${resourceType.toLowerCase()}-${Date.now()}`,
+      resourceId: new ObjectId().toString(), // 🎯 FIX: Generate valid ObjectID for bulk operations
       eventId,
       performedBy,
       performedByType: 'ADMIN',
@@ -241,6 +242,7 @@ export class AuditTrailService {
           failedCount,
           fileName,
           resourceType,
+          operationId: `import-${resourceType.toLowerCase()}-${Date.now()}`, // Keep original ID as metadata
         },
       },
     });
@@ -258,11 +260,11 @@ export class AuditTrailService {
     metadata?: any
   ): Promise<void> {
     const summary = `Exported ${exportCount} ${resourceType.toLowerCase()}(s) as ${format.toUpperCase()}`;
-    
+
     await this.log({
       action: 'EXPORT',
       resourceType: 'BulkOperation',
-      resourceId: `export-${resourceType.toLowerCase()}-${Date.now()}`,
+      resourceId: new ObjectId().toString(), // 🎯 FIX: Generate valid ObjectID for bulk operations
       eventId,
       performedBy,
       performedByType: 'ADMIN',
@@ -275,6 +277,7 @@ export class AuditTrailService {
           failedCount: 0,
           resourceType,
           format,
+          operationId: `export-${resourceType.toLowerCase()}-${Date.now()}`, // Keep original ID as metadata
         },
       },
     });
@@ -292,13 +295,13 @@ export class AuditTrailService {
 
     // Build where clause
     const where: any = {};
-    
+
     if (filters.eventId) where.eventId = filters.eventId;
     if (filters.performedBy) where.performedBy = filters.performedBy;
     if (filters.resourceType) where.resourceType = filters.resourceType;
     if (filters.action) where.action = filters.action;
     if (filters.resourceId) where.resourceId = filters.resourceId;
-    
+
     if (filters.dateFrom || filters.dateTo) {
       where.createdAt = {};
       if (filters.dateFrom) where.createdAt.gte = filters.dateFrom;
@@ -375,21 +378,21 @@ export class AuditTrailService {
     const [totalActions, actionStats, resourceStats, adminStats, recentActivity] = await Promise.all([
       // Total actions
       prisma.auditTrail.count({ where }),
-      
+
       // Action breakdown
       prisma.auditTrail.groupBy({
         by: ['action'],
         where,
         _count: true,
       }),
-      
+
       // Resource breakdown  
       prisma.auditTrail.groupBy({
         by: ['resourceType'],
         where,
         _count: true,
       }),
-      
+
       // Admin breakdown
       prisma.auditTrail.groupBy({
         by: ['performedBy'],
@@ -399,7 +402,7 @@ export class AuditTrailService {
           createdAt: true,
         },
       }),
-      
+
       // Recent activity (24 hours)
       prisma.auditTrail.count({
         where: {
@@ -445,7 +448,7 @@ export class AuditTrailService {
    */
   private static getResourceName(resourceData: any): string {
     if (!resourceData) return 'Unknown';
-    
+
     // Try common name patterns
     if (resourceData.name) return resourceData.name;
     if (resourceData.title) return resourceData.title;
@@ -454,7 +457,7 @@ export class AuditTrailService {
     if (resourceData.profile?.firstName && resourceData.profile?.lastName) {
       return `${resourceData.profile.firstName} ${resourceData.profile.lastName}`;
     }
-    
+
     return 'Unknown';
   }
 
@@ -463,23 +466,63 @@ export class AuditTrailService {
    */
   static getChangedFields(before: any, after: any): string[] {
     const changes: string[] = [];
-    const allKeys = new Set([...Object.keys(before || {}), ...Object.keys(after || {})]);
-    
+    this.detectNestedChanges(before, after, '', changes);
+    return changes;
+  }
+
+  /**
+   * Recursively detect changes in nested objects with full paths
+   */
+  private static detectNestedChanges(
+    before: any,
+    after: any,
+    path: string,
+    changes: string[]
+  ): void {
+    const beforeKeys = new Set(Object.keys(before || {}));
+    const afterKeys = new Set(Object.keys(after || {}));
+    const allKeys = new Set([...beforeKeys, ...afterKeys]);
+
     for (const key of allKeys) {
+      const currentPath = path ? `${path}.${key}` : key;
       const beforeValue = before?.[key];
       const afterValue = after?.[key];
-      
-      // Handle JSON objects
-      if (typeof beforeValue === 'object' && typeof afterValue === 'object') {
+
+      // Handle null/undefined differences
+      if (beforeValue == null && afterValue == null) {
+        continue; // Both null/undefined, no change
+      }
+
+      if (beforeValue == null || afterValue == null) {
+        changes.push(currentPath); // One is null, the other isn't
+        continue;
+      }
+
+      // Handle arrays
+      if (Array.isArray(beforeValue) && Array.isArray(afterValue)) {
         if (JSON.stringify(beforeValue) !== JSON.stringify(afterValue)) {
-          changes.push(key);
+          changes.push(currentPath);
         }
-      } else if (beforeValue !== afterValue) {
-        changes.push(key);
+        continue;
+      }
+
+      // Handle objects recursively
+      if (
+        typeof beforeValue === 'object' &&
+        typeof afterValue === 'object' &&
+        !Array.isArray(beforeValue) &&
+        !Array.isArray(afterValue)
+      ) {
+        // Recursively check nested objects
+        this.detectNestedChanges(beforeValue, afterValue, currentPath, changes);
+        continue;
+      }
+
+      // Handle primitive values
+      if (beforeValue !== afterValue) {
+        changes.push(currentPath);
       }
     }
-    
-    return changes;
   }
 
   /**
@@ -511,7 +554,7 @@ export class AuditTrailService {
    */
   static async cleanup(retentionDays: number = 730): Promise<number> {
     const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
-    
+
     const result = await prisma.auditTrail.deleteMany({
       where: {
         createdAt: { lt: cutoffDate },

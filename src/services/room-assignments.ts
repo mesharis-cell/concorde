@@ -172,7 +172,7 @@ export class RoomAssignmentService {
 
     await AuditTrailService.log({
       action: 'ASSIGN',
-      resourceType: 'User',
+      resourceType: 'RoomAssignment',
       resourceId: data.userId,
       eventId: data.eventId,
       performedBy: data.assignedBy,
@@ -268,10 +268,12 @@ export class RoomAssignmentService {
         );
       }
 
+      // 🎯 FIX: Allow over-allocation but track as compliance issue
       if (contractedRoom.allocated >= contractedRoom.quantity) {
-        throw new Error(
-          `No available ${roomTypeName} rooms at ${hotelName} on ${dateStr} (${contractedRoom.allocated}/${contractedRoom.quantity} used)`
+        console.warn(
+          `⚠️ OVER-ALLOCATION: ${roomTypeName} at ${hotelName} on ${dateStr} (${contractedRoom.allocated + 1}/${contractedRoom.quantity} - exceeds capacity by ${contractedRoom.allocated + 1 - contractedRoom.quantity})`
         );
+        // Continue with assignment - don't block, just log the over-allocation
       }
     }
   }
@@ -342,7 +344,7 @@ export class RoomAssignmentService {
     const changes = Object.keys(data).filter(key => key !== 'updatedBy');
     await AuditTrailService.log({
       action: 'UPDATE',
-      resourceType: 'User',
+      resourceType: 'RoomAssignment',
       resourceId: assignment.userId,
       eventId: assignment.eventId,
       performedBy: data.updatedBy,
@@ -455,17 +457,29 @@ export class RoomAssignmentService {
         (roomTypeAssignments[roomTypeName] || 0) + 1;
     }
 
-    // Calculate real capacity from hotel configuration
+    // Calculate peak daily capacity from hotel configuration (not compounded totals)
     const roomTypeCapacities: Record<string, number> = {};
     if (event?.hotelConfig) {
       const hotelConfig = event.hotelConfig as any;
       if (hotelConfig.hotels) {
         for (const hotel of hotelConfig.hotels) {
           if (hotel.contractedRooms) {
+            // Group by room type to find peak capacity per room type
+            const roomTypeDaily: Record<string, number[]> = {};
+
             for (const contractedRoom of hotel.contractedRooms) {
               const roomTypeName = contractedRoom.roomType;
+              if (!roomTypeDaily[roomTypeName]) {
+                roomTypeDaily[roomTypeName] = [];
+              }
+              roomTypeDaily[roomTypeName].push(contractedRoom.quantity || 0);
+            }
+
+            // Use peak daily capacity for each room type
+            for (const [roomTypeName, dailyQuantities] of Object.entries(roomTypeDaily)) {
+              const peakCapacity = Math.max(...dailyQuantities);
               roomTypeCapacities[roomTypeName] =
-                (roomTypeCapacities[roomTypeName] || 0) + (contractedRoom.quantity || 0);
+                Math.max(roomTypeCapacities[roomTypeName] || 0, peakCapacity);
             }
           }
         }
@@ -479,7 +493,7 @@ export class RoomAssignmentService {
       return {
         roomType: roomType.name,
         assigned,
-        capacity,
+        capacity, // Now represents peak daily capacity, not total room-nights
         utilization: capacity > 0 ? Math.round((assigned / capacity) * 100) : 0,
       };
     });
@@ -750,7 +764,7 @@ export class RoomAssignmentService {
         guestName: `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim(),
         checkIn: accommodation?.checkIn ? new Date(accommodation.checkIn).toISOString().split('T')[0] : 'TBD',
         checkOut: accommodation?.checkOut ? new Date(accommodation.checkOut).toISOString().split('T')[0] : 'TBD',
-        specialRequests: accommodation?.specialRequests || '',
+        specialRequests: accommodation?.hotelNotes || '',
         bookingConfirmation: assignment.bookingConfirmationNumber || '',
         guestCategory: assignment.user.guestCategory || 'Standard',
       };
@@ -1020,6 +1034,56 @@ export class RoomAssignmentService {
 
           // Update allocated count
           contractedRoom.allocated = allocatedCount;
+
+          // 🔍 DEBUG: Log allocation details for Sept 29th
+          if (roomDateStr === '29/09/2025' && roomTypeName === 'Signature King') {
+            console.log(`🔍 ALLOCATION DEBUG for ${roomTypeName} on ${roomDateStr}:`);
+            console.log(`   Capacity: ${contractedRoom.quantity}`);
+            console.log(`   Allocated: ${allocatedCount}`);
+            console.log(`   Over-allocation: ${allocatedCount - contractedRoom.quantity}`);
+
+            const stayingUsers = roomAssignments.filter((assignment) => {
+              const assignmentRoomType = assignment.roomType.name;
+              const userAccommodation = assignment.user.accommodation as any;
+
+              if (assignmentRoomType !== roomTypeName) return false;
+
+              if (userAccommodation?.checkIn && userAccommodation?.checkOut) {
+                let checkIn: Date;
+                let checkOut: Date;
+
+                if (typeof userAccommodation.checkIn === 'string' && userAccommodation.checkIn.includes('/')) {
+                  const [day, month, year] = userAccommodation.checkIn.split('/').map(n => parseInt(n));
+                  checkIn = new Date(year, month - 1, day);
+                } else {
+                  checkIn = new Date(userAccommodation.checkIn);
+                }
+
+                if (typeof userAccommodation.checkOut === 'string' && userAccommodation.checkOut.includes('/')) {
+                  const [day, month, year] = userAccommodation.checkOut.split('/').map(n => parseInt(n));
+                  checkOut = new Date(year, month - 1, day);
+                } else {
+                  checkOut = new Date(userAccommodation.checkOut);
+                }
+
+                return roomDate >= checkIn && roomDate < checkOut;
+              }
+              return false;
+            });
+
+            console.log(`   Users staying on ${roomDateStr}:`);
+            stayingUsers.forEach((assignment, idx) => {
+              const profile = assignment.user.profile as any;
+              const accommodation = assignment.user.accommodation as any;
+              console.log(`   ${idx + 1}. ${profile?.firstName || 'Unknown'} ${profile?.lastName || 'User'}: ${accommodation?.checkIn} → ${accommodation?.checkOut}`);
+            });
+
+            const checkingInUsers = stayingUsers.filter(assignment => {
+              const accommodation = assignment.user.accommodation as any;
+              return accommodation?.checkIn === roomDateStr;
+            });
+            console.log(`   Users checking IN on ${roomDateStr}: ${checkingInUsers.length}`);
+          }
         }
       }
 

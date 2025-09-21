@@ -86,6 +86,7 @@ model Event {
   hotelConfig     Json? // Hotel inventory and configuration
   roomDrops       Json? // Room drop packages configuration
   guestCategories Json? // Guest tier categories configuration
+  carConfig       Json? // Transport/car inventory and configuration
   termsConditions String? // HTML from TipTap editor  
   privacyPolicy   String? // HTML from TipTap editor
 
@@ -125,6 +126,9 @@ model Group {
   
   // Many-to-many with activities (MongoDB array approach)
   activityIds String[]   @db.ObjectId
+  
+  // Transport assignments - default cars for group members
+  carNumbers String[] @default([]) // ["car-1", "car-2"] - inherited by all group members
 
   // Relations
   event      Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -197,8 +201,8 @@ model User {
   // Profile
   profile Json // { email, firstName, lastName, phone, preferredFirstName, preferredLastName }
   
-  // Admin-managed ticket numbers
-  ticketNumbers String[] @default([]) // Array of ticket numbers (e.g., ["XXX123", "XXX456"])
+  // Admin-managed structured tickets  
+  tickets Json[] @default([]) // Array of structured tickets: [{ name: string, number: string, valid: boolean }]
 
   // Authentication - 7-day JWT sessions only (OTPs are handled separately)
 
@@ -207,8 +211,8 @@ model User {
 
   // Travel & accommodation details
   flight               Json? // { inbound: { departureFrom, departureDate, departureTime, departureTerminal, flightNumber, airline, arrivalDate, arrivalTime, arrivalToAirport, arrivalToTerminal }, outbound: { departureFrom, departureDate, departureTime, departureTerminal, flightNumber, airline, arrivalDate, arrivalTime, arrivalToAirport, arrivalToTerminal } }
-  accommodation        Json? // { required, hotel, checkIn, checkOut, specialRequests, doubleOccupancy: { enabled, guestType, guestName, guestRelation }, twinOccupancy: { enabled, guestType }, earlyCheckIn, lateCheckOut, visaBookingRequired }
-  transferRequirements String?
+  accommodation        Json? // { required, hotel, checkIn, checkOut, hotelNotes, doubleOccupancy: { enabled, guestType, guestName, guestRelation }, twinOccupancy: { enabled, guestType }, earlyCheckIn, lateCheckOut, visaBookingRequired }
+  transferRequirements Boolean @default(false)
 
   // Requirements - Enhanced YES/NO pattern
   requirements Json? // { medical: { enabled, details }, dietary: { enabled, details }, allergiesIntolerances: { enabled, details }, accessibility: { enabled, details }, otherComments }
@@ -232,6 +236,9 @@ model User {
   guestCategory String? // Admin-assigned guest tier (VIP, Standard, etc.)
   roomDropAssigned String? // ID of assigned room drop package
   hotelId String? @db.ObjectId // Reference to assigned hotel
+  
+  // Transport assignments - individual car overrides
+  carNumbers String[] @default([]) // [] = inherit from group, ["car-5"] = individual override
 
   // Report-specific notes
   arrivalNotes String? // Notes specific to arrival logistics
