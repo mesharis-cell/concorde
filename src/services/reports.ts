@@ -974,9 +974,14 @@ export class ReportsService {
   }
 
   /**
-   * 7. Activity Attendance List - Per-activity guest management
+   * Activity Attendance Report - Multi-tab with detailed guest information
+   * Supports both single activity export and all activities with separate tabs
    */
-  static async getActivityAttendanceReport(eventId: string, activityId?: string): Promise<ReportData> {
+  static async getActivityAttendanceReport(
+    eventId: string,
+    activityId?: string
+  ): Promise<ReportData & { isMultiTab?: boolean; activityTabs?: any[] }> {
+    // Get activities (single or all)
     const activities = await prisma.activity.findMany({
       where: {
         eventId,
@@ -999,74 +1004,166 @@ export class ReportsService {
       orderBy: { startDateTime: 'asc' },
     });
 
+    // Get all groups for car assignment resolution
+    const allGroups = await prisma.group.findMany({
+      where: { eventId, active: true, deleted: false },
+    });
+    const groupMap = new Map(allGroups.map((g) => [g.id, g]));
+
+    // Define headers (same as car assignment report but focused on user data)
     const headers = [
-      'Activity Title',
-      'Date & Time',
       'First Name',
       'Surname',
-      'Guest Category',
-      'Email',
-      'Group Assignment',
-      'Status',
-      'Exclusion Reason',
+      'Hotel',
+      'Guest type',
+      'Market', // Group names
+      'Contact mobile number',
+      'Market host',
+      'VIP Guest',
+      'Transfer Requirements',
+      'Assigned Cars',
+      'Hotel Notes',
+      'Arrival Notes',
+      'Departure Notes',
+      'General notes',
     ];
 
-    const rows: any[][] = [];
-    const rowMetadata = [];
+    const activityTabs: any[] = [];
+    const allRows: any[][] = [];
+    const allRowMetadata: any[] = [];
 
     for (const activity of activities) {
-      // Get users assigned to the activity's groups
+      // Get users assigned to this activity's groups
       const users = await prisma.user.findMany({
         where: {
           eventId,
           active: true,
           groupIds: { hasSome: activity.groups.map(g => g.id) },
         },
+        include: {
+          roomAssignments: {
+            where: { eventId },
+          },
+        },
+        orderBy: [
+          { registeredAt: 'asc' },
+        ],
+      });
+
+      // Sort users alphabetically by last name, then first name (since we can't do it in Prisma with JSON fields)
+      users.sort((a, b) => {
+        const aProfile = a.profile as any;
+        const bProfile = b.profile as any;
+
+        const aLastName = aProfile?.lastName || '';
+        const bLastName = bProfile?.lastName || '';
+        const aFirstName = aProfile?.firstName || '';
+        const bFirstName = bProfile?.firstName || '';
+
+        // Compare last names first
+        if (aLastName !== bLastName) {
+          return aLastName.localeCompare(bLastName);
+        }
+        // If last names are equal, compare first names
+        return aFirstName.localeCompare(bFirstName);
       });
 
       const excludedUserIds = activity.userExclusions.map(e => e.user.id);
+      const activityRows: any[][] = [];
+      const activityRowMetadata: any[] = [];
 
-      users.forEach(user => {
-        const profile = user.profile as any;
-        const isExcluded = excludedUserIds.includes(user.id);
-        const exclusion = activity.userExclusions.find(e => e.user.id === user.id);
-        const userGroupNames = activity.groups
-          .filter(g => user.groupIds.includes(g.id))
-          .map(g => g.name)
-          .join(', ');
+      // Process each user (excluding those with exclusions)
+      users
+        .filter(user => !excludedUserIds.includes(user.id))
+        .forEach(user => {
+          const profile = user.profile as any;
+          const flight = user.flight as any;
+          const accommodation = user.accommodation as any;
 
-        rows.push([
-          activity.title,
-          `${new Date(activity.startDateTime).toLocaleDateString('en-GB')} ${new Date(activity.startDateTime).toLocaleTimeString('en-GB')}`,
-          profile?.firstName || '',
-          profile?.lastName || '',
-          user.guestCategory || 'Standard',
-          profile?.email || '',
-          userGroupNames,
-          isExcluded ? 'Excluded' : 'Attending',
-          exclusion?.reason || '',
-        ]);
+          // Get user groups from groupIds array
+          const userGroupIds = (user.groupIds as string[]) || [];
+          const userGroups = userGroupIds.map((id) => groupMap.get(id)).filter(Boolean);
+          const groupNames = userGroups.map((g) => g?.name).join(', ') || 'No Group';
 
-        // Add metadata for editing capabilities
-        rowMetadata.push({
-          userId: user.id,
-          entityId: user.id,
-          entityType: 'user' as const,
-          editable: true,
+          // Get car assignments (same logic as car assignment report)
+          const userCarNumbers = (user.carNumbers as string[]) || [];
+          const groupCarNumbers = userGroups.flatMap((g) => (g as any)?.carNumbers || []);
+          const uniqueGroupCars = [...new Set(groupCarNumbers)];
+
+          // Use individual cars if assigned, otherwise inherit from groups
+          const assignedCars = userCarNumbers.length > 0
+            ? userCarNumbers.join(', ')
+            : uniqueGroupCars.length > 0
+              ? uniqueGroupCars.join(', ')
+              : 'None';
+
+          // Get hotel name from room assignment or accommodation
+          const roomAssignment = user.roomAssignments?.[0];
+          const hotelName = accommodation?.hotel || roomAssignment?.hotel?.name || '';
+
+          const row = [
+            profile?.firstName || '',
+            profile?.lastName || '',
+            hotelName,
+            profile?.guestType || '',
+            groupNames, // Market = Groups
+            profile?.phone || '',
+            profile?.host || '',
+            profile?.vip ? 'Y' : 'N',
+            user.transferRequirements ? 'Y' : 'N',
+            assignedCars,
+            roomAssignment?.hotelNotes || '',
+            user.arrivalNotes || '',
+            user.departureNotes || '',
+            user.masterGuestNotes || '',
+          ];
+
+          activityRows.push(row);
+          allRows.push(row);
+
+          const metadata = {
+            userId: user.id,
+            entityId: user.id,
+            entityType: 'user' as const,
+            editable: true,
+          };
+
+          activityRowMetadata.push(metadata);
+          allRowMetadata.push(metadata);
         });
+
+      // Store activity tab data
+      activityTabs.push({
+        activityId: activity.id,
+        activityName: activity.title,
+        startDateTime: activity.startDateTime,
+        headers,
+        rows: activityRows,
+        rowMetadata: activityRowMetadata,
+        attendeeCount: activityRows.length,
+        excludedCount: excludedUserIds.length,
       });
     }
 
+    const isMultiActivity = activities.length > 1;
+    const reportTitle = isMultiActivity
+      ? 'Activities Attendance - All Activities'
+      : `Activity Attendance - ${activities[0]?.title || 'Single Activity'}`;
+
     return {
       headers,
-      rows,
-      rowMetadata,
+      rows: allRows,
+      rowMetadata: allRowMetadata,
       metadata: {
-        title: 'Activity Attendance List',
-        description: 'Per-activity guest management and attendance tracking',
+        title: reportTitle,
+        description: isMultiActivity
+          ? `Activities attendance report with detailed guest information for ${activities.length} activities`
+          : 'Single activity attendance report with detailed guest information',
         generatedAt: new Date(),
-        totalCount: rows.length,
+        totalCount: allRows.length,
       },
+      isMultiTab: isMultiActivity,
+      activityTabs,
     };
   }
 
@@ -2071,6 +2168,169 @@ export class ReportsService {
   }
 
   /**
+   * 🚀 Generate Multi-Tab Excel file for Enhanced Activities Attendance Report
+   */
+  static async generateMultiTabExcelFile(
+    reportData: ReportData & { activityTabs?: any[] }
+  ): Promise<Buffer> {
+    const workbook = new ExcelJS.Workbook();
+
+    if (!reportData.activityTabs || reportData.activityTabs.length === 0) {
+      // Fallback to single tab if no activity tabs
+      return this.generateExcelFile(reportData);
+    }
+
+    // Create a tab for each activity
+    reportData.activityTabs.forEach((activityTab, index) => {
+      const safeName = activityTab.activityName
+        .replace(/[\\\/:*?"<>|]/g, '_') // Remove invalid characters for sheet names
+        .substring(0, 31); // Excel sheet name limit
+
+      const worksheet = workbook.addWorksheet(safeName || `Activity ${index + 1}`);
+
+      // Add activity header info
+      worksheet.mergeCells('A1:N1');
+      worksheet.getCell('A1').value = `ACTIVITY: ${activityTab.activityName}`;
+      worksheet.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF000000' } };
+      worksheet.getCell('A1').fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF4A90E2' } // Blue header
+      };
+      worksheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+
+      // Add activity details
+      worksheet.mergeCells('A2:N2');
+      const activityTime = new Date(activityTab.startDateTime).toLocaleString('en-GB');
+      worksheet.getCell('A2').value = `Time: ${activityTime} | Attendees: ${activityTab.attendeeCount} | Excluded: ${activityTab.excludedCount}`;
+      worksheet.getCell('A2').font = { italic: true, size: 12 };
+      worksheet.getCell('A2').alignment = { horizontal: 'center' };
+
+      // Add headers starting from row 4
+      const headerRow = worksheet.insertRow(4, activityTab.headers);
+      headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF2E7D32' } // Green headers
+      };
+      headerRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      headerRow.border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } }
+      };
+
+      // Add data rows with alternating colors
+      activityTab.rows.forEach((row: any[], rowIndex: number) => {
+        const dataRow = worksheet.insertRow(5 + rowIndex, row);
+
+        // Alternating row colors
+        if (rowIndex % 2 === 1) {
+          dataRow.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF8F9FA' } // Light gray for alternate rows
+          };
+        }
+
+        // Add borders
+        dataRow.eachCell((cell: any) => {
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            left: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            right: { style: 'thin', color: { argb: 'FFE0E0E0' } }
+          };
+          cell.alignment = { vertical: 'middle', wrapText: true };
+        });
+      });
+
+      // Auto-size columns
+      worksheet.columns.forEach((column: any, colIndex: number) => {
+        if (activityTab.rows.length > 0) {
+          const headerLength = (activityTab.headers[colIndex] || '').length;
+          const maxLength = Math.max(
+            ...activityTab.rows.map((row: any[]) =>
+              String(row[colIndex] || '').length
+            )
+          );
+          column.width = Math.min(Math.max(maxLength, headerLength, 10), 40);
+        } else {
+          column.width = 15;
+        }
+      });
+
+      // Add metadata at the bottom
+      const lastRow = worksheet.rowCount + 2;
+      worksheet.getCell(`A${lastRow}`).value = `Generated: ${new Date().toLocaleString('en-GB')}`;
+      worksheet.getCell(`A${lastRow + 1}`).value = `Activity: ${activityTab.activityName}`;
+      worksheet.getCell(`A${lastRow + 2}`).value = `Attendees: ${activityTab.attendeeCount} (Excluding ${activityTab.excludedCount} excluded users)`;
+
+      // Style metadata
+      [lastRow, lastRow + 1, lastRow + 2].forEach(row => {
+        const cell = worksheet.getCell(`A${row}`);
+        cell.font = { italic: true, size: 10 };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF0F0F0' }
+        };
+      });
+    });
+
+    // Add a summary tab if there are multiple activities
+    if (reportData.activityTabs.length > 1) {
+      const summarySheet = workbook.addWorksheet('Summary');
+
+      // Summary header
+      summarySheet.mergeCells('A1:E1');
+      summarySheet.getCell('A1').value = 'ACTIVITIES ATTENDANCE SUMMARY';
+      summarySheet.getCell('A1').font = { bold: true, size: 16 };
+      summarySheet.getCell('A1').fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF9C27B0' } // Purple
+      };
+      summarySheet.getCell('A1').alignment = { horizontal: 'center' };
+
+      // Summary table headers
+      const summaryHeaders = ['Activity Name', 'Date & Time', 'Attendees', 'Excluded', 'Total Assigned'];
+      const summaryHeaderRow = summarySheet.insertRow(3, summaryHeaders);
+      summaryHeaderRow.font = { bold: true };
+      summaryHeaderRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE6E6FA' }
+      };
+
+      // Add summary data
+      reportData.activityTabs.forEach((tab, index) => {
+        const summaryRow = [
+          tab.activityName,
+          new Date(tab.startDateTime).toLocaleString('en-GB'),
+          tab.attendeeCount,
+          tab.excludedCount,
+          tab.attendeeCount + tab.excludedCount
+        ];
+        summarySheet.insertRow(4 + index, summaryRow);
+      });
+
+      // Auto-size summary columns
+      summarySheet.columns.forEach((column: any) => {
+        column.width = 20;
+      });
+
+      // Move summary sheet to first position
+      workbook.removeWorksheet(summarySheet.id);
+      workbook.insertWorksheet(summarySheet, 0);
+    }
+
+    return await workbook.xlsx.writeBuffer() as Buffer;
+  }
+
+  /**
    * Generate room allocation matrix for rooming list report
    */
   private static async generateRoomMatrix(reportData: ReportData): Promise<{
@@ -2280,7 +2540,7 @@ export class ReportsService {
       { id: 'dietary-list', name: 'Dietary List', category: 'Requirements' },
       { id: 'rooming-list', name: 'Rooming List', category: 'Accommodation' },
       { id: 'guest-list-alpha', name: 'Guest List by Alpha', category: 'Guest Lists' },
-      { id: 'activity-attendance', name: 'Activity Attendance List', category: 'Activities' },
+      { id: 'activity-attendance', name: 'Activity Attendance', category: 'Activities' },
       { id: 'guest-list-type', name: 'Guest List by Type', category: 'Guest Lists' },
       { id: 'guest-list-group', name: 'Guest List by Group', category: 'Guest Lists' },
       { id: 'master-guest', name: 'Master Guest Report', category: 'Complete Data' },

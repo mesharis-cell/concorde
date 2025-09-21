@@ -6627,7 +6627,10 @@ app.openapi(exportReportRoute, async (c) => {
         );
     }
 
-    const excelBuffer = await ReportsService.generateExcelFile(reportData);
+    // Multi-tab Excel generation for activity attendance reports
+    const excelBuffer = reportType === 'activity-attendance' && (reportData as any).isMultiTab
+      ? await ReportsService.generateMultiTabExcelFile(reportData)
+      : await ReportsService.generateExcelFile(reportData);
 
     // Log export operation
     await AuditTrailService.logExport(

@@ -7,6 +7,8 @@ import * as dateFnsTz from 'date-fns-tz';
 import * as ExcelJS from 'exceljs';
 import { RoomAssignmentService } from '../src/services/room-assignments.js';
 import { GroupService } from '../src/services/groups.js';
+import { ActivityService } from '../src/services/activities.js';
+import { UserActivityExclusionService } from '../src/services/user-activity-exclusions.js';
 
 const prisma = new PrismaClient({
   log: ['error']
@@ -140,6 +142,11 @@ const roomTypes = [
     name: "Shophouse suite",
     description: "Premium suite in heritage shophouse",
     basePrice: 0
+  },
+  {
+    name: "Signature Twin",
+    description: "Signature room with twin beds",
+    basePrice: 0
   }
 ];
 
@@ -227,26 +234,26 @@ const activityDefinitions: ActivityDefinition[] = [
     csvField: "casaFerrari"
   },
   {
-    title: "PRS Paddock Club",
+    title: "PRS Paddock Club - Friday",
     date: "03/10/2025",
     time: "14:00",
-    description: "PRS Paddock Club access",
+    description: "PRS Paddock Club access on Friday",
     category: "HOSPITALITY",
     csvField: "prsPaddockClubFri"
   },
   {
-    title: "Regal Club",
+    title: "Regal Club - Friday",
     date: "03/10/2025",
     time: "16:00",
-    description: "Regal Club experience",
+    description: "Regal Club experience on Friday",
     category: "HOSPITALITY",
     csvField: "regalClubFri"
   },
   {
-    title: "Crystal Gold Lounge",
+    title: "Crystal Gold Lounge - Friday",
     date: "03/10/2025",
     time: "18:00",
-    description: "Crystal Gold Lounge access",
+    description: "Crystal Gold Lounge access on Friday",
     category: "HOSPITALITY",
     csvField: "crystalGoldLoungeFri"
   },
@@ -335,26 +342,26 @@ const activityDefinitions: ActivityDefinition[] = [
     csvField: "fredInterviewSession"
   },
   {
-    title: "PRS Paddock Club",
+    title: "PRS Paddock Club - Saturday",
     date: "04/10/2025",
     time: "14:00",
-    description: "PRS Paddock Club access",
+    description: "PRS Paddock Club access on Saturday",
     category: "HOSPITALITY",
     csvField: "prsPaddockClubSat"
   },
   {
-    title: "Regal Club",
+    title: "Regal Club - Saturday",
     date: "04/10/2025",
     time: "16:00",
-    description: "Regal Club experience",
+    description: "Regal Club experience on Saturday",
     category: "HOSPITALITY",
     csvField: "regalClubSat"
   },
   {
-    title: "Crystal Gold Lounge",
+    title: "Crystal Gold Lounge - Saturday",
     date: "04/10/2025",
     time: "18:00",
-    description: "Crystal Gold Lounge access",
+    description: "Crystal Gold Lounge access on Saturday",
     category: "HOSPITALITY",
     csvField: "crystalGoldLoungeSat"
   },
@@ -369,26 +376,26 @@ const activityDefinitions: ActivityDefinition[] = [
 
   // SUNDAY 5th October 2025  
   {
-    title: "PRS Paddock Club",
+    title: "PRS Paddock Club - Sunday",
     date: "05/10/2025",
     time: "14:00",
-    description: "PRS Paddock Club access",
+    description: "PRS Paddock Club access on Sunday",
     category: "HOSPITALITY",
     csvField: "prsPaddockClubSun"
   },
   {
-    title: "Regal Club",
+    title: "Regal Club - Sunday",
     date: "05/10/2025",
     time: "16:00",
-    description: "Regal Club experience",
+    description: "Regal Club experience on Sunday",
     category: "HOSPITALITY",
     csvField: "regalClubSun"
   },
   {
-    title: "Crystal Gold Lounge",
+    title: "Crystal Gold Lounge - Sunday",
     date: "05/10/2025",
     time: "18:00",
-    description: "Crystal Gold Lounge access",
+    description: "Crystal Gold Lounge access on Sunday",
     category: "HOSPITALITY",
     csvField: "crystalGoldLoungeSun"
   },
@@ -523,7 +530,8 @@ async function getOrCreateActivity(
   eventId: string,
   adminId: string
 ): Promise<string> {
-  const cacheKey = activityDef.title;
+  // Use title + date as cache key to handle same activity on different days
+  const cacheKey = `${activityDef.title}_${activityDef.date}`;
 
   // Check cache first
   if (activityCache.has(cacheKey)) {
@@ -531,11 +539,23 @@ async function getOrCreateActivity(
   }
 
   try {
-    // Check if activity already exists
+    // Parse activity date for exact matching
+    const activityDate = parseDate(activityDef.date);
+    if (!activityDate) {
+      throw new Error(`Invalid date for activity ${activityDef.title}: ${activityDef.date}`);
+    }
+
+    const [hours, minutes] = activityDef.time.split(':').map(n => parseInt(n));
+    const startDateTime = new Date(activityDate);
+    startDateTime.setHours(hours, minutes, 0, 0);
+    const utcStartDateTime = dateFnsTz.fromZonedTime(startDateTime, EVENT_TIMEZONE);
+
+    // Check if activity already exists with same title and date
     const existingActivity = await prisma.activity.findFirst({
       where: {
         eventId: eventId,
         title: activityDef.title,
+        startDateTime: utcStartDateTime,
         deleted: false,
       },
     });
@@ -545,19 +565,6 @@ async function getOrCreateActivity(
       activityCache.set(cacheKey, existingActivity.id);
       return existingActivity.id;
     }
-
-    // Parse date and time for activity scheduling
-    const activityDate = parseDate(activityDef.date);
-    const [hours, minutes] = activityDef.time.split(':').map(n => parseInt(n));
-
-    if (!activityDate) {
-      throw new Error(`Invalid date for activity ${activityDef.title}: ${activityDef.date}`);
-    }
-
-    // Set time in Singapore timezone then convert to UTC
-    const startDateTime = new Date(activityDate);
-    startDateTime.setHours(hours, minutes, 0, 0);
-    const utcStartDateTime = dateFnsTz.fromZonedTime(startDateTime, EVENT_TIMEZONE);
 
     // End time is 2 hours later by default (can be adjusted per activity type)
     const endDateTime = new Date(utcStartDateTime);
@@ -595,47 +602,190 @@ async function getOrCreateActivity(
   }
 }
 
+// Activity assignment logic moved to smart assignment phase
+
 /**
- * Process user activity assignments based on CSV data
+ * Analyze CSV data to determine which groups should have access to each activity
  */
-async function processUserActivityAssignments(
-  record: CSVRow,
-  userId: string,
-  eventId: string,
-  superAdmin: any
-): Promise<string[]> {
-  const assignedActivityIds: string[] = [];
+async function analyzeActivityGroupPatterns(
+  csvRecords: CSVRow[],
+  eventId: string
+): Promise<Map<string, { groupIds: string[], userPatterns: Array<{ userId: string, shouldAttend: boolean, venue?: string }> }>> {
+  console.log('\n🧠 ANALYZING ACTIVITY PATTERNS...');
 
+  // Get all groups for this event
+  const allGroups = await prisma.group.findMany({
+    where: { eventId, active: true, deleted: false },
+    select: { id: true, name: true }
+  });
+
+  // Get all users for this event to match CSV records
+  const allUsers = await prisma.user.findMany({
+    where: { eventId, active: true },
+    select: { id: true, profile: true, groupIds: true }
+  });
+
+  const groupNameToId = new Map(allGroups.map(g => [g.name, g.id]));
+  const activityPatterns = new Map<string, { groupIds: string[], userPatterns: Array<{ userId: string, shouldAttend: boolean, venue?: string }> }>();
+
+  // Process each activity definition
   for (const activityDef of activityDefinitions) {
-    try {
-      const csvValue = record[activityDef.csvField] as string;
+    console.log(`\n📊 Analyzing "${activityDef.title}":`);
 
-      if (!csvValue || csvValue.trim() === '' || csvValue === 'N/A') {
-        continue; // Skip empty/N/A values
+    const groupsNeeded = new Set<string>();
+    const userPatterns: Array<{ userId: string, shouldAttend: boolean, venue?: string }> = [];
+
+    // Analyze each CSV record
+    for (const record of csvRecords) {
+      // Find corresponding user in database
+      const user = allUsers.find(u => {
+        const profile = u.profile as any;
+        return profile?.firstName?.toLowerCase() === record.firstName?.toLowerCase() &&
+          profile?.lastName?.toLowerCase() === record.lastName?.toLowerCase();
+      });
+
+      if (!user) {
+        console.log(`   ⚠️ Could not find user ${record.firstName} ${record.lastName} in database`);
+        continue;
       }
 
-      // Handle evening bar special case (specific venue name)
+      // Get CSV value for this activity
+      const csvValue = (record as any)[activityDef.csvField] as string;
+
       if (activityDef.isEveningBar) {
-        // Only assign if the CSV value matches this specific evening bar option
+        // Evening bar: check if user selected this specific venue
         const expectedVenueName = activityDef.title.replace('Evening Bar - ', '');
-        if (csvValue.trim() === expectedVenueName) {
-          const activityId = await getOrCreateActivity(activityDef, eventId, superAdmin.id);
-          assignedActivityIds.push(activityId);
-          console.log(`🎯 Assigned ${record.firstName} ${record.lastName} to evening bar: ${expectedVenueName}`);
+        const shouldAttend = csvValue && csvValue.trim() === expectedVenueName;
+
+        if (shouldAttend) {
+          // Add user's groups to the needed groups
+          user.groupIds.forEach(groupId => groupsNeeded.add(groupId));
+          userPatterns.push({ userId: user.id, shouldAttend: true, venue: expectedVenueName });
+          console.log(`   ✅ ${record.firstName} ${record.lastName} should attend (venue: ${expectedVenueName})`);
+        } else {
+          userPatterns.push({ userId: user.id, shouldAttend: false });
+        }
+      } else {
+        // Regular Y/N activity
+        const shouldAttend = parseYesNo(csvValue);
+
+        if (shouldAttend) {
+          // Add user's groups to the needed groups
+          user.groupIds.forEach(groupId => groupsNeeded.add(groupId));
+          userPatterns.push({ userId: user.id, shouldAttend: true });
+          console.log(`   ✅ ${record.firstName} ${record.lastName} should attend`);
+        } else {
+          userPatterns.push({ userId: user.id, shouldAttend: false });
         }
       }
-      // Handle regular Y/N activities
-      else if (parseYesNo(csvValue)) {
-        const activityId = await getOrCreateActivity(activityDef, eventId, superAdmin.id);
-        assignedActivityIds.push(activityId);
-        console.log(`🎯 Assigned ${record.firstName} ${record.lastName} to activity: ${activityDef.title}`);
-      }
-    } catch (error: any) {
-      console.warn(`⚠️ Failed to process activity ${activityDef.title} for user ${record.firstName} ${record.lastName}: ${error.message}`);
     }
+
+    const finalGroupIds = Array.from(groupsNeeded);
+    const groupNames = finalGroupIds.map(id =>
+      allGroups.find(g => g.id === id)?.name || 'Unknown'
+    );
+
+    console.log(`   🎯 Activity should be assigned to groups: [${groupNames.join(', ')}]`);
+    console.log(`   👥 Users who should attend: ${userPatterns.filter(p => p.shouldAttend).length}`);
+    console.log(`   🚫 Users who should be excluded: ${userPatterns.filter(p => !p.shouldAttend).length}`);
+
+    activityPatterns.set(activityDef.title, {
+      groupIds: finalGroupIds,
+      userPatterns
+    });
   }
 
-  return assignedActivityIds;
+  return activityPatterns;
+}
+
+/**
+ * Apply smart activity assignments and exclusions
+ */
+async function applySmartActivityAssignments(
+  activityPatterns: Map<string, { groupIds: string[], userPatterns: Array<{ userId: string, shouldAttend: boolean, venue?: string }> }>,
+  eventId: string,
+  adminId: string
+): Promise<void> {
+  console.log('\n🎯 APPLYING SMART ACTIVITY ASSIGNMENTS...');
+
+  for (const [activityTitle, pattern] of activityPatterns) {
+    try {
+      console.log(`\n🔄 Processing "${activityTitle}":`);
+
+      // Find the activity
+      const activity = await prisma.activity.findFirst({
+        where: {
+          eventId,
+          title: activityTitle,
+          active: true,
+          deleted: false
+        }
+      });
+
+      if (!activity) {
+        console.log(`   ❌ Activity not found: "${activityTitle}"`);
+        continue;
+      }
+
+      // Update activity with group assignments
+      if (pattern.groupIds.length > 0) {
+        await prisma.activity.update({
+          where: { id: activity.id },
+          data: {
+            groupIds: pattern.groupIds,
+            lastModifiedBy: adminId,
+            lastModifiedAt: new Date()
+          }
+        });
+
+        console.log(`   ✅ Assigned activity to ${pattern.groupIds.length} groups`);
+
+        // Create exclusions for users who shouldn't attend
+        const exclusionsToCreate = pattern.userPatterns.filter(p => !p.shouldAttend);
+
+        if (exclusionsToCreate.length > 0) {
+          console.log(`   🚫 Creating ${exclusionsToCreate.length} exclusions...`);
+
+          for (const exclusionPattern of exclusionsToCreate) {
+            try {
+              // Get user details for exclusion
+              const user = await prisma.user.findUnique({
+                where: { id: exclusionPattern.userId },
+                select: { groupIds: true, eventId: true, profile: true }
+              });
+
+              if (!user) continue;
+
+              // Create exclusion for each group this activity is assigned to that the user is also in
+              const userGroupsInActivity = user.groupIds.filter(groupId =>
+                pattern.groupIds.includes(groupId)
+              );
+
+              for (const groupId of userGroupsInActivity) {
+                await UserActivityExclusionService.excludeUserFromActivity({
+                  userId: exclusionPattern.userId,
+                  activityId: activity.id,
+                  groupId: groupId,
+                  eventId: user.eventId,
+                  excludedBy: adminId,
+                  reason: 'Not attending per CSV data'
+                });
+              }
+
+              const profile = user.profile as any;
+              console.log(`     🚫 Excluded ${profile?.firstName} ${profile?.lastName} from "${activityTitle}"`);
+            } catch (exclusionError: any) {
+              console.warn(`     ⚠️ Failed to create exclusion: ${exclusionError.message}`);
+            }
+          }
+        }
+      } else {
+        console.log(`   ℹ️ No groups needed for "${activityTitle}" (no users attending)`);
+      }
+    } catch (error: any) {
+      console.error(`   ❌ Failed to process activity "${activityTitle}": ${error.message}`);
+    }
+  }
 }
 
 async function main() {
@@ -742,19 +892,19 @@ async function main() {
             checkOutTime: hotel.checkOutTime,
             contractedRooms: [
               // Signature King rooms - Updated per hotel matrix
-              { date: "25/09/2025", roomType: "Signature King", quantity: 0, allocated: 0 },
+              { date: "25/09/2025", roomType: "Signature King", quantity: 2, allocated: 0 },
               { date: "26/09/2025", roomType: "Signature King", quantity: 3, allocated: 0 },
               { date: "27/09/2025", roomType: "Signature King", quantity: 3, allocated: 0 },
               { date: "28/09/2025", roomType: "Signature King", quantity: 10, allocated: 0 },
-              { date: "29/09/2025", roomType: "Signature King", quantity: 26, allocated: 0 },
-              { date: "30/09/2025", roomType: "Signature King", quantity: 67, allocated: 0 },
-              { date: "01/10/2025", roomType: "Signature King", quantity: 72, allocated: 0 },
-              { date: "02/10/2025", roomType: "Signature King", quantity: 72, allocated: 0 },
+              { date: "29/09/2025", roomType: "Signature King", quantity: 28, allocated: 0 },
+              { date: "30/09/2025", roomType: "Signature King", quantity: 63, allocated: 0 },
+              { date: "01/10/2025", roomType: "Signature King", quantity: 66, allocated: 0 },
+              { date: "02/10/2025", roomType: "Signature King", quantity: 71, allocated: 0 },
               { date: "03/10/2025", roomType: "Signature King", quantity: 66, allocated: 0 },
               { date: "04/10/2025", roomType: "Signature King", quantity: 66, allocated: 0 },
-              { date: "05/10/2025", roomType: "Signature King", quantity: 64, allocated: 0 },
-              { date: "06/10/2025", roomType: "Signature King", quantity: 12, allocated: 0 },
-              // Suite King rooms (new type from matrix)
+              { date: "05/10/2025", roomType: "Signature King", quantity: 63, allocated: 0 },
+              { date: "06/10/2025", roomType: "Signature King", quantity: 10, allocated: 0 },
+              // Suite King rooms - Updated per hotel matrix
               { date: "25/09/2025", roomType: "Suite King", quantity: 0, allocated: 0 },
               { date: "26/09/2025", roomType: "Suite King", quantity: 0, allocated: 0 },
               { date: "27/09/2025", roomType: "Suite King", quantity: 0, allocated: 0 },
@@ -780,12 +930,36 @@ async function main() {
               { date: "04/10/2025", roomType: "Shophouse suite", quantity: 3, allocated: 0 },
               { date: "05/10/2025", roomType: "Shophouse suite", quantity: 3, allocated: 0 },
               { date: "06/10/2025", roomType: "Shophouse suite", quantity: 0, allocated: 0 },
+              // Signature Twin rooms - Added for users requiring twin bed setup
+              { date: "25/09/2025", roomType: "Signature Twin", quantity: 0, allocated: 0 },
+              { date: "26/09/2025", roomType: "Signature Twin", quantity: 0, allocated: 0 },
+              { date: "27/09/2025", roomType: "Signature Twin", quantity: 0, allocated: 0 },
+              { date: "28/09/2025", roomType: "Signature Twin", quantity: 2, allocated: 0 },
+              { date: "29/09/2025", roomType: "Signature Twin", quantity: 5, allocated: 0 },
+              { date: "30/09/2025", roomType: "Signature Twin", quantity: 10, allocated: 0 },
+              { date: "01/10/2025", roomType: "Signature Twin", quantity: 10, allocated: 0 },
+              { date: "02/10/2025", roomType: "Signature Twin", quantity: 10, allocated: 0 },
+              { date: "03/10/2025", roomType: "Signature Twin", quantity: 10, allocated: 0 },
+              { date: "04/10/2025", roomType: "Signature Twin", quantity: 10, allocated: 0 },
+              { date: "05/10/2025", roomType: "Signature Twin", quantity: 8, allocated: 0 },
+              { date: "06/10/2025", roomType: "Signature Twin", quantity: 2, allocated: 0 },
             ]
           }]
         }
       }
     });
     console.log('✅ Hotel configuration set up successfully');
+
+    // Step 4.5: Pre-create all activities based on schedule
+    console.log('\n🎯 Pre-creating all activities...');
+    for (const activityDef of activityDefinitions) {
+      try {
+        await getOrCreateActivity(activityDef, event.id, superAdmin.id);
+      } catch (activityCreationError: any) {
+        console.warn(`⚠️ Failed to pre-create activity "${activityDef.title}": ${activityCreationError.message}`);
+      }
+    }
+    console.log(`✅ Pre-created ${activityCache.size} activities`);
 
     // Step 5: Read and parse CSV
     console.log('📄 Reading CSV file...');
@@ -1011,16 +1185,7 @@ async function main() {
           }
         }
 
-        // Process activity assignments based on CSV data
-        try {
-          const assignedActivityIds = await processUserActivityAssignments(record, user.id, event.id, superAdmin);
-
-          if (assignedActivityIds.length > 0) {
-            console.log(`🎯 Processed ${assignedActivityIds.length} activity assignments for ${(user.profile as any).firstName} ${(user.profile as any).lastName}`);
-          }
-        } catch (activityError: any) {
-          console.warn(`⚠️ Failed to process activities for ${(user.profile as any).firstName} ${(user.profile as any).lastName}: ${activityError.message}`);
-        }
+        // Activity assignments will be handled in smart assignment phase after all users are imported
 
         // Handle car number assignment (direct to user override, skip group inheritance)
         try {
@@ -1079,6 +1244,20 @@ async function main() {
       }
     }
 
+    // Step 6: Apply smart activity assignments based on CSV patterns
+    console.log('\n🧠 Step 6: Smart Activity Assignment...');
+    try {
+      // Analyze CSV patterns to determine activity-group mappings
+      const activityPatterns = await analyzeActivityGroupPatterns(records, event.id);
+
+      // Apply the smart assignments and exclusions
+      await applySmartActivityAssignments(activityPatterns, event.id, superAdmin.id);
+
+      console.log('✅ Smart activity assignments completed!');
+    } catch (smartAssignmentError: any) {
+      console.error('❌ Smart activity assignment failed:', smartAssignmentError.message);
+      // Don't fail the entire import - continue with reporting
+    }
 
     console.log('📈 Import Summary:');
     console.log(`✅ Successfully imported: ${imported} users`);
@@ -1088,6 +1267,8 @@ async function main() {
     console.log(`🛏️ Created: ${createdRoomTypes.length} room types`);
     console.log(`👥 Created/used: ${groupCache.size} groups`);
     console.log(`🎯 Created/used: ${activityCache.size} activities`);
+    console.log(`🧠 Smart assignments: Activities assigned to groups based on CSV patterns`);
+    console.log(`🚫 Exclusions: Created for users not attending activities their groups have access to`);
     console.log(`🚗 Configured: ${carConfig.length} cars (1-27)`);
     console.log(`📅 Created: 1 event (${event.name})`);
 
