@@ -20,7 +20,8 @@
     "migrate": "bun scripts/migrate.ts up",
     "migrate:rollback": "bun scripts/migrate.ts down",
     "migrate:status": "bun scripts/migrate.ts status",
-    "make:migration": "bun scripts/make-migration.ts"
+    "make:migration": "bun scripts/make-migration.ts",
+    "validate:import": "bun scripts/validate-import-data.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.864.0",
