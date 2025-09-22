@@ -13,7 +13,7 @@ import { S3Service } from '../services/s3.js';
 import { RoomMatrixDetailedService } from '../services/room-matrix-detailed.js';
 import { JwtService } from '../utils/jwt.js';
 import { TransportService } from '../services/transport.js';
-import { ImprovedTransportConflictService } from '../services/transport-conflicts.js';
+import { ImprovedTransportConflictService } from '../services/transport-conflicts-improved.js';
 import {
   AdminLoginSchema,
   CreateGroupSchema,
@@ -6550,6 +6550,9 @@ app.openapi(exportReportRoute, async (c) => {
       case 'dietary-list':
         reportData = await ReportsService.getDietaryListReport(eventId);
         break;
+      case 'dietary-requirements':
+        reportData = await ReportsService.getDietaryRequirementsReport(eventId);
+        break;
       case 'rooming-list':
         reportData = await ReportsService.getRoomingListReport(eventId);
         break;
@@ -6733,6 +6736,9 @@ app.openapi(previewReportRoute, async (c) => {
         break;
       case 'dietary-list':
         reportData = await ReportsService.getDietaryListReport(eventId);
+        break;
+      case 'dietary-requirements':
+        reportData = await ReportsService.getDietaryRequirementsReport(eventId);
         break;
       case 'rooming-list':
         reportData = await ReportsService.getRoomingListReport(eventId);

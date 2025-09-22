@@ -186,7 +186,7 @@ export class ImprovedTransportConflictService {
                 where: {
                     eventId,
                     active: true,
-                    transferRequirements: { not: null }
+                    transferRequirements: true
                 },
                 select: {
                     id: true,

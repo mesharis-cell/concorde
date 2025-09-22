@@ -82,13 +82,7 @@ export class TransportService {
                     eventId,
                     active: true,
                     deleted: false,
-                    // Only include groups that have at least one member needing transport
-                    members: {
-                        some: {
-                            active: true,
-                            transferRequirements: true
-                        }
-                    }
+                    // Get all groups - we'll filter by members needing transport later
                 },
                 select: { id: true, name: true, carNumbers: true },
             }),
