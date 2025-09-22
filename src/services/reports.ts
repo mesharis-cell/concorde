@@ -669,6 +669,113 @@ export class ReportsService {
   }
 
   /**
+   * Dietary Requirements Export - Custom report for catering coordination
+   * Shows only users with dietary.enabled = true
+   */
+  static async getDietaryRequirementsReport(eventId: string): Promise<ReportData> {
+    const [users, groups] = await Promise.all([
+      prisma.user.findMany({
+        where: {
+          eventId,
+          active: true,
+          requirements: { not: null }, // Get users with requirements field
+        },
+        include: {
+          roomAssignments: {
+            where: { eventId },
+            include: {
+              hotel: { select: { name: true } },
+            },
+          },
+        },
+        orderBy: [
+          { guestCategory: 'asc' },
+          { updatedAt: 'asc' },
+        ],
+      }),
+      prisma.group.findMany({
+        where: { eventId, active: true, deleted: false },
+        select: { id: true, name: true },
+      }),
+    ]);
+
+    const groupMap = new Map(groups.map(g => [g.id, g.name]));
+
+    // Filter users with dietary requirements enabled
+    const usersWithDietary = users.filter(user => {
+      const requirements = user.requirements as any;
+      return requirements?.dietary?.enabled === true;
+    });
+
+    const headers = [
+      'First Name',
+      'Surname',
+      'Hotel',
+      'Guest type',
+      'Market',
+      'Contact mobile number',
+      'Market host',
+      'VIP Guest',
+      'Emergency contact name',
+      'Emergency contact number',
+      'Dietary Requirements',
+      'Hotel Notes',
+      'General notes',
+    ];
+
+    const rows = [];
+    const rowMetadata = [];
+
+    usersWithDietary.forEach(user => {
+      const profile = user.profile as any;
+      const accommodation = user.accommodation as any;
+      const requirements = user.requirements as any;
+      const emergency = user.emergencyContact as any;
+      const roomAssignment = user.roomAssignments[0];
+      const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
+
+      // Get hotel name from accommodation or room assignment
+      const hotelName = accommodation?.hotel || roomAssignment?.hotel?.name || '';
+
+      rows.push([
+        profile?.firstName || '',
+        profile?.lastName || '',
+        hotelName,
+        user.guestCategory || '',
+        groupNames, // Market = Groups
+        profile?.phone || '',
+        profile?.host || '',
+        profile?.vip ? 'Yes' : 'No',
+        emergency?.name || '',
+        emergency?.phone || '',
+        requirements?.dietary?.details || '',
+        accommodation?.hotelNotes || '', // Only accommodation.hotelNotes
+        user.masterGuestNotes || '',
+      ]);
+
+      // Add metadata for editing capabilities
+      rowMetadata.push({
+        userId: user.id,
+        entityId: user.id,
+        entityType: 'user' as const,
+        editable: true,
+      });
+    });
+
+    return {
+      headers,
+      rows,
+      rowMetadata,
+      metadata: {
+        title: 'Dietary Requirements Export',
+        description: 'Users with dietary requirements for catering coordination',
+        generatedAt: new Date(),
+        totalCount: rows.length,
+      },
+    };
+  }
+
+  /**
    * 5. Rooming List - Hotel room allocation with daily occupancy grid
    */
   static async getRoomingListReport(eventId: string): Promise<ReportData> {
@@ -2538,6 +2645,7 @@ export class ReportsService {
       { id: 'departure-list', name: 'Departure List', category: 'Flight Coordination' },
       { id: 'medical-list', name: 'Medical List', category: 'Requirements' },
       { id: 'dietary-list', name: 'Dietary List', category: 'Requirements' },
+      { id: 'dietary-requirements', name: 'Dietary Requirements Export', category: 'Requirements' },
       { id: 'rooming-list', name: 'Rooming List', category: 'Accommodation' },
       { id: 'guest-list-alpha', name: 'Guest List by Alpha', category: 'Guest Lists' },
       { id: 'activity-attendance', name: 'Activity Attendance', category: 'Activities' },

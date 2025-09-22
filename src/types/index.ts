@@ -33,6 +33,7 @@ export const ReportType = z.enum([
   'departure-list',
   'medical-list',
   'dietary-list',
+  'dietary-requirements',
   'rooming-list',
   'guest-list-alpha',
   'activity-attendance',
