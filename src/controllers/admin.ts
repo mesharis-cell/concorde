@@ -6553,6 +6553,9 @@ app.openapi(exportReportRoute, async (c) => {
       case 'dietary-requirements':
         reportData = await ReportsService.getDietaryRequirementsReport(eventId);
         break;
+      case 'emergency-report':
+        reportData = await ReportsService.getEmergencyReport(eventId);
+        break;
       case 'rooming-list':
         reportData = await ReportsService.getRoomingListReport(eventId);
         break;
@@ -6740,6 +6743,9 @@ app.openapi(previewReportRoute, async (c) => {
       case 'dietary-requirements':
         reportData = await ReportsService.getDietaryRequirementsReport(eventId);
         break;
+      case 'emergency-report':
+        reportData = await ReportsService.getEmergencyReport(eventId);
+        break;
       case 'rooming-list':
         reportData = await ReportsService.getRoomingListReport(eventId);
         break;
@@ -6920,6 +6926,9 @@ app.openapi(bulkExportReportsRoute, async (c) => {
           break;
         case 'dietary-list':
           reportData = await ReportsService.getDietaryListReport(eventId);
+          break;
+        case 'emergency-report':
+          reportData = await ReportsService.getEmergencyReport(eventId);
           break;
         case 'rooming-list':
           reportData = await ReportsService.getRoomingListReport(eventId);
