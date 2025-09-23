@@ -588,7 +588,7 @@ export class ReportsService {
    * 4. Dietary List - Catering coordination
    */
   static async getDietaryListReport(eventId: string): Promise<ReportData> {
-    const [users, groups] = await Promise.all([
+    const [users, groups, activities] = await Promise.all([
       prisma.user.findMany({
         where: {
           eventId,
@@ -598,6 +598,10 @@ export class ReportsService {
         include: {
           roomAssignments: {
             where: { eventId },
+          },
+          activityExclusions: {
+            where: { eventId },
+            select: { activityId: true },
           },
         },
         orderBy: [
@@ -609,21 +613,31 @@ export class ReportsService {
         where: { eventId, active: true, deleted: false },
         select: { id: true, name: true },
       }),
+      prisma.activity.findMany({
+        where: { eventId, active: true, deleted: false },
+        select: { id: true, title: true, groupIds: true },
+        orderBy: { startDateTime: 'asc' },
+      }),
     ]);
 
     const groupMap = new Map(groups.map(g => [g.id, g.name]));
 
-    const headers = [
+    // Base headers: Name fields first, then dietary columns immediately, then minimal other fields
+    const baseHeaders = [
       'First Name',
       'Surname',
-      'Guest Category',
-      'Email',
-      'Phone',
       'Dietary Requirements',
       'Allergies/Intolerances',
       'Special Meal Requests',
-      'Group Assignment',
+      'Guest Category',
+      'Email',
+      'Phone',
+      'Market',
     ];
+
+    // Add activity attendance columns dynamically
+    const activityHeaders = activities.map(activity => activity.title);
+    const headers = [...baseHeaders, ...activityHeaders];
 
     const rows = [];
     const rowMetadata = [];
@@ -633,17 +647,39 @@ export class ReportsService {
       const requirements = user.requirements as any;
       const roomAssignment = user.roomAssignments[0];
       const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
+      const exclusions = new Set(user.activityExclusions.map(e => e.activityId));
 
-      rows.push([
+      // Base row data matching the baseHeaders order
+      const baseRow = [
         profile?.firstName || '',
         profile?.lastName || '',
-        user.guestCategory || 'Standard',
+        requirements?.dietary?.details || '',
+        requirements?.allergiesIntolerances?.enabled ? requirements.allergiesIntolerances.details || '' : '',
+        '', // Special meal requests  
+        user.guestCategory || '',
         profile?.email || '',
         profile?.phone || '',
-        requirements?.dietary?.details || 'Yes',
-        requirements?.allergiesIntolerances?.enabled ? requirements.allergiesIntolerances.details || 'Yes' : '',
-        '', // Special meal requests
         groupNames,
+      ];
+
+      // Add activity attendance (Y/N for each activity)
+      const activityAttendance = activities.map(activity => {
+        // Check if user is in activity's groups and not excluded
+        const isInActivityGroup = activity.groupIds.some(groupId => user.groupIds.includes(groupId));
+        const isExcluded = exclusions.has(activity.id);
+
+        if (isInActivityGroup && !isExcluded) {
+          return 'Y';
+        } else if (isInActivityGroup && isExcluded) {
+          return 'N';
+        } else {
+          return 'N/A';
+        }
+      });
+
+      rows.push([
+        ...baseRow,
+        ...activityAttendance,
       ]);
 
       // Add metadata for editing capabilities
@@ -661,7 +697,7 @@ export class ReportsService {
       rowMetadata,
       metadata: {
         title: 'Dietary List',
-        description: 'Dietary restrictions and catering requirements',
+        description: 'Dietary restrictions and catering requirements with activity attendance',
         generatedAt: new Date(),
         totalCount: rows.length,
       },
@@ -673,7 +709,7 @@ export class ReportsService {
    * Shows only users with dietary.enabled = true
    */
   static async getDietaryRequirementsReport(eventId: string): Promise<ReportData> {
-    const [users, groups] = await Promise.all([
+    const [users, groups, activities] = await Promise.all([
       prisma.user.findMany({
         where: {
           eventId,
@@ -683,9 +719,10 @@ export class ReportsService {
         include: {
           roomAssignments: {
             where: { eventId },
-            include: {
-              hotel: { select: { name: true } },
-            },
+          },
+          activityExclusions: {
+            where: { eventId },
+            select: { activityId: true },
           },
         },
         orderBy: [
@@ -697,6 +734,11 @@ export class ReportsService {
         where: { eventId, active: true, deleted: false },
         select: { id: true, name: true },
       }),
+      prisma.activity.findMany({
+        where: { eventId, active: true, deleted: false },
+        select: { id: true, title: true, groupIds: true },
+        orderBy: { startDateTime: 'asc' },
+      }),
     ]);
 
     const groupMap = new Map(groups.map(g => [g.id, g.name]));
@@ -707,50 +749,57 @@ export class ReportsService {
       return requirements?.dietary?.enabled === true;
     });
 
-    const headers = [
+    // Base headers: Name fields first, then dietary columns immediately, then minimal other fields
+    const baseHeaders = [
       'First Name',
       'Surname',
-      'Hotel',
-      'Guest type',
-      'Market',
-      'Contact mobile number',
-      'Market host',
-      'VIP Guest',
-      'Emergency contact name',
-      'Emergency contact number',
       'Dietary Requirements',
-      'Hotel Notes',
-      'General notes',
+      'Guest Category',
+      'Email',
+      'Phone',
+      'Market',
     ];
+
+    // Add activity attendance columns dynamically
+    const activityHeaders = activities.map(activity => activity.title);
+    const headers = [...baseHeaders, ...activityHeaders];
 
     const rows = [];
     const rowMetadata = [];
 
     usersWithDietary.forEach(user => {
       const profile = user.profile as any;
-      const accommodation = user.accommodation as any;
       const requirements = user.requirements as any;
-      const emergency = user.emergencyContact as any;
-      const roomAssignment = user.roomAssignments[0];
       const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
+      const exclusions = new Set(user.activityExclusions.map(e => e.activityId));
 
-      // Get hotel name from accommodation or room assignment
-      const hotelName = accommodation?.hotel || roomAssignment?.hotel?.name || '';
-
-      rows.push([
+      // Base row data matching the baseHeaders order
+      const baseRow = [
         profile?.firstName || '',
         profile?.lastName || '',
-        hotelName,
-        user.guestCategory || '',
-        groupNames, // Market = Groups
-        profile?.phone || '',
-        profile?.host || '',
-        profile?.vip ? 'Yes' : 'No',
-        emergency?.name || '',
-        emergency?.phone || '',
         requirements?.dietary?.details || '',
-        accommodation?.hotelNotes || '', // Only accommodation.hotelNotes
-        user.masterGuestNotes || '',
+        user.guestCategory || '',
+        profile?.email || '',
+        profile?.phone || '',
+        groupNames,
+      ];
+
+      // Add activity attendance (Y/N for each activity)
+      const activityAttendance = activities.map(activity => {
+        // Check if user is in activity's groups and not excluded
+        const isInActivityGroup = activity.groupIds.some(groupId => user.groupIds.includes(groupId));
+        const isExcluded = exclusions.has(activity.id);
+
+        if (isInActivityGroup && !isExcluded) {
+          return 'Y';
+        } else {
+          return 'N'; // Always N for not attending (either excluded or not in group)
+        }
+      });
+
+      rows.push([
+        ...baseRow,
+        ...activityAttendance,
       ]);
 
       // Add metadata for editing capabilities
@@ -768,7 +817,88 @@ export class ReportsService {
       rowMetadata,
       metadata: {
         title: 'Dietary Requirements Export',
-        description: 'Users with dietary requirements for catering coordination',
+        description: 'Users with dietary requirements for catering coordination with activity attendance',
+        generatedAt: new Date(),
+        totalCount: rows.length,
+      },
+    };
+  }
+
+  /**
+   * Emergency Contact Report - Emergency contacts and market information
+   */
+  static async getEmergencyReport(eventId: string): Promise<ReportData> {
+    const [users, groups] = await Promise.all([
+      prisma.user.findMany({
+        where: {
+          eventId,
+          active: true,
+          emergencyContact: { not: null },
+        },
+        orderBy: [
+          { guestCategory: 'asc' },
+          { updatedAt: 'asc' },
+        ],
+      }),
+      prisma.group.findMany({
+        where: { eventId, active: true, deleted: false },
+        select: { id: true, name: true },
+      }),
+    ]);
+
+    const groupMap = new Map(groups.map(g => [g.id, g.name]));
+
+    const headers = [
+      'Guest Name',
+      'Guest Phone',
+      'Guest Email',
+      'Market Host',
+      'Market/Group',
+      'Emergency Contact Name',
+      'Emergency Contact Phone',
+      'Emergency Contact Email',
+      'Emergency Contact Relationship',
+    ];
+
+    const rows = [];
+    const rowMetadata = [];
+
+    users.forEach(user => {
+      const profile = user.profile as any;
+      const emergency = user.emergencyContact as any;
+      const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
+
+      // Combine first name and last name for the Name column
+      const fullName = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ');
+
+      rows.push([
+        fullName,
+        profile?.phone || '',
+        profile?.email || '',
+        profile?.host || '', // Market host
+        groupNames,
+        emergency?.name || '',
+        emergency?.phone || '',
+        emergency?.email || '',
+        emergency?.relationship || '',
+      ]);
+
+      // Add metadata for editing capabilities
+      rowMetadata.push({
+        userId: user.id,
+        entityId: user.id,
+        entityType: 'user' as const,
+        editable: true,
+      });
+    });
+
+    return {
+      headers,
+      rows,
+      rowMetadata,
+      metadata: {
+        title: 'Emergency Report',
+        description: 'Emergency contacts and market information',
         generatedAt: new Date(),
         totalCount: rows.length,
       },
@@ -865,8 +995,15 @@ export class ReportsService {
 
     const groupMap = new Map(groups.map(g => [g.id, g.name]));
 
+    // Filter out users without check-in date
+    const usersWithCheckIn = users.filter(user => {
+      const accommodation = user.accommodation as any;
+      const checkIn = this.parseAccommodationDate(accommodation?.checkIn);
+      return checkIn !== null;
+    });
+
     // Sort users by check-in date, then by alpha last name
-    users.sort((a, b) => {
+    usersWithCheckIn.sort((a, b) => {
       const aAccommodation = a.accommodation as any;
       const bAccommodation = b.accommodation as any;
       const aProfile = a.profile as any;
@@ -901,7 +1038,7 @@ export class ReportsService {
     const rows = [];
     const rowMetadata = [];
 
-    users.forEach(user => {
+    usersWithCheckIn.forEach(user => {
       const profile = user.profile as any;
       const accommodation = user.accommodation as any;
       const flight = user.flight as any;
@@ -2018,65 +2155,42 @@ export class ReportsService {
 
     const groupMap = new Map(groups.map((g) => [g.id, g]));
 
-    // Sort users alphabetically by last name, then first name
+    // Sort users by market (groups) alphabetically, then by first name within each market
     users.sort((a, b) => {
       const aProfile = a.profile as any;
       const bProfile = b.profile as any;
 
-      const aLastName = aProfile?.lastName || '';
-      const bLastName = bProfile?.lastName || '';
+      // Get market names for comparison
+      const aUserGroupIds = (a.groupIds as string[]) || [];
+      const bUserGroupIds = (b.groupIds as string[]) || [];
+      const aGroupNames = aUserGroupIds.map((id) => groupMap.get(id)?.name).filter(Boolean).join(', ') || 'ZZZ'; // Put users without groups at end
+      const bGroupNames = bUserGroupIds.map((id) => groupMap.get(id)?.name).filter(Boolean).join(', ') || 'ZZZ';
+
+      // Compare markets first
+      if (aGroupNames !== bGroupNames) {
+        return aGroupNames.localeCompare(bGroupNames);
+      }
+
+      // Within same market, sort by first name
       const aFirstName = aProfile?.firstName || '';
       const bFirstName = bProfile?.firstName || '';
-
-      // Compare last names first
-      if (aLastName !== bLastName) {
-        return aLastName.localeCompare(bLastName);
-      }
-      // If last names are equal, compare first names
       return aFirstName.localeCompare(bFirstName);
     });
 
     const headers = [
-      // Inbound flight fields (from arrival report)
-      'Inbound Departure date [dd/mm/yyy]',
-      'Inbound Departure time [24hr hh:mm]',
-      'Inbound Departure from [station/airport]',
-      'Inbound Departure terminal',
-      'Inbound Flight number',
-      'Inbound Arrival date [dd/mm/yyy]',
-      'Inbound Arrival time [24hr hh:mm]',
-      'Inbound Arrival to [station/airport]',
-      // Outbound flight fields (from departure report)
-      'Outbound Departure from [station/airport]',
-      'Outbound Departure date [dd/mm/yyy]',
-      'Outbound Departure time [hh:mm]',
-      'Outbound Departure Terminal',
-      'Outbound Flight number',
-      'Outbound Arrival to',
-      // Hotel
-      'Hotel',
-      // Personal details
-      'First Name',
-      'Surname',
-      'Guest type',
       'Market',
-      'Contact mobile number',
-      'Market host',
-      'VIP Guest',
-      'Transfer Requirements',
-      // Car assignment
-      'Assigned Cars',
-      'Hotel Notes',
-      'Arrival Notes',
-      'Departure Notes',
-      'General notes',
+      'Guest Name',
+      'Car Number',
+      'Guest Type',
+      'Contact',
+      'Market Host',
+      'VIP',
     ];
 
     const rows: any[][] = [];
 
     for (const user of users) {
       const profile = user.profile as any;
-      const flight = user.flight as any;
 
       // Get user groups from groupIds array
       const userGroupIds = (user.groupIds as string[]) || [];
@@ -2095,45 +2209,17 @@ export class ReportsService {
           ? uniqueGroupCars.join(', ')
           : 'None';
 
-      // Get hotel name from room assignment or accommodation
-      const accommodation = user.accommodation as any;
-      const roomAssignment = user.roomAssignments?.[0];
-      const hotelName = accommodation?.hotel || roomAssignment?.hotel?.name || '';
+      // Combine first name and last name for Guest Name
+      const fullName = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ');
 
       const row = [
-        // Inbound flight fields
-        flight?.inbound?.departureDate || '',
-        flight?.inbound?.departureTime || '',
-        flight?.inbound?.departureFrom || '',
-        flight?.inbound?.departureTerminal || '',
-        flight?.inbound?.flightNumber || '',
-        flight?.inbound?.arrivalDate || '',
-        flight?.inbound?.arrivalTime || '',
-        flight?.inbound?.arrivalToAirport || '',
-        // Outbound flight fields
-        flight?.outbound?.departureFrom || '',
-        flight?.outbound?.departureDate || '',
-        flight?.outbound?.departureTime || '',
-        flight?.outbound?.departureTerminal || '',
-        flight?.outbound?.flightNumber || '',
-        flight?.outbound?.arrivalToAirport || '',
-        // Hotel
-        hotelName,
-        // Personal details
-        profile?.firstName || '',
-        profile?.lastName || '',
-        profile?.guestType || '',
-        groupNames,
-        profile?.phone || '',
-        profile?.host || '',
-        profile?.vip ? 'Y' : 'N',
-        user.transferRequirements || '',
-        // Car assignment
-        assignedCars,
-        roomAssignment?.hotelNotes || '', // Hotel Notes
-        user.arrivalNotes || '', // Arrival Notes
-        user.departureNotes || '', // Departure Notes
-        user.masterGuestNotes || '', // General notes
+        groupNames,                           // Market
+        fullName,                             // Guest Name
+        assignedCars,                         // Car Number
+        user.guestCategory || 'Standard',     // Guest Type
+        profile?.phone || '',                 // Contact
+        profile?.host || '',                  // Market Host
+        profile?.vip ? 'Yes' : 'No',         // VIP
       ];
 
       rows.push(row);
@@ -2150,8 +2236,8 @@ export class ReportsService {
       })),
       metadata: {
         title: 'Car Assignment Report',
-        description: 'Complete transport allocation report for all event attendees',
-        generatedAt: new Date().toISOString(),
+        description: 'Transport allocation organized by market with guest and car details',
+        generatedAt: new Date(),
         totalCount: rows.length,
       },
     };
@@ -2646,6 +2732,7 @@ export class ReportsService {
       { id: 'medical-list', name: 'Medical List', category: 'Requirements' },
       { id: 'dietary-list', name: 'Dietary List', category: 'Requirements' },
       { id: 'dietary-requirements', name: 'Dietary Requirements Export', category: 'Requirements' },
+      { id: 'emergency-report', name: 'Emergency Report', category: 'Requirements' },
       { id: 'rooming-list', name: 'Rooming List', category: 'Accommodation' },
       { id: 'guest-list-alpha', name: 'Guest List by Alpha', category: 'Guest Lists' },
       { id: 'activity-attendance', name: 'Activity Attendance', category: 'Activities' },

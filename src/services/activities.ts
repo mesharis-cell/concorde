@@ -61,9 +61,9 @@ export class ActivityService {
         data.capacity,
         data.title
       );
-      
+
       if (validation.hasConflicts) {
-        const conflictDetails = validation.issues.map(issue => 
+        const conflictDetails = validation.issues.map(issue =>
           `Groups have ${issue.affectedUserCount + issue.capacity} total members but activity capacity is only ${issue.capacity}`
         ).join(', ');
         throw new Error(`Capacity conflict: ${conflictDetails}`);
@@ -485,13 +485,47 @@ export class ActivityService {
           lastModifiedByAdmin: {
             select: { id: true, firstName: true, lastName: true, email: true },
           },
+          userExclusions: {
+            select: { userId: true },
+          },
         },
       }),
       prisma.activity.count({ where }),
     ]);
 
+    // Fix currentAttendees calculation - exclude user exclusions
+    const itemsWithCorrectCount = await Promise.all(
+      items.map(async (activity) => {
+        if (activity.groupIds && activity.groupIds.length > 0) {
+          // Count users in activity's groups
+          const totalUsersInGroups = await prisma.user.count({
+            where: {
+              groupIds: { hasSome: activity.groupIds },
+              active: true,
+              eventId,
+            },
+          });
+
+          // Subtract excluded users
+          const excludedUserCount = activity.userExclusions.length;
+          const correctCurrentAttendees = Math.max(0, totalUsersInGroups - excludedUserCount);
+
+          return {
+            ...activity,
+            currentAttendees: correctCurrentAttendees,
+          };
+        } else {
+          // No groups assigned, so no attendees
+          return {
+            ...activity,
+            currentAttendees: 0,
+          };
+        }
+      })
+    );
+
     return {
-      items,
+      items: itemsWithCorrectCount,
       pagination: {
         page,
         limit,
@@ -581,9 +615,9 @@ export class ActivityService {
           finalCapacity,
           currentActivity.title
         );
-        
+
         if (validation.hasConflicts) {
-          const conflictDetails = validation.issues.map(issue => 
+          const conflictDetails = validation.issues.map(issue =>
             `Groups have ${issue.affectedUserCount + issue.capacity} total members but activity capacity is only ${issue.capacity}`
           ).join(', ');
           throw new Error(`Capacity conflict: ${conflictDetails}`);
@@ -608,7 +642,7 @@ export class ActivityService {
     if (data.groupIds !== undefined) updateData.groupIds = data.groupIds; // Handle group assignments
     if (data.capacity !== undefined) updateData.capacity = data.capacity; // Handle capacity updates
     if (data.timingTable !== undefined) updateData.timingTable = data.timingTable; // Handle timing updates
-    
+
     // Always update modification timestamp and user
     updateData.lastModifiedAt = new Date();
 
@@ -999,7 +1033,7 @@ export class ActivityService {
    */
   static async getCapacityWarnings(activityIds: string[]): Promise<any[]> {
     const warnings = [];
-    
+
     for (const activityId of activityIds) {
       const status = await ConflictDetectionService.getActivityCapacityStatus(activityId);
       if (status && (status.status === 'warning' || status.status === 'full' || status.status === 'exceeded')) {

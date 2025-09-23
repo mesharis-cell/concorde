@@ -11,7 +11,7 @@ import { ActivityService } from '../src/services/activities.js';
 import { UserActivityExclusionService } from '../src/services/user-activity-exclusions.js';
 
 const prisma = new PrismaClient({
-  log: ['error']
+  log: ['error'],
 });
 
 // Event timezone for proper date handling
@@ -28,6 +28,7 @@ interface CSVRow {
   jobTitle: string;
   company: string;
   guestType: string;
+  internalVip: string;
   vipGuest: string;
   email: string;
   contactMobile: string;
@@ -64,8 +65,11 @@ interface CSVRow {
   checkInDate: string;
   checkOutDate: string;
   numberOfNights: string;
+  roomDrop: string;
   hotelBookingForVisa: string;
   notes: string;
+  gpTransfersRequired: string;
+  eventTransfersRequired: string;
   // Activity assignments
   crystalGoldLaunch: string;
   clcInterview: string;
@@ -86,99 +90,102 @@ interface CSVRow {
   lavoAfterParty: string;
   // Car assignment
   marketCarNumber: string;
+  marketCarNumberNotes: string;
 }
 
 // Helper to generate MongoDB ObjectId
 const generateObjectId = (): string => {
-  const timestamp = Math.floor(Date.now() / 1000).toString(16).padStart(8, '0');
+  const timestamp = Math.floor(Date.now() / 1000)
+    .toString(16)
+    .padStart(8, '0');
   const random = Math.random().toString(16).substring(2, 18).padStart(16, '0');
   return timestamp + random.substring(0, 16);
 };
 
 // Event configuration
 const eventConfig = {
-  _id: "68c2cd941de2da411f2a2f98",
+  _id: '68c2cd941de2da411f2a2f98',
   active: true,
   config: {
-    micrositeUrl: "https://events.company.com/sgp2025",
-    registrationOpen: true
+    micrositeUrl: 'https://events.company.com/sgp2025',
+    registrationOpen: true,
   },
   dateRange: {
-    start: "2025-09-25T12:00:00.000Z",
-    end: "2025-10-05T16:00:00.000Z"
+    start: '2025-09-25T12:00:00.000Z',
+    end: '2025-10-05T16:00:00.000Z',
   },
   location: {
-    city: "Singapore",
-    country: "Singapore",
-    venue: "Marina Bay Street Circuit",
-    timezone: "Asia/Singapore"
+    city: 'Singapore',
+    country: 'Singapore',
+    venue: 'Marina Bay Street Circuit',
+    timezone: 'Asia/Singapore',
   },
-  name: "Singapore Grand Prix 2025",
-  shortName: "SGP2025"
+  name: 'Singapore Grand Prix 2025',
+  shortName: 'SGP2025',
 };
 
 const hotelConfig = {
-  name: "Mondrian Singapore Duxton",
+  name: 'Mondrian Singapore Duxton',
   isDefault: true,
-  checkInTime: "15:00",
-  checkOutTime: "12:00",
-  address: "",
-  phone: "",
-  email: ""
+  checkInTime: '15:00',
+  checkOutTime: '12:00',
+  address: '',
+  phone: '',
+  email: '',
 };
 
 const roomTypes = [
   {
-    name: "Signature King",
-    description: "Spacious king room with city views",
-    basePrice: 0
+    name: 'Signature King',
+    description: 'Spacious king room with city views',
+    basePrice: 0,
   },
   {
-    name: "Suite King",
-    description: "Premium king suite with enhanced amenities",
-    basePrice: 0
+    name: 'Suite King',
+    description: 'Premium king suite with enhanced amenities',
+    basePrice: 0,
   },
   {
-    name: "Shophouse suite",
-    description: "Premium suite in heritage shophouse",
-    basePrice: 0
+    name: 'Shophouse suite',
+    description: 'Premium suite in heritage shophouse',
+    basePrice: 0,
   },
   {
-    name: "Signature Twin",
-    description: "Signature room with twin beds",
-    basePrice: 0
-  }
+    name: 'Signature Twin',
+    description: 'Signature room with twin beds',
+    basePrice: 0,
+  },
 ];
 
 // Car configuration for Singapore Grand Prix 2025
 const carConfig = [
-  { id: "1", name: "Car 1", type: "standard", plate: "", driver: "" },
-  { id: "2", name: "Car 2", type: "standard", plate: "", driver: "" },
-  { id: "3", name: "Car 3", type: "standard", plate: "", driver: "" },
-  { id: "4", name: "Car 4", type: "standard", plate: "", driver: "" },
-  { id: "5", name: "Car 5", type: "standard", plate: "", driver: "" },
-  { id: "6", name: "Car 6", type: "standard", plate: "", driver: "" },
-  { id: "7", name: "Car 7", type: "standard", plate: "", driver: "" },
-  { id: "8", name: "Car 8", type: "standard", plate: "", driver: "" },
-  { id: "9", name: "Car 9", type: "standard", plate: "", driver: "" },
-  { id: "10", name: "Car 10", type: "standard", plate: "", driver: "" },
-  { id: "11", name: "Car 11", type: "standard", plate: "", driver: "" },
-  { id: "12", name: "Car 12", type: "standard", plate: "", driver: "" },
-  { id: "13", name: "Car 13", type: "standard", plate: "", driver: "" },
-  { id: "14", name: "Car 14", type: "standard", plate: "", driver: "" },
-  { id: "15", name: "Car 15", type: "standard", plate: "", driver: "" },
-  { id: "16", name: "Car 16", type: "standard", plate: "", driver: "" },
-  { id: "17", name: "Car 17", type: "standard", plate: "", driver: "" },
-  { id: "18", name: "Car 18", type: "standard", plate: "", driver: "" },
-  { id: "19", name: "Car 19", type: "standard", plate: "", driver: "" },
-  { id: "20", name: "Car 20", type: "standard", plate: "", driver: "" },
-  { id: "21", name: "Car 21", type: "standard", plate: "", driver: "" },
-  { id: "22", name: "Car 22", type: "standard", plate: "", driver: "" },
-  { id: "23", name: "Car 23", type: "standard", plate: "", driver: "" },
-  { id: "24", name: "Car 24", type: "standard", plate: "", driver: "" },
-  { id: "25", name: "Car 25", type: "standard", plate: "", driver: "" },
-  { id: "26", name: "Car 26", type: "standard", plate: "", driver: "" },
-  { id: "27", name: "Car 27", type: "standard", plate: "", driver: "" },
+  { id: '1', name: 'Car 1', type: 'standard', plate: '', driver: '' },
+  { id: '2', name: 'Car 2', type: 'standard', plate: '', driver: '' },
+  { id: '3', name: 'Car 3', type: 'standard', plate: '', driver: '' },
+  { id: '4', name: 'Car 4', type: 'standard', plate: '', driver: '' },
+  { id: '5', name: 'Car 5', type: 'standard', plate: '', driver: '' },
+  { id: '6', name: 'Car 6', type: 'standard', plate: '', driver: '' },
+  { id: '7', name: 'Car 7', type: 'standard', plate: '', driver: '' },
+  { id: '8', name: 'Car 8', type: 'standard', plate: '', driver: '' },
+  { id: '9', name: 'Car 9', type: 'standard', plate: '', driver: '' },
+  { id: '10', name: 'Car 10', type: 'standard', plate: '', driver: '' },
+  { id: '11', name: 'Car 11', type: 'standard', plate: '', driver: '' },
+  { id: '12', name: 'Car 12', type: 'standard', plate: '', driver: '' },
+  { id: '13', name: 'Car 13', type: 'standard', plate: '', driver: '' },
+  { id: '14', name: 'Car 14', type: 'standard', plate: '', driver: '' },
+  { id: '15', name: 'Car 15', type: 'standard', plate: '', driver: '' },
+  { id: '16', name: 'Car 16', type: 'standard', plate: '', driver: '' },
+  { id: '17', name: 'Car 17', type: 'standard', plate: '', driver: '' },
+  { id: '18', name: 'Car 18', type: 'standard', plate: '', driver: '' },
+  { id: '19', name: 'Car 19', type: 'standard', plate: '', driver: '' },
+  { id: '20', name: 'Car 20', type: 'standard', plate: '', driver: '' },
+  { id: '21', name: 'Car 21', type: 'standard', plate: '', driver: '' },
+  { id: '22', name: 'Car 22', type: 'standard', plate: '', driver: '' },
+  { id: '23', name: 'Car 23', type: 'standard', plate: '', driver: '' },
+  { id: '24', name: 'Car 24', type: 'standard', plate: '', driver: '' },
+  { id: '25', name: 'Car 25', type: 'standard', plate: '', driver: '' },
+  { id: '26', name: 'Car 26', type: 'standard', plate: '', driver: '' },
+  { id: '27', name: 'Car 27', type: 'standard', plate: '', driver: '' },
 ];
 
 // Activity definitions with dates and scheduling
@@ -196,217 +203,226 @@ interface ActivityDefinition {
 const activityDefinitions: ActivityDefinition[] = [
   // TUESDAY 30th September 2025
   {
-    title: "Crystal Gold Launch",
-    date: "30/09/2025",
-    time: "19:00",
-    description: "Exclusive Crystal Gold product launch event",
-    category: "EXPERIENCE",
-    csvField: "crystalGoldLaunch"
+    title: 'Crystal Gold Launch',
+    date: '30/09/2025',
+    time: '19:00',
+    description: 'Exclusive Crystal Gold product launch event',
+    category: 'EXPERIENCE',
+    csvField: 'crystalGoldLaunch',
   },
 
   // WEDNESDAY 1st October 2025
   {
-    title: "CLC Interview",
-    date: "01/10/2025",
-    time: "14:00",
-    description: "CLC Interview session",
-    category: "MEETING",
-    csvField: "clcInterview"
+    title: 'CLC Interview',
+    date: '01/10/2025',
+    time: '14:00',
+    description: 'CLC Interview session',
+    category: 'MEETING',
+    csvField: 'clcInterview',
   },
 
   // THURSDAY 2nd October 2025
   {
-    title: "AIR CCCC",
-    date: "02/10/2025",
-    time: "15:00",
-    description: "AIR CCCC event",
-    category: "EXPERIENCE",
-    csvField: "airCccc"
+    title: 'AIR CCCC',
+    date: '02/10/2025',
+    time: '15:00',
+    description: 'AIR CCCC event',
+    category: 'EXPERIENCE',
+    csvField: 'airCccc',
   },
 
   // FRIDAY 3rd October 2025
   {
-    title: "Casa Ferrari",
-    date: "03/10/2025",
-    time: "12:00",
-    description: "Casa Ferrari experience",
-    category: "EXPERIENCE",
-    csvField: "casaFerrari"
+    title: 'Casa Ferrari',
+    date: '03/10/2025',
+    time: '12:00',
+    description: 'Casa Ferrari experience',
+    category: 'EXPERIENCE',
+    csvField: 'casaFerrari',
   },
   {
-    title: "PRS Paddock Club - Friday",
-    date: "03/10/2025",
-    time: "14:00",
-    description: "PRS Paddock Club access on Friday",
-    category: "HOSPITALITY",
-    csvField: "prsPaddockClubFri"
+    title: 'PRS Paddock Club - Friday',
+    date: '03/10/2025',
+    time: '14:00',
+    description: 'PRS Paddock Club access on Friday',
+    category: 'HOSPITALITY',
+    csvField: 'prsPaddockClubFri',
   },
   {
-    title: "Regal Club - Friday",
-    date: "03/10/2025",
-    time: "16:00",
-    description: "Regal Club experience on Friday",
-    category: "HOSPITALITY",
-    csvField: "regalClubFri"
+    title: 'Regal Club - Friday',
+    date: '03/10/2025',
+    time: '16:00',
+    description: 'Regal Club experience on Friday',
+    category: 'HOSPITALITY',
+    csvField: 'regalClubFri',
   },
   {
-    title: "Crystal Gold Lounge - Friday",
-    date: "03/10/2025",
-    time: "18:00",
-    description: "Crystal Gold Lounge access on Friday",
-    category: "HOSPITALITY",
-    csvField: "crystalGoldLoungeFri"
+    title: 'Crystal Gold Lounge - Friday',
+    date: '03/10/2025',
+    time: '18:00',
+    description: 'Crystal Gold Lounge access on Friday',
+    category: 'HOSPITALITY',
+    csvField: 'crystalGoldLoungeFri',
   },
   // Evening bar options - these will be created as separate activities
   {
-    title: "Evening Bar - Manhattan Bar",
-    date: "03/10/2025",
-    time: "20:00",
-    description: "Evening experience at Manhattan Bar",
-    category: "HOSPITALITY",
-    csvField: "eveningBar",
+    title: 'Evening Bar - Manhattan Bar',
+    date: '03/10/2025',
+    time: '20:00',
+    description: 'Evening experience at Manhattan Bar',
+    category: 'HOSPITALITY',
+    csvField: 'eveningBar',
     isEveningBar: true,
-    eveningBarOptions: ["Manhattan Bar", "Origin Bar", "Republic Bar Singapore", "Stay Gold", "Nutmeg & Clove", "Somma Bar", "Lobby", "Atlas"]
+    eveningBarOptions: [
+      'Manhattan Bar',
+      'Origin Bar',
+      'Republic Bar Singapore',
+      'Stay Gold',
+      'Nutmeg & Clove',
+      'Somma Bar',
+      'Lobby',
+      'Atlas',
+    ],
   },
   {
-    title: "Evening Bar - Origin Bar",
-    date: "03/10/2025",
-    time: "20:00",
-    description: "Evening experience at Origin Bar",
-    category: "HOSPITALITY",
-    csvField: "eveningBar",
-    isEveningBar: true
+    title: 'Evening Bar - Origin Bar',
+    date: '03/10/2025',
+    time: '20:00',
+    description: 'Evening experience at Origin Bar',
+    category: 'HOSPITALITY',
+    csvField: 'eveningBar',
+    isEveningBar: true,
   },
   {
-    title: "Evening Bar - Republic Bar Singapore",
-    date: "03/10/2025",
-    time: "20:00",
-    description: "Evening experience at Republic Bar Singapore",
-    category: "HOSPITALITY",
-    csvField: "eveningBar",
-    isEveningBar: true
+    title: 'Evening Bar - Republic Bar Singapore',
+    date: '03/10/2025',
+    time: '20:00',
+    description: 'Evening experience at Republic Bar Singapore',
+    category: 'HOSPITALITY',
+    csvField: 'eveningBar',
+    isEveningBar: true,
   },
   {
-    title: "Evening Bar - Stay Gold",
-    date: "03/10/2025",
-    time: "20:00",
-    description: "Evening experience at Stay Gold",
-    category: "HOSPITALITY",
-    csvField: "eveningBar",
-    isEveningBar: true
+    title: 'Evening Bar - Stay Gold',
+    date: '03/10/2025',
+    time: '20:00',
+    description: 'Evening experience at Stay Gold',
+    category: 'HOSPITALITY',
+    csvField: 'eveningBar',
+    isEveningBar: true,
   },
   {
-    title: "Evening Bar - Nutmeg & Clove",
-    date: "03/10/2025",
-    time: "20:00",
-    description: "Evening experience at Nutmeg & Clove",
-    category: "HOSPITALITY",
-    csvField: "eveningBar",
-    isEveningBar: true
+    title: 'Evening Bar - Nutmeg & Clove',
+    date: '03/10/2025',
+    time: '20:00',
+    description: 'Evening experience at Nutmeg & Clove',
+    category: 'HOSPITALITY',
+    csvField: 'eveningBar',
+    isEveningBar: true,
   },
   {
-    title: "Evening Bar - Somma Bar",
-    date: "03/10/2025",
-    time: "20:00",
-    description: "Evening experience at Somma Bar",
-    category: "HOSPITALITY",
-    csvField: "eveningBar",
-    isEveningBar: true
+    title: 'Evening Bar - Somma Bar',
+    date: '03/10/2025',
+    time: '20:00',
+    description: 'Evening experience at Somma Bar',
+    category: 'HOSPITALITY',
+    csvField: 'eveningBar',
+    isEveningBar: true,
   },
   {
-    title: "Evening Bar - Lobby",
-    date: "03/10/2025",
-    time: "20:00",
-    description: "Evening experience at Lobby",
-    category: "HOSPITALITY",
-    csvField: "eveningBar",
-    isEveningBar: true
+    title: 'Evening Bar - Lobby',
+    date: '03/10/2025',
+    time: '20:00',
+    description: 'Evening experience at Lobby',
+    category: 'HOSPITALITY',
+    csvField: 'eveningBar',
+    isEveningBar: true,
   },
   {
-    title: "Evening Bar - Atlas",
-    date: "03/10/2025",
-    time: "20:00",
-    description: "Evening experience at Atlas",
-    category: "HOSPITALITY",
-    csvField: "eveningBar",
-    isEveningBar: true
+    title: 'Evening Bar - Atlas',
+    date: '03/10/2025',
+    time: '20:00',
+    description: 'Evening experience at Atlas',
+    category: 'HOSPITALITY',
+    csvField: 'eveningBar',
+    isEveningBar: true,
   },
 
   // SATURDAY 4th October 2025
   {
-    title: "Fred Interview Session",
-    date: "04/10/2025",
-    time: "10:00",
-    description: "Fred Interview Session",
-    category: "MEETING",
-    csvField: "fredInterviewSession"
+    title: 'Fred Interview Session',
+    date: '04/10/2025',
+    time: '10:00',
+    description: 'Fred Interview Session',
+    category: 'MEETING',
+    csvField: 'fredInterviewSession',
   },
   {
-    title: "PRS Paddock Club - Saturday",
-    date: "04/10/2025",
-    time: "14:00",
-    description: "PRS Paddock Club access on Saturday",
-    category: "HOSPITALITY",
-    csvField: "prsPaddockClubSat"
+    title: 'PRS Paddock Club - Saturday',
+    date: '04/10/2025',
+    time: '14:00',
+    description: 'PRS Paddock Club access on Saturday',
+    category: 'HOSPITALITY',
+    csvField: 'prsPaddockClubSat',
   },
   {
-    title: "Regal Club - Saturday",
-    date: "04/10/2025",
-    time: "16:00",
-    description: "Regal Club experience on Saturday",
-    category: "HOSPITALITY",
-    csvField: "regalClubSat"
+    title: 'Regal Club - Saturday',
+    date: '04/10/2025',
+    time: '16:00',
+    description: 'Regal Club experience on Saturday',
+    category: 'HOSPITALITY',
+    csvField: 'regalClubSat',
   },
   {
-    title: "Crystal Gold Lounge - Saturday",
-    date: "04/10/2025",
-    time: "18:00",
-    description: "Crystal Gold Lounge access on Saturday",
-    category: "HOSPITALITY",
-    csvField: "crystalGoldLoungeSat"
+    title: 'Crystal Gold Lounge - Saturday',
+    date: '04/10/2025',
+    time: '18:00',
+    description: 'Crystal Gold Lounge access on Saturday',
+    category: 'HOSPITALITY',
+    csvField: 'crystalGoldLoungeSat',
   },
   {
-    title: "Sushi Samba After Party",
-    date: "04/10/2025",
-    time: "22:00",
-    description: "Sushi Samba After Party",
-    category: "EXPERIENCE",
-    csvField: "sushiSambaAfterParty"
+    title: 'Sushi Samba After Party',
+    date: '04/10/2025',
+    time: '22:00',
+    description: 'Sushi Samba After Party',
+    category: 'EXPERIENCE',
+    csvField: 'sushiSambaAfterParty',
   },
 
-  // SUNDAY 5th October 2025  
+  // SUNDAY 5th October 2025
   {
-    title: "PRS Paddock Club - Sunday",
-    date: "05/10/2025",
-    time: "14:00",
-    description: "PRS Paddock Club access on Sunday",
-    category: "HOSPITALITY",
-    csvField: "prsPaddockClubSun"
+    title: 'PRS Paddock Club - Sunday',
+    date: '05/10/2025',
+    time: '14:00',
+    description: 'PRS Paddock Club access on Sunday',
+    category: 'HOSPITALITY',
+    csvField: 'prsPaddockClubSun',
   },
   {
-    title: "Regal Club - Sunday",
-    date: "05/10/2025",
-    time: "16:00",
-    description: "Regal Club experience on Sunday",
-    category: "HOSPITALITY",
-    csvField: "regalClubSun"
+    title: 'Regal Club - Sunday',
+    date: '05/10/2025',
+    time: '16:00',
+    description: 'Regal Club experience on Sunday',
+    category: 'HOSPITALITY',
+    csvField: 'regalClubSun',
   },
   {
-    title: "Crystal Gold Lounge - Sunday",
-    date: "05/10/2025",
-    time: "18:00",
-    description: "Crystal Gold Lounge access on Sunday",
-    category: "HOSPITALITY",
-    csvField: "crystalGoldLoungeSun"
+    title: 'Crystal Gold Lounge - Sunday',
+    date: '05/10/2025',
+    time: '18:00',
+    description: 'Crystal Gold Lounge access on Sunday',
+    category: 'HOSPITALITY',
+    csvField: 'crystalGoldLoungeSun',
   },
   {
-    title: "LAVO After Party",
-    date: "05/10/2025",
-    time: "22:00",
-    description: "LAVO After Party",
-    category: "EXPERIENCE",
-    csvField: "lavoAfterParty"
-  }
+    title: 'LAVO After Party',
+    date: '05/10/2025',
+    time: '22:00',
+    description: 'LAVO After Party',
+    category: 'EXPERIENCE',
+    csvField: 'lavoAfterParty',
+  },
 ];
 
 // Activity cache for created activities
@@ -414,7 +430,14 @@ const activityCache = new Map<string, string>();
 
 // Helper functions
 const parseDate = (dateStr: string): Date | null => {
-  if (!dateStr || dateStr === 'N/A' || dateStr.trim() === '' || dateStr.includes('*') || dateStr.includes('[')) return null;
+  if (
+    !dateStr ||
+    dateStr === 'N/A' ||
+    dateStr.trim() === '' ||
+    dateStr.includes('*') ||
+    dateStr.includes('[')
+  )
+    return null;
 
   // Handle dd/mm/yyyy format
   const parts = dateStr.split('/');
@@ -427,7 +450,8 @@ const parseDate = (dateStr: string): Date | null => {
     if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
 
     // Handle 2-digit years
-    const fullYear = year < 100 ? (year < 50 ? 2000 + year : 1900 + year) : year;
+    const fullYear =
+      year < 100 ? (year < 50 ? 2000 + year : 1900 + year) : year;
 
     // 🎯 TIMEZONE FIX: Create date at noon Singapore time to avoid boundary issues
     const singaporeDate = new Date(fullYear, month, day, 12, 0, 0);
@@ -472,7 +496,13 @@ const convertGender = (genderStr: string): string => {
 };
 
 const parseYesNo = (value: string): boolean => {
-  return value === 'Y' || value === 'Yes' || value === 'yes' || value === 'TRUE' || value === 'true';
+  return (
+    value === 'Y' ||
+    value === 'Yes' ||
+    value === 'yes' ||
+    value === 'TRUE' ||
+    value === 'true'
+  );
 };
 
 const cleanValue = (value: string): string | null => {
@@ -483,7 +513,11 @@ const cleanValue = (value: string): string | null => {
 /**
  * Get or create a group for the given market name
  */
-async function getOrCreateGroup(marketName: string, eventId: string, adminId: string): Promise<string> {
+async function getOrCreateGroup(
+  marketName: string,
+  eventId: string,
+  adminId: string
+): Promise<string> {
   // Check cache first
   if (groupCache.has(marketName)) {
     return groupCache.get(marketName)!;
@@ -500,7 +534,9 @@ async function getOrCreateGroup(marketName: string, eventId: string, adminId: st
     });
 
     if (existingGroup) {
-      console.log(`🔍 Found existing group: "${marketName}" (${existingGroup.id})`);
+      console.log(
+        `🔍 Found existing group: "${marketName}" (${existingGroup.id})`
+      );
       groupCache.set(marketName, existingGroup.id);
       return existingGroup.id;
     }
@@ -517,7 +553,10 @@ async function getOrCreateGroup(marketName: string, eventId: string, adminId: st
     console.log(`✅ Created group: "${marketName}" (${newGroup.id})`);
     return newGroup.id;
   } catch (error: any) {
-    console.error(`❌ Failed to get/create group "${marketName}":`, error.message);
+    console.error(
+      `❌ Failed to get/create group "${marketName}":`,
+      error.message
+    );
     throw error;
   }
 }
@@ -542,13 +581,20 @@ async function getOrCreateActivity(
     // Parse activity date for exact matching
     const activityDate = parseDate(activityDef.date);
     if (!activityDate) {
-      throw new Error(`Invalid date for activity ${activityDef.title}: ${activityDef.date}`);
+      throw new Error(
+        `Invalid date for activity ${activityDef.title}: ${activityDef.date}`
+      );
     }
 
-    const [hours, minutes] = activityDef.time.split(':').map(n => parseInt(n));
+    const [hours, minutes] = activityDef.time
+      .split(':')
+      .map((n) => parseInt(n));
     const startDateTime = new Date(activityDate);
     startDateTime.setHours(hours, minutes, 0, 0);
-    const utcStartDateTime = dateFnsTz.fromZonedTime(startDateTime, EVENT_TIMEZONE);
+    const utcStartDateTime = dateFnsTz.fromZonedTime(
+      startDateTime,
+      EVENT_TIMEZONE
+    );
 
     // Check if activity already exists with same title and date
     const existingActivity = await prisma.activity.findFirst({
@@ -561,7 +607,9 @@ async function getOrCreateActivity(
     });
 
     if (existingActivity) {
-      console.log(`🔍 Found existing activity: "${activityDef.title}" (${existingActivity.id})`);
+      console.log(
+        `🔍 Found existing activity: "${activityDef.title}" (${existingActivity.id})`
+      );
       activityCache.set(cacheKey, existingActivity.id);
       return existingActivity.id;
     }
@@ -570,7 +618,9 @@ async function getOrCreateActivity(
     const endDateTime = new Date(utcStartDateTime);
     endDateTime.setHours(endDateTime.getHours() + 2);
 
-    console.log(`✨ Creating new activity: "${activityDef.title}" on ${activityDef.date} at ${activityDef.time}`);
+    console.log(
+      `✨ Creating new activity: "${activityDef.title}" on ${activityDef.date} at ${activityDef.time}`
+    );
 
     // Use direct Prisma call to avoid ActivityService validation issues during import
     const newActivity = await prisma.activity.create({
@@ -594,10 +644,15 @@ async function getOrCreateActivity(
     });
 
     activityCache.set(cacheKey, newActivity.id);
-    console.log(`✅ Created activity: "${activityDef.title}" (${newActivity.id})`);
+    console.log(
+      `✅ Created activity: "${activityDef.title}" (${newActivity.id})`
+    );
     return newActivity.id;
   } catch (error: any) {
-    console.error(`❌ Failed to get/create activity "${activityDef.title}":`, error.message);
+    console.error(
+      `❌ Failed to get/create activity "${activityDef.title}":`,
+      error.message
+    );
     throw error;
   }
 }
@@ -610,42 +665,74 @@ async function getOrCreateActivity(
 async function analyzeActivityGroupPatterns(
   csvRecords: CSVRow[],
   eventId: string
-): Promise<Map<string, { groupIds: string[], userPatterns: Array<{ userId: string, shouldAttend: boolean, venue?: string }> }>> {
+): Promise<
+  Map<
+    string,
+    {
+      groupIds: string[];
+      userPatterns: Array<{
+        userId: string;
+        shouldAttend: boolean;
+        venue?: string;
+      }>;
+    }
+  >
+> {
   console.log('\n🧠 ANALYZING ACTIVITY PATTERNS...');
 
   // Get all groups for this event
   const allGroups = await prisma.group.findMany({
     where: { eventId, active: true, deleted: false },
-    select: { id: true, name: true }
+    select: { id: true, name: true },
   });
 
   // Get all users for this event to match CSV records
   const allUsers = await prisma.user.findMany({
     where: { eventId, active: true },
-    select: { id: true, profile: true, groupIds: true }
+    select: { id: true, profile: true, groupIds: true },
   });
 
-  const groupNameToId = new Map(allGroups.map(g => [g.name, g.id]));
-  const activityPatterns = new Map<string, { groupIds: string[], userPatterns: Array<{ userId: string, shouldAttend: boolean, venue?: string }> }>();
+  const groupNameToId = new Map(allGroups.map((g) => [g.name, g.id]));
+  const activityPatterns = new Map<
+    string,
+    {
+      groupIds: string[];
+      userPatterns: Array<{
+        userId: string;
+        shouldAttend: boolean;
+        venue?: string;
+      }>;
+    }
+  >();
 
   // Process each activity definition
   for (const activityDef of activityDefinitions) {
     console.log(`\n📊 Analyzing "${activityDef.title}":`);
 
     const groupsNeeded = new Set<string>();
-    const userPatterns: Array<{ userId: string, shouldAttend: boolean, venue?: string }> = [];
+    const userPatterns: Array<{
+      userId: string;
+      shouldAttend: boolean;
+      venue?: string;
+    }> = [];
 
     // Analyze each CSV record
     for (const record of csvRecords) {
       // Find corresponding user in database
-      const user = allUsers.find(u => {
+      const user = allUsers.find((u) => {
         const profile = u.profile as any;
-        return profile?.firstName?.toLowerCase() === record.firstName?.toLowerCase() &&
-          profile?.lastName?.toLowerCase() === record.lastName?.toLowerCase();
+        const dbFirstName = profile?.firstName?.toLowerCase() || '';
+        const dbLastName = profile?.lastName?.toLowerCase() || '';
+        const csvFirstName = record.firstName?.toLowerCase() || '';
+        const csvLastName = record.lastName?.toLowerCase() || '';
+
+        return dbFirstName === csvFirstName && dbLastName === csvLastName;
       });
 
       if (!user) {
-        console.log(`   ⚠️ Could not find user ${record.firstName} ${record.lastName} in database`);
+        console.log(
+          `   ⚠️ Could not find user ${record.firstName} ${record.lastName} in database`
+        );
         continue;
       }
 
@@ -654,14 +741,23 @@ async function analyzeActivityGroupPatterns(
 
       if (activityDef.isEveningBar) {
         // Evening bar: check if user selected this specific venue
-        const expectedVenueName = activityDef.title.replace('Evening Bar - ', '');
+        const expectedVenueName = activityDef.title.replace(
+          'Evening Bar - ',
+          ''
+        );
         const shouldAttend = csvValue && csvValue.trim() === expectedVenueName;
 
         if (shouldAttend) {
           // Add user's groups to the needed groups
-          user.groupIds.forEach(groupId => groupsNeeded.add(groupId));
-          userPatterns.push({ userId: user.id, shouldAttend: true, venue: expectedVenueName });
-          console.log(`   ✅ ${record.firstName} ${record.lastName} should attend (venue: ${expectedVenueName})`);
+          user.groupIds.forEach((groupId) => groupsNeeded.add(groupId));
+          userPatterns.push({
+            userId: user.id,
+            shouldAttend: true,
+            venue: expectedVenueName,
+          });
+          console.log(
+            `   ✅ ${record.firstName} ${record.lastName} should attend (venue: ${expectedVenueName})`
+          );
         } else {
           userPatterns.push({ userId: user.id, shouldAttend: false });
         }
@@ -671,9 +767,11 @@ async function analyzeActivityGroupPatterns(
 
         if (shouldAttend) {
           // Add user's groups to the needed groups
-          user.groupIds.forEach(groupId => groupsNeeded.add(groupId));
+          user.groupIds.forEach((groupId) => groupsNeeded.add(groupId));
           userPatterns.push({ userId: user.id, shouldAttend: true });
-          console.log(`   ✅ ${record.firstName} ${record.lastName} should attend`);
+          console.log(
+            `   ✅ ${record.firstName} ${record.lastName} should attend`
+          );
         } else {
           userPatterns.push({ userId: user.id, shouldAttend: false });
         }
@@ -681,17 +779,23 @@ async function analyzeActivityGroupPatterns(
     }
 
     const finalGroupIds = Array.from(groupsNeeded);
-    const groupNames = finalGroupIds.map(id =>
-      allGroups.find(g => g.id === id)?.name || 'Unknown'
+    const groupNames = finalGroupIds.map(
+      (id) => allGroups.find((g) => g.id === id)?.name || 'Unknown'
     );
 
-    console.log(`   🎯 Activity should be assigned to groups: [${groupNames.join(', ')}]`);
-    console.log(`   👥 Users who should attend: ${userPatterns.filter(p => p.shouldAttend).length}`);
-    console.log(`   🚫 Users who should be excluded: ${userPatterns.filter(p => !p.shouldAttend).length}`);
+    console.log(
+      `   🎯 Activity should be assigned to groups: [${groupNames.join(', ')}]`
+    );
+    console.log(
+      `   👥 Users who should attend: ${userPatterns.filter((p) => p.shouldAttend).length}`
+    );
+    console.log(
+      `   🚫 Users who should be excluded: ${userPatterns.filter((p) => !p.shouldAttend).length}`
+    );
 
     activityPatterns.set(activityDef.title, {
       groupIds: finalGroupIds,
-      userPatterns
+      userPatterns,
     });
   }
 
@@ -702,7 +806,17 @@ async function analyzeActivityGroupPatterns(
  * Apply smart activity assignments and exclusions
  */
 async function applySmartActivityAssignments(
-  activityPatterns: Map<string, { groupIds: string[], userPatterns: Array<{ userId: string, shouldAttend: boolean, venue?: string }> }>,
+  activityPatterns: Map<
+    string,
+    {
+      groupIds: string[];
+      userPatterns: Array<{
+        userId: string;
+        shouldAttend: boolean;
+        venue?: string;
+      }>;
+    }
+  >,
   eventId: string,
   adminId: string
 ): Promise<void> {
@@ -718,8 +832,8 @@ async function applySmartActivityAssignments(
           eventId,
           title: activityTitle,
           active: true,
-          deleted: false
-        }
+          deleted: false,
+        },
       });
 
       if (!activity) {
@@ -734,30 +848,36 @@ async function applySmartActivityAssignments(
           data: {
             groupIds: pattern.groupIds,
             lastModifiedBy: adminId,
-            lastModifiedAt: new Date()
-          }
+            lastModifiedAt: new Date(),
+          },
         });
 
-        console.log(`   ✅ Assigned activity to ${pattern.groupIds.length} groups`);
+        console.log(
+          `   ✅ Assigned activity to ${pattern.groupIds.length} groups`
+        );
 
         // Create exclusions for users who shouldn't attend
-        const exclusionsToCreate = pattern.userPatterns.filter(p => !p.shouldAttend);
+        const exclusionsToCreate = pattern.userPatterns.filter(
+          (p) => !p.shouldAttend
+        );
 
         if (exclusionsToCreate.length > 0) {
-          console.log(`   🚫 Creating ${exclusionsToCreate.length} exclusions...`);
+          console.log(
+            `   🚫 Creating ${exclusionsToCreate.length} exclusions...`
+          );
 
           for (const exclusionPattern of exclusionsToCreate) {
             try {
               // Get user details for exclusion
               const user = await prisma.user.findUnique({
                 where: { id: exclusionPattern.userId },
-                select: { groupIds: true, eventId: true, profile: true }
+                select: { groupIds: true, eventId: true, profile: true },
               });
 
               if (!user) continue;
 
               // Create exclusion for each group this activity is assigned to that the user is also in
-              const userGroupsInActivity = user.groupIds.filter(groupId =>
+              const userGroupsInActivity = user.groupIds.filter((groupId) =>
                 pattern.groupIds.includes(groupId)
               );
 
@@ -768,22 +888,30 @@ async function applySmartActivityAssignments(
                   groupId: groupId,
                   eventId: user.eventId,
                   excludedBy: adminId,
-                  reason: 'Not attending per CSV data'
+                  reason: 'Not attending per CSV data',
                 });
               }
 
               const profile = user.profile as any;
-              console.log(`     🚫 Excluded ${profile?.firstName} ${profile?.lastName} from "${activityTitle}"`);
+              console.log(
+                `     🚫 Excluded ${profile?.firstName} ${profile?.lastName} from "${activityTitle}"`
+              );
             } catch (exclusionError: any) {
-              console.warn(`     ⚠️ Failed to create exclusion: ${exclusionError.message}`);
+              console.warn(
+                `     ⚠️ Failed to create exclusion: ${exclusionError.message}`
+              );
             }
           }
         }
       } else {
-        console.log(`   ℹ️ No groups needed for "${activityTitle}" (no users attending)`);
+        console.log(
+          `   ℹ️ No groups needed for "${activityTitle}" (no users attending)`
+        );
       }
     } catch (error: any) {
-      console.error(`   ❌ Failed to process activity "${activityTitle}": ${error.message}`);
+      console.error(
+        `   ❌ Failed to process activity "${activityTitle}": ${error.message}`
+      );
     }
   }
 }
@@ -801,46 +929,90 @@ async function main() {
         shortName: eventConfig.shortName,
         location: eventConfig.location,
         dateRange: {
-          start: "2025-09-25T12:00:00.000Z",
-          end: "2025-10-05T16:00:00.000Z"
+          start: '2025-09-25T12:00:00.000Z',
+          end: '2025-10-05T16:00:00.000Z',
         },
         config: eventConfig.config,
         hotelConfig: null, // Will be populated when we create hotels
-        roomDrops: { drops: [] },
+        roomDrops: {
+          drops: [
+            {
+              id: 'standard_drop_sgp2025',
+              name: 'Standard Drop',
+              description:
+                'Standard welcome package for Singapore Grand Prix 2025 attendees',
+              stock: 1000,
+              assigned: 0,
+            },
+          ],
+        },
         guestCategories: {
-          categories: ["CBL", "Global Creators", "Global Media", "Chivas market host", "Cultural Creator", "Media", "Trade", "CEO", "APAC CODI", "Agent/Manager", "Cultural creator"]
+          categories: [
+            'CBL',
+            'Global Creators',
+            'Global Media',
+            'Chivas market host',
+            'Cultural Creator',
+            'Media',
+            'Trade',
+            'CEO',
+            'APAC CODI',
+            'Agent/Manager',
+            'Cultural creator',
+          ],
         },
         carConfig: {
-          cars: carConfig
+          cars: carConfig,
         },
         termsConditions: `
           <h2>Event Terms and Conditions</h2>`,
         privacyPolicy: `
           <h2>Privacy Policy</h2>`,
-        active: true
-      }
+        active: true,
+      },
     });
     console.log('✅ Event created:', event.name);
 
-    // Step 2: Create super admin for assignments
-    const passwordHash = await bcrypt.hash('admin123', 12);
-    console.log('👤 Creating super admin...');
+    // Step 2: Create super admins for assignments
+    console.log('👤 Creating super admins...');
+
+    // Create first super admin
+    const passwordHash1 = await bcrypt.hash('admin123', 12);
     const superAdmin = await prisma.admin.create({
       data: {
         email: 'meshari.s@homeofpmg.com',
         firstName: 'System',
         lastName: 'Administrator',
         role: 'SUPER',
-        passwordHash: passwordHash, // Placeholder password hash
+        passwordHash: passwordHash1,
         active: true,
         adminEvents: {
           create: {
-            eventId: event.id
-          }
-        }
-      }
+            eventId: event.id,
+          },
+        },
+      },
     });
     console.log('✅ Super admin created:', superAdmin.email);
+
+    // Create second super admin - Louise Guita
+    const passwordHash2 = await bcrypt.hash('zz#S9QBJDKCB', 12);
+    const superAdmin2 = await prisma.admin.create({
+      data: {
+        email: 'lguita@invnt.com',
+        firstName: 'Louise',
+        lastName: 'Guita',
+        role: 'SUPER',
+        passwordHash: passwordHash2,
+        active: true,
+        adminEvents: {
+          create: {
+            eventId: event.id,
+          },
+        },
+      },
+    });
+    console.log('✅ Super admin created:', superAdmin2.email);
 
     // Step 3: Create default hotel
     console.log('🏨 Creating hotel...');
@@ -854,8 +1026,8 @@ async function main() {
         address: hotelConfig.address,
         phone: hotelConfig.phone,
         email: hotelConfig.email,
-        active: true
-      }
+        active: true,
+      },
     });
     console.log('✅ Hotel created:', hotel.name);
 
@@ -872,8 +1044,8 @@ async function main() {
           maxOccupancy: 2, // Default value for schema compatibility
           basePrice: roomType.basePrice,
           amenities: [],
-          active: true
-        }
+          active: true,
+        },
       });
       createdRoomTypes.push(created);
       console.log(`✅ Room type created: ${created.name}`);
@@ -885,68 +1057,310 @@ async function main() {
       where: { id: event.id },
       data: {
         hotelConfig: {
-          hotels: [{
-            name: hotel.name,
-            isDefault: hotel.isDefault,
-            checkInTime: hotel.checkInTime,
-            checkOutTime: hotel.checkOutTime,
-            contractedRooms: [
-              // Signature King rooms - Updated per hotel matrix
-              { date: "25/09/2025", roomType: "Signature King", quantity: 2, allocated: 0 },
-              { date: "26/09/2025", roomType: "Signature King", quantity: 3, allocated: 0 },
-              { date: "27/09/2025", roomType: "Signature King", quantity: 3, allocated: 0 },
-              { date: "28/09/2025", roomType: "Signature King", quantity: 10, allocated: 0 },
-              { date: "29/09/2025", roomType: "Signature King", quantity: 28, allocated: 0 },
-              { date: "30/09/2025", roomType: "Signature King", quantity: 63, allocated: 0 },
-              { date: "01/10/2025", roomType: "Signature King", quantity: 66, allocated: 0 },
-              { date: "02/10/2025", roomType: "Signature King", quantity: 71, allocated: 0 },
-              { date: "03/10/2025", roomType: "Signature King", quantity: 66, allocated: 0 },
-              { date: "04/10/2025", roomType: "Signature King", quantity: 66, allocated: 0 },
-              { date: "05/10/2025", roomType: "Signature King", quantity: 63, allocated: 0 },
-              { date: "06/10/2025", roomType: "Signature King", quantity: 10, allocated: 0 },
-              // Suite King rooms - Updated per hotel matrix
-              { date: "25/09/2025", roomType: "Suite King", quantity: 0, allocated: 0 },
-              { date: "26/09/2025", roomType: "Suite King", quantity: 0, allocated: 0 },
-              { date: "27/09/2025", roomType: "Suite King", quantity: 0, allocated: 0 },
-              { date: "28/09/2025", roomType: "Suite King", quantity: 0, allocated: 0 },
-              { date: "29/09/2025", roomType: "Suite King", quantity: 0, allocated: 0 },
-              { date: "30/09/2025", roomType: "Suite King", quantity: 3, allocated: 0 },
-              { date: "01/10/2025", roomType: "Suite King", quantity: 3, allocated: 0 },
-              { date: "02/10/2025", roomType: "Suite King", quantity: 3, allocated: 0 },
-              { date: "03/10/2025", roomType: "Suite King", quantity: 3, allocated: 0 },
-              { date: "04/10/2025", roomType: "Suite King", quantity: 3, allocated: 0 },
-              { date: "05/10/2025", roomType: "Suite King", quantity: 3, allocated: 0 },
-              { date: "06/10/2025", roomType: "Suite King", quantity: 0, allocated: 0 },
-              // Shophouse suite rooms - Updated per hotel matrix  
-              { date: "25/09/2025", roomType: "Shophouse suite", quantity: 0, allocated: 0 },
-              { date: "26/09/2025", roomType: "Shophouse suite", quantity: 0, allocated: 0 },
-              { date: "27/09/2025", roomType: "Shophouse suite", quantity: 0, allocated: 0 },
-              { date: "28/09/2025", roomType: "Shophouse suite", quantity: 0, allocated: 0 },
-              { date: "29/09/2025", roomType: "Shophouse suite", quantity: 0, allocated: 0 },
-              { date: "30/09/2025", roomType: "Shophouse suite", quantity: 3, allocated: 0 },
-              { date: "01/10/2025", roomType: "Shophouse suite", quantity: 3, allocated: 0 },
-              { date: "02/10/2025", roomType: "Shophouse suite", quantity: 3, allocated: 0 },
-              { date: "03/10/2025", roomType: "Shophouse suite", quantity: 3, allocated: 0 },
-              { date: "04/10/2025", roomType: "Shophouse suite", quantity: 3, allocated: 0 },
-              { date: "05/10/2025", roomType: "Shophouse suite", quantity: 3, allocated: 0 },
-              { date: "06/10/2025", roomType: "Shophouse suite", quantity: 0, allocated: 0 },
-              // Signature Twin rooms - Added for users requiring twin bed setup
-              { date: "25/09/2025", roomType: "Signature Twin", quantity: 0, allocated: 0 },
-              { date: "26/09/2025", roomType: "Signature Twin", quantity: 0, allocated: 0 },
-              { date: "27/09/2025", roomType: "Signature Twin", quantity: 0, allocated: 0 },
-              { date: "28/09/2025", roomType: "Signature Twin", quantity: 2, allocated: 0 },
-              { date: "29/09/2025", roomType: "Signature Twin", quantity: 5, allocated: 0 },
-              { date: "30/09/2025", roomType: "Signature Twin", quantity: 10, allocated: 0 },
-              { date: "01/10/2025", roomType: "Signature Twin", quantity: 10, allocated: 0 },
-              { date: "02/10/2025", roomType: "Signature Twin", quantity: 10, allocated: 0 },
-              { date: "03/10/2025", roomType: "Signature Twin", quantity: 10, allocated: 0 },
-              { date: "04/10/2025", roomType: "Signature Twin", quantity: 10, allocated: 0 },
-              { date: "05/10/2025", roomType: "Signature Twin", quantity: 8, allocated: 0 },
-              { date: "06/10/2025", roomType: "Signature Twin", quantity: 2, allocated: 0 },
-            ]
-          }]
-        }
-      }
+          hotels: [
+            {
+              name: hotel.name,
+              isDefault: hotel.isDefault,
+              checkInTime: hotel.checkInTime,
+              checkOutTime: hotel.checkOutTime,
+              contractedRooms: [
+                // Signature King rooms - Updated per hotel matrix
+                {
+                  date: '25/09/2025',
+                  roomType: 'Signature King',
+                  quantity: 2,
+                  allocated: 0,
+                },
+                {
+                  date: '26/09/2025',
+                  roomType: 'Signature King',
+                  quantity: 3,
+                  allocated: 0,
+                },
+                {
+                  date: '27/09/2025',
+                  roomType: 'Signature King',
+                  quantity: 3,
+                  allocated: 0,
+                },
+                {
+                  date: '28/09/2025',
+                  roomType: 'Signature King',
+                  quantity: 10,
+                  allocated: 0,
+                },
+                {
+                  date: '29/09/2025',
+                  roomType: 'Signature King',
+                  quantity: 28,
+                  allocated: 0,
+                },
+                {
+                  date: '30/09/2025',
+                  roomType: 'Signature King',
+                  quantity: 63,
+                  allocated: 0,
+                },
+                {
+                  date: '01/10/2025',
+                  roomType: 'Signature King',
+                  quantity: 66,
+                  allocated: 0,
+                },
+                {
+                  date: '02/10/2025',
+                  roomType: 'Signature King',
+                  quantity: 71,
+                  allocated: 0,
+                },
+                {
+                  date: '03/10/2025',
+                  roomType: 'Signature King',
+                  quantity: 66,
+                  allocated: 0,
+                },
+                {
+                  date: '04/10/2025',
+                  roomType: 'Signature King',
+                  quantity: 66,
+                  allocated: 0,
+                },
+                {
+                  date: '05/10/2025',
+                  roomType: 'Signature King',
+                  quantity: 63,
+                  allocated: 0,
+                },
+                {
+                  date: '06/10/2025',
+                  roomType: 'Signature King',
+                  quantity: 10,
+                  allocated: 0,
+                },
+                // Suite King rooms - Updated per hotel matrix
+                {
+                  date: '25/09/2025',
+                  roomType: 'Suite King',
+                  quantity: 0,
+                  allocated: 0,
+                },
+                {
+                  date: '26/09/2025',
+                  roomType: 'Suite King',
+                  quantity: 0,
+                  allocated: 0,
+                },
+                {
+                  date: '27/09/2025',
+                  roomType: 'Suite King',
+                  quantity: 0,
+                  allocated: 0,
+                },
+                {
+                  date: '28/09/2025',
+                  roomType: 'Suite King',
+                  quantity: 0,
+                  allocated: 0,
+                },
+                {
+                  date: '29/09/2025',
+                  roomType: 'Suite King',
+                  quantity: 0,
+                  allocated: 0,
+                },
+                {
+                  date: '30/09/2025',
+                  roomType: 'Suite King',
+                  quantity: 3,
+                  allocated: 0,
+                },
+                {
+                  date: '01/10/2025',
+                  roomType: 'Suite King',
+                  quantity: 3,
+                  allocated: 0,
+                },
+                {
+                  date: '02/10/2025',
+                  roomType: 'Suite King',
+                  quantity: 3,
+                  allocated: 0,
+                },
+                {
+                  date: '03/10/2025',
+                  roomType: 'Suite King',
+                  quantity: 3,
+                  allocated: 0,
+                },
+                {
+                  date: '04/10/2025',
+                  roomType: 'Suite King',
+                  quantity: 3,
+                  allocated: 0,
+                },
+                {
+                  date: '05/10/2025',
+                  roomType: 'Suite King',
+                  quantity: 3,
+                  allocated: 0,
+                },
+                {
+                  date: '06/10/2025',
+                  roomType: 'Suite King',
+                  quantity: 0,
+                  allocated: 0,
+                },
+                // Shophouse suite rooms - Updated per hotel matrix
+                {
+                  date: '25/09/2025',
+                  roomType: 'Shophouse suite',
+                  quantity: 0,
+                  allocated: 0,
+                },
+                {
+                  date: '26/09/2025',
+                  roomType: 'Shophouse suite',
+                  quantity: 0,
+                  allocated: 0,
+                },
+                {
+                  date: '27/09/2025',
+                  roomType: 'Shophouse suite',
+                  quantity: 0,
+                  allocated: 0,
+                },
+                {
+                  date: '28/09/2025',
+                  roomType: 'Shophouse suite',
+                  quantity: 0,
+                  allocated: 0,
+                },
+                {
+                  date: '29/09/2025',
+                  roomType: 'Shophouse suite',
+                  quantity: 0,
+                  allocated: 0,
+                },
+                {
+                  date: '30/09/2025',
+                  roomType: 'Shophouse suite',
+                  quantity: 3,
+                  allocated: 0,
+                },
+                {
+                  date: '01/10/2025',
+                  roomType: 'Shophouse suite',
+                  quantity: 3,
+                  allocated: 0,
+                },
+                {
+                  date: '02/10/2025',
+                  roomType: 'Shophouse suite',
+                  quantity: 3,
+                  allocated: 0,
+                },
+                {
+                  date: '03/10/2025',
+                  roomType: 'Shophouse suite',
+                  quantity: 3,
+                  allocated: 0,
+                },
+                {
+                  date: '04/10/2025',
+                  roomType: 'Shophouse suite',
+                  quantity: 3,
+                  allocated: 0,
+                },
+                {
+                  date: '05/10/2025',
+                  roomType: 'Shophouse suite',
+                  quantity: 3,
+                  allocated: 0,
+                },
+                {
+                  date: '06/10/2025',
+                  roomType: 'Shophouse suite',
+                  quantity: 0,
+                  allocated: 0,
+                },
+                // Signature Twin rooms - Added for users requiring twin bed setup
+                {
+                  date: '25/09/2025',
+                  roomType: 'Signature Twin',
+                  quantity: 0,
+                  allocated: 0,
+                },
+                {
+                  date: '26/09/2025',
+                  roomType: 'Signature Twin',
+                  quantity: 0,
+                  allocated: 0,
+                },
+                {
+                  date: '27/09/2025',
+                  roomType: 'Signature Twin',
+                  quantity: 0,
+                  allocated: 0,
+                },
+                {
+                  date: '28/09/2025',
+                  roomType: 'Signature Twin',
+                  quantity: 2,
+                  allocated: 0,
+                },
+                {
+                  date: '29/09/2025',
+                  roomType: 'Signature Twin',
+                  quantity: 5,
+                  allocated: 0,
+                },
+                {
+                  date: '30/09/2025',
+                  roomType: 'Signature Twin',
+                  quantity: 10,
+                  allocated: 0,
+                },
+                {
+                  date: '01/10/2025',
+                  roomType: 'Signature Twin',
+                  quantity: 10,
+                  allocated: 0,
+                },
+                {
+                  date: '02/10/2025',
+                  roomType: 'Signature Twin',
+                  quantity: 10,
+                  allocated: 0,
+                },
+                {
+                  date: '03/10/2025',
+                  roomType: 'Signature Twin',
+                  quantity: 10,
+                  allocated: 0,
+                },
+                {
+                  date: '04/10/2025',
+                  roomType: 'Signature Twin',
+                  quantity: 10,
+                  allocated: 0,
+                },
+                {
+                  date: '05/10/2025',
+                  roomType: 'Signature Twin',
+                  quantity: 8,
+                  allocated: 0,
+                },
+                {
+                  date: '06/10/2025',
+                  roomType: 'Signature Twin',
+                  quantity: 2,
+                  allocated: 0,
+                },
+              ],
+            },
+          ],
+        },
+      },
     });
     console.log('✅ Hotel configuration set up successfully');
 
@@ -956,7 +1370,9 @@ async function main() {
       try {
         await getOrCreateActivity(activityDef, event.id, superAdmin.id);
       } catch (activityCreationError: any) {
-        console.warn(`⚠️ Failed to pre-create activity "${activityDef.title}": ${activityCreationError.message}`);
+        console.warn(
+          `⚠️ Failed to pre-create activity "${activityDef.title}": ${activityCreationError.message}`
+        );
       }
     }
     console.log(`✅ Pre-created ${activityCache.size} activities`);
@@ -968,28 +1384,79 @@ async function main() {
 
     const records = parse(csvContent, {
       columns: [
-        'market', 'firstName', 'lastName', 'nickname', 'jobTitle', 'company', 'guestType',
-        'vipGuest', 'email', 'contactMobile', 'host', 'emergencyContactName',
-        'emergencyContactNumber', 'gender', 'sizeRequirements', 'initials',
-        'accessibilityRequirements', 'dietaryRequirements', 'medicalInformation',
-        'transportMode', 'inboundDepartureFrom', 'inboundDepartureDate',
-        'inboundDepartureTime', 'inboundDepartureTerminal', 'inboundFlightNumber',
-        'connectingFlight', 'inboundArrivalDate', 'inboundArrivalTime',
-        'inboundArrivalTo', 'transportRequired', 'outboundDepartureFrom',
-        'outboundDepartureDate', 'outboundDepartureTime', 'outboundDepartureTerminal',
-        'outboundFlightNumber', 'outboundArrivalTo', 'accommodationRequired',
-        'hotelName', 'roomCategory', 'occupancy', 'checkInDate', 'checkOutDate',
-        'numberOfNights', 'hotelBookingForVisa', 'notes',
+        'market',
+        'firstName',
+        'lastName',
+        'nickname',
+        'jobTitle',
+        'company',
+        'guestType',
+        'internalVip',
+        'vipGuest',
+        'email',
+        'contactMobile',
+        'host',
+        'emergencyContactName',
+        'emergencyContactNumber',
+        'gender',
+        'sizeRequirements',
+        'initials',
+        'accessibilityRequirements',
+        'dietaryRequirements',
+        'medicalInformation',
+        'transportMode',
+        'inboundDepartureFrom',
+        'inboundDepartureDate',
+        'inboundDepartureTime',
+        'inboundDepartureTerminal',
+        'inboundFlightNumber',
+        'connectingFlight',
+        'inboundArrivalDate',
+        'inboundArrivalTime',
+        'inboundArrivalTo',
+        'transportRequired',
+        'outboundDepartureFrom',
+        'outboundDepartureDate',
+        'outboundDepartureTime',
+        'outboundDepartureTerminal',
+        'outboundFlightNumber',
+        'outboundArrivalTo',
+        'accommodationRequired',
+        'hotelName',
+        'roomCategory',
+        'occupancy',
+        'checkInDate',
+        'checkOutDate',
+        'numberOfNights',
+        'roomDrop',
+        'hotelBookingForVisa',
+        'notes',
+        'gpTransfersRequired',
+        'eventTransfersRequired',
         // Activity assignments
-        'crystalGoldLaunch', 'clcInterview', 'airCccc', 'casaFerrari',
-        'prsPaddockClubFri', 'regalClubFri', 'crystalGoldLoungeFri', 'eveningBar',
-        'fredInterviewSession', 'prsPaddockClubSat', 'regalClubSat', 'crystalGoldLoungeSat',
-        'sushiSambaAfterParty', 'prsPaddockClubSun', 'regalClubSun', 'crystalGoldLoungeSun',
-        'lavoAfterParty', 'marketCarNumber'
+        'crystalGoldLaunch',
+        'clcInterview',
+        'airCccc',
+        'casaFerrari',
+        'prsPaddockClubFri',
+        'regalClubFri',
+        'crystalGoldLoungeFri',
+        'eveningBar',
+        'fredInterviewSession',
+        'prsPaddockClubSat',
+        'regalClubSat',
+        'crystalGoldLoungeSat',
+        'sushiSambaAfterParty',
+        'prsPaddockClubSun',
+        'regalClubSun',
+        'crystalGoldLoungeSun',
+        'lavoAfterParty',
+        'marketCarNumber',
+        'marketCarNumberNotes',
       ],
       skip_empty_lines: true,
       trim: true,
-      from_line: 2 // Skip header row
+      from_line: 2, // Skip header row
     }) as CSVRow[];
 
     console.log(`📊 Found ${records.length} records to import`);
@@ -998,8 +1465,16 @@ async function main() {
     let imported = 0;
     let skipped = 0;
     const successfulImports: CSVRow[] = [];
-    const failedImports: Array<{ record: CSVRow; error: string; rowNumber: number }> = [];
-    const skippedImports: Array<{ record: CSVRow; reason: string; rowNumber: number }> = [];
+    const failedImports: Array<{
+      record: CSVRow;
+      error: string;
+      rowNumber: number;
+    }> = [];
+    const skippedImports: Array<{
+      record: CSVRow;
+      reason: string;
+      rowNumber: number;
+    }> = [];
 
     for (const record of records) {
       const rowNumber = records.indexOf(record) + 2;
@@ -1010,7 +1485,7 @@ async function main() {
           skippedImports.push({
             record,
             reason: 'Empty row - missing first name and last name',
-            rowNumber
+            rowNumber,
           });
           skipped++;
           continue;
@@ -1030,8 +1505,12 @@ async function main() {
           return dateStr;
         };
 
-        const checkInFormatted = record.checkInDate ? normalizeDateFormat(cleanValue(record.checkInDate) || '') : undefined;
-        const checkOutFormatted = record.checkOutDate ? normalizeDateFormat(cleanValue(record.checkOutDate) || '') : undefined;
+        const checkInFormatted = record.checkInDate
+          ? normalizeDateFormat(cleanValue(record.checkInDate) || '')
+          : undefined;
+        const checkOutFormatted = record.checkOutDate
+          ? normalizeDateFormat(cleanValue(record.checkOutDate) || '')
+          : undefined;
 
         // Calculate nights count from string or provided number
         let nightsCount = 0;
@@ -1077,96 +1556,134 @@ async function main() {
             company: cleanValue(record.company) || undefined,
             guestType: cleanValue(record.guestType) || undefined,
             vip: parseYesNo(record.vipGuest),
+            internalVip: parseYesNo(record.internalVip) || false,
             initials: cleanValue(record.initials) || undefined,
-            host: cleanValue(record.host) || undefined
+            host: cleanValue(record.host) || undefined,
           },
           communication: {
             emailOptIn: true,
-            whatsappOptIn: false
+            whatsappOptIn: false,
           },
           guestCategory: cleanValue(record.guestType) || undefined,
           tickets: [], // Enhanced structured tickets will be added post-import if needed
           merchandiseSize: {
             gender: convertGender(record.gender),
-            size: cleanValue(record.sizeRequirements) || undefined
+            size: cleanValue(record.sizeRequirements) || undefined,
           },
           accommodation: {
             required: parseYesNo(record.accommodationRequired),
             hotel: cleanValue(record.hotelName) || undefined,
             roomType: cleanValue(record.roomCategory) || undefined,
-            checkIn: checkInFormatted,  // 🎯 String: "25/09/2025"
+            checkIn: checkInFormatted, // 🎯 String: "25/09/2025"
             checkOut: checkOutFormatted, // 🎯 String: "05/10/2025"
             nightsCount: nightsCount,
             // 🎯 RESTORED: Hotel notes stored directly on user for pre-assignment planning
             hotelNotes: cleanValue(record.notes) || undefined, // Store notes in accommodation for immediate access
             // 🎯 FIX: Store actual occupancy type without auto-defaulting N/A values
-            occupancy: record.occupancy === 'Single' ? 'single' :
-              record.occupancy === 'Double' ? 'double' :
-                record.occupancy === 'Twin' ? 'twin' :
-                  record.occupancy === 'Room Sharer' ? 'room_sharer' :
-                    (record.occupancy === 'N/A' || !record.occupancy || record.occupancy.trim() === '') ? 'N/A' : undefined,
+            occupancy:
+              record.occupancy === 'Single'
+                ? 'single'
+                : record.occupancy === 'Double'
+                  ? 'double'
+                  : record.occupancy === 'Twin'
+                    ? 'twin'
+                    : record.occupancy === 'Room Sharer'
+                      ? 'room_sharer'
+                      : record.occupancy === 'N/A' ||
+                          !record.occupancy ||
+                          record.occupancy.trim() === ''
+                        ? 'N/A'
+                        : undefined,
             doubleOccupancy: {
-              enabled: record.occupancy === 'Double' || record.occupancy === 'Twin' || record.occupancy === 'Room Sharer'
+              enabled:
+                record.occupancy === 'Double' ||
+                record.occupancy === 'Twin' ||
+                record.occupancy === 'Room Sharer',
             },
-            visaBookingRequired: parseYesNo(record.hotelBookingForVisa)
+            visaBookingRequired: parseYesNo(record.hotelBookingForVisa),
           },
           flight: {
             inbound: {
-              departureFrom: cleanValue(record.inboundDepartureFrom) || undefined,
-              departureDate: cleanValue(record.inboundDepartureDate) || undefined,
-              departureTime: parseTime(record.inboundDepartureTime) || undefined,
-              departureTerminal: cleanValue(record.inboundDepartureTerminal) || undefined,
+              departureFrom:
+                cleanValue(record.inboundDepartureFrom) || undefined,
+              departureDate:
+                cleanValue(record.inboundDepartureDate) || undefined,
+              departureTime:
+                parseTime(record.inboundDepartureTime) || undefined,
+              departureTerminal:
+                cleanValue(record.inboundDepartureTerminal) || undefined,
               flightNumber: cleanValue(record.inboundFlightNumber) || undefined,
               arrivalDate: cleanValue(record.inboundArrivalDate) || undefined,
               arrivalTime: parseTime(record.inboundArrivalTime) || undefined,
-              arrivalToAirport: cleanValue(record.inboundArrivalTo) || undefined
+              arrivalToAirport:
+                cleanValue(record.inboundArrivalTo) || undefined,
             },
             outbound: {
-              departureFrom: cleanValue(record.outboundDepartureFrom) || undefined,
-              departureDate: cleanValue(record.outboundDepartureDate) || undefined,
-              departureTime: parseTime(record.outboundDepartureTime) || undefined,
-              departureTerminal: cleanValue(record.outboundDepartureTerminal) || undefined,
-              flightNumber: cleanValue(record.outboundFlightNumber) || undefined,
-              arrivalToAirport: cleanValue(record.outboundArrivalTo) || undefined
-            }
+              departureFrom:
+                cleanValue(record.outboundDepartureFrom) || undefined,
+              departureDate:
+                cleanValue(record.outboundDepartureDate) || undefined,
+              departureTime:
+                parseTime(record.outboundDepartureTime) || undefined,
+              departureTerminal:
+                cleanValue(record.outboundDepartureTerminal) || undefined,
+              flightNumber:
+                cleanValue(record.outboundFlightNumber) || undefined,
+              arrivalToAirport:
+                cleanValue(record.outboundArrivalTo) || undefined,
+            },
           },
           requirements: {
             dietary: {
-              enabled: !!(cleanValue(record.dietaryRequirements)),
-              details: cleanValue(record.dietaryRequirements) || undefined
+              enabled: !!cleanValue(record.dietaryRequirements),
+              details: cleanValue(record.dietaryRequirements) || undefined,
             },
             medical: {
-              enabled: !!(cleanValue(record.medicalInformation)),
-              details: cleanValue(record.medicalInformation) || undefined
+              enabled: !!cleanValue(record.medicalInformation),
+              details: cleanValue(record.medicalInformation) || undefined,
             },
             accessibility: {
-              enabled: !!(cleanValue(record.accessibilityRequirements)),
-              details: cleanValue(record.accessibilityRequirements) || undefined
-            }
+              enabled: !!cleanValue(record.accessibilityRequirements),
+              details:
+                cleanValue(record.accessibilityRequirements) || undefined,
+            },
           },
           emergencyContact: {
             name: cleanValue(record.emergencyContactName) || undefined,
             relationship: undefined, // Not clearly separated in CSV
             phone: cleanValue(record.emergencyContactNumber) || undefined,
-            email: undefined // Not provided in CSV
+            email: undefined, // Not provided in CSV
           },
-          transferRequirements: parseYesNo(record.transportRequired) ? true : false,
+          transferRequirements: parseYesNo(record.transportRequired) || false,
+          gpTransfersRequired: parseYesNo(record.gpTransfersRequired) || false,
+          eventTransfersRequired:
+            parseYesNo(record.eventTransfersRequired) || false,
           masterGuestNotes: cleanValue(record.notes) || undefined, // Import notes go to master notes for admin sorting
+          carAssignmentNotes:
+            cleanValue(record.marketCarNumberNotes) || undefined, // Car assignment notes
+          roomDropAssigned: parseYesNo(record.roomDrop)
+            ? 'standard_drop_sgp2025'
+            : null, // Standard Drop assignment
           assigned: false, // 🎯 FIX: Start as unassigned, will be updated when actually assigned to groups
-          active: true
+          active: true,
         };
 
         // Create user
         const user = await prisma.user.create({
-          data: userData
+          data: userData,
         });
 
         // Assign user to group based on Market field
         if (record.market && cleanValue(record.market)) {
           try {
             const marketName = cleanValue(record.market)!;
-            const correctedMarketName = marketName === 'Phillipines' ? 'Philippines' : marketName;
-            const groupId = await getOrCreateGroup(correctedMarketName, event.id, superAdmin.id);
+            const correctedMarketName =
+              marketName === 'Phillipines' ? 'Philippines' : marketName;
+            const groupId = await getOrCreateGroup(
+              correctedMarketName,
+              event.id,
+              superAdmin.id
+            );
 
             // Add user to group and update assignment status
             await prisma.user.update({
@@ -1175,13 +1692,17 @@ async function main() {
                 groupIds: [groupId],
                 assigned: true, // 🎯 FIX: Mark as assigned when successfully added to group
                 assignedAt: new Date(),
-                assignedBy: superAdmin.id
-              }
+                assignedBy: superAdmin.id,
+              },
             });
 
-            console.log(`👥 Assigned ${(user.profile as any).firstName} ${(user.profile as any).lastName} to group "${correctedMarketName}"`);
+            console.log(
+              `👥 Assigned ${(user.profile as any).firstName} ${(user.profile as any).lastName} to group "${correctedMarketName}"`
+            );
           } catch (groupError: any) {
-            console.warn(`⚠️ Failed to assign user to group: ${groupError.message}`);
+            console.warn(
+              `⚠️ Failed to assign user to group: ${groupError.message}`
+            );
           }
         }
 
@@ -1194,19 +1715,30 @@ async function main() {
             await prisma.user.update({
               where: { id: user.id },
               data: {
-                carNumbers: [carNumber] // Direct user override - no group inheritance
-              }
+                carNumbers: [carNumber], // Direct user override - no group inheritance
+              },
             });
-            console.log(`🚗 Assigned car ${carNumber} to ${(user.profile as any).firstName} ${(user.profile as any).lastName}`);
+            console.log(
+              `🚗 Assigned car ${carNumber} to ${(user.profile as any).firstName} ${(user.profile as any).lastName}`
+            );
           }
         } catch (carError: any) {
-          console.warn(`⚠️ Failed to assign car to ${(user.profile as any).firstName} ${(user.profile as any).lastName}: ${carError.message}`);
+          console.warn(
+            `⚠️ Failed to assign car to ${(user.profile as any).firstName} ${(user.profile as any).lastName}: ${carError.message}`
+          );
         }
 
         // Assign room if accommodation is required and room type is specified
-        if (userData.accommodation?.required && userData.accommodation?.roomType) {
-          const roomType = createdRoomTypes.find(rt => rt.name === userData.accommodation?.roomType);
-          console.log(`🛏️ Looking for room type: "${userData.accommodation?.roomType}" - Found: ${roomType ? 'YES' : 'NO'}`);
+        if (
+          userData.accommodation?.required &&
+          userData.accommodation?.roomType
+        ) {
+          const roomType = createdRoomTypes.find(
+            (rt) => rt.name === userData.accommodation?.roomType
+          );
+          console.log(
+            `🛏️ Looking for room type: "${userData.accommodation?.roomType}" - Found: ${roomType ? 'YES' : 'NO'}`
+          );
 
           if (roomType) {
             try {
@@ -1219,26 +1751,38 @@ async function main() {
                 hotelNotes: (userData.accommodation as any)?.hotelNotes || '', // Copy from user accommodation
                 billingNotes: '',
               });
-              console.log(`🛏️ Room assigned for ${(user.profile as any).firstName} ${(user.profile as any).lastName}`);
+              console.log(
+                `🛏️ Room assigned for ${(user.profile as any).firstName} ${(user.profile as any).lastName}`
+              );
             } catch (roomError: any) {
-              console.warn(`⚠️ Room assignment failed for ${(user.profile as any).firstName} ${(user.profile as any).lastName}: ${roomError.message}`);
+              console.warn(
+                `⚠️ Room assignment failed for ${(user.profile as any).firstName} ${(user.profile as any).lastName}: ${roomError.message}`
+              );
               // Don't fail the entire import - just log the issue
             }
           } else {
-            console.warn(`⚠️ Room type "${userData.accommodation.roomType}" not found for ${(user.profile as any).firstName} ${(user.profile as any).lastName}`);
+            console.warn(
+              `⚠️ Room type "${userData.accommodation.roomType}" not found for ${(user.profile as any).firstName} ${(user.profile as any).lastName}`
+            );
           }
         }
 
         imported++;
         successfulImports.push(record);
-        console.log(`✅ Imported user ${imported}: ${(user.profile as any).firstName} ${(user.profile as any).lastName} (${(user.profile as any).email || 'no email'})`);
-
+        console.log(
+          `✅ Imported user ${imported}: ${(user.profile as any).firstName} ${(user.profile as any).lastName} (${(user.profile as any).email || 'no email'})`
+        );
       } catch (error: any) {
-        console.error(`❌ Failed to import record:`, record.firstName, record.lastName, error);
+        console.error(
+          `❌ Failed to import record:`,
+          record.firstName,
+          record.lastName,
+          error
+        );
         failedImports.push({
           record,
           error: error.message || error.toString(),
-          rowNumber
+          rowNumber,
         });
         skipped++;
       }
@@ -1248,14 +1792,24 @@ async function main() {
     console.log('\n🧠 Step 6: Smart Activity Assignment...');
     try {
       // Analyze CSV patterns to determine activity-group mappings
-      const activityPatterns = await analyzeActivityGroupPatterns(records, event.id);
+      const activityPatterns = await analyzeActivityGroupPatterns(
+        records,
+        event.id
+      );
 
       // Apply the smart assignments and exclusions
-      await applySmartActivityAssignments(activityPatterns, event.id, superAdmin.id);
+      await applySmartActivityAssignments(
+        activityPatterns,
+        event.id,
+        superAdmin.id
+      );
 
       console.log('✅ Smart activity assignments completed!');
     } catch (smartAssignmentError: any) {
-      console.error('❌ Smart activity assignment failed:', smartAssignmentError.message);
+      console.error(
+        '❌ Smart activity assignment failed:',
+        smartAssignmentError.message
+      );
       // Don't fail the entire import - continue with reporting
     }
 
@@ -1267,19 +1821,41 @@ async function main() {
     console.log(`🛏️ Created: ${createdRoomTypes.length} room types`);
     console.log(`👥 Created/used: ${groupCache.size} groups`);
     console.log(`🎯 Created/used: ${activityCache.size} activities`);
-    console.log(`🧠 Smart assignments: Activities assigned to groups based on CSV patterns`);
-    console.log(`🚫 Exclusions: Created for users not attending activities their groups have access to`);
+    console.log(
+      `🧠 Smart assignments: Activities assigned to groups based on CSV patterns`
+    );
+    console.log(
+      `🚫 Exclusions: Created for users not attending activities their groups have access to`
+    );
     console.log(`🚗 Configured: ${carConfig.length} cars (1-27)`);
     console.log(`📅 Created: 1 event (${event.name})`);
 
     // 🎯 FIX: Verify assignment consistency
     console.log('\n🔍 Verifying assignment consistency...');
-    const [totalUsers, assignedUsers, unassignedUsers, usersWithGroups, usersWithoutGroups] = await prisma.$transaction([
+    const [
+      totalUsers,
+      assignedUsers,
+      unassignedUsers,
+      usersWithGroups,
+      usersWithoutGroups,
+    ] = await prisma.$transaction([
       prisma.user.count({ where: { eventId: event.id, active: true } }),
-      prisma.user.count({ where: { eventId: event.id, active: true, assigned: true } }),
-      prisma.user.count({ where: { eventId: event.id, active: true, assigned: false } }),
-      prisma.user.count({ where: { eventId: event.id, active: true, groupIds: { isEmpty: false } } }),
-      prisma.user.count({ where: { eventId: event.id, active: true, groupIds: { isEmpty: true } } }),
+      prisma.user.count({
+        where: { eventId: event.id, active: true, assigned: true },
+      }),
+      prisma.user.count({
+        where: { eventId: event.id, active: true, assigned: false },
+      }),
+      prisma.user.count({
+        where: {
+          eventId: event.id,
+          active: true,
+          groupIds: { isEmpty: false },
+        },
+      }),
+      prisma.user.count({
+        where: { eventId: event.id, active: true, groupIds: { isEmpty: true } },
+      }),
     ]);
 
     console.log(`📊 Assignment Verification:`);
@@ -1289,8 +1865,13 @@ async function main() {
     console.log(`   Has Groups: ${usersWithGroups}`);
     console.log(`   No Groups: ${usersWithoutGroups}`);
 
-    if (assignedUsers !== usersWithGroups || unassignedUsers !== usersWithoutGroups) {
-      console.warn('⚠️ INCONSISTENCY DETECTED: assigned field does not match group assignment reality');
+    if (
+      assignedUsers !== usersWithGroups ||
+      unassignedUsers !== usersWithoutGroups
+    ) {
+      console.warn(
+        '⚠️ INCONSISTENCY DETECTED: assigned field does not match group assignment reality'
+      );
     } else {
       console.log('✅ Assignment consistency verified - counts match!');
     }
@@ -1312,14 +1893,18 @@ async function main() {
     if (failedImports.length > 0) {
       console.log('\n❌ Failed imports:');
       failedImports.forEach(({ record, error, rowNumber }) => {
-        console.log(`   Row ${rowNumber}: ${record.firstName} ${record.lastName} - ${error}`);
+        console.log(
+          `   Row ${rowNumber}: ${record.firstName} ${record.lastName} - ${error}`
+        );
       });
     }
 
     if (skippedImports.length > 0) {
       console.log('\n⏭️ Skipped imports:');
       skippedImports.forEach(({ record, reason, rowNumber }) => {
-        console.log(`   Row ${rowNumber}: ${record.firstName || 'N/A'} ${record.lastName || 'N/A'} - ${reason}`);
+        console.log(
+          `   Row ${rowNumber}: ${record.firstName || 'N/A'} ${record.lastName || 'N/A'} - ${reason}`
+        );
       });
     }
 
@@ -1334,8 +1919,8 @@ async function main() {
     const successSheet = workbook.addWorksheet('Successfully Imported');
     successSheet.addRow(csvHeaders);
 
-    successfulImports.forEach(record => {
-      const row = csvHeaders.map(header => (record as any)[header] || '');
+    successfulImports.forEach((record) => {
+      const row = csvHeaders.map((header) => (record as any)[header] || '');
       successSheet.addRow(row);
     });
 
@@ -1344,7 +1929,7 @@ async function main() {
     successSheet.getRow(1).fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FF90EE90' } // Light green header
+      fgColor: { argb: 'FF90EE90' }, // Light green header
     };
 
     // Failed imports sheet
@@ -1352,7 +1937,7 @@ async function main() {
     failedSheet.addRow([...csvHeaders, 'Error Reason', 'Row Number']);
 
     failedImports.forEach(({ record, error, rowNumber }) => {
-      const row = csvHeaders.map(header => (record as any)[header] || '');
+      const row = csvHeaders.map((header) => (record as any)[header] || '');
       row.push(error, rowNumber.toString());
       failedSheet.addRow(row);
     });
@@ -1362,7 +1947,7 @@ async function main() {
     failedSheet.getRow(1).fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FFFF6B6B' } // Light red header
+      fgColor: { argb: 'FFFF6B6B' }, // Light red header
     };
 
     // Skipped imports sheet
@@ -1370,7 +1955,7 @@ async function main() {
     skippedSheet.addRow([...csvHeaders, 'Skip Reason', 'Row Number']);
 
     skippedImports.forEach(({ record, reason, rowNumber }) => {
-      const row = csvHeaders.map(header => (record as any)[header] || '');
+      const row = csvHeaders.map((header) => (record as any)[header] || '');
       row.push(reason, rowNumber.toString());
       skippedSheet.addRow(row);
     });
@@ -1380,18 +1965,22 @@ async function main() {
     skippedSheet.getRow(1).fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FFFFFF99' } // Light yellow header
+      fgColor: { argb: 'FFFFFF99' }, // Light yellow header
     };
 
     // Auto-fit columns for all sheets
-    [successSheet, failedSheet, skippedSheet].forEach(sheet => {
-      sheet.columns.forEach(column => {
+    [successSheet, failedSheet, skippedSheet].forEach((sheet) => {
+      sheet.columns.forEach((column) => {
         column.width = 15; // Set reasonable default width
       });
     });
 
     // Save the Excel file
-    const reportPath = path.join(process.cwd(), '.project/reports/output', `import-report-${new Date().toISOString().split('T')[0]}.xlsx`);
+    const reportPath = path.join(
+      process.cwd(),
+      '.project/reports/output',
+      `import-report-${new Date().toISOString().split('T')[0]}.xlsx`
+    );
 
     // Ensure output directory exists
     const outputDir = path.dirname(reportPath);
@@ -1403,7 +1992,6 @@ async function main() {
     console.log(`📋 Import report saved: ${reportPath}`);
 
     console.log('\n🎉 CSV import completed successfully!');
-
   } catch (error) {
     console.error('💥 Import failed:', error);
     process.exit(1);
