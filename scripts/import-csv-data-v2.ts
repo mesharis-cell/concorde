@@ -1014,6 +1014,24 @@ async function main() {
     });
     console.log('✅ Super admin created:', superAdmin2.email);
 
+    // Create third super admin - Desislava Nikolova
+    const passwordHash3 = await bcrypt.hash('zz#S9QBJDKCB', 12);
+    const superAdmin3 = await prisma.admin.create({
+      data: {
+        email: 'dnikolova@invnt.com',
+        firstName: 'Desislava',
+        lastName: 'Nikolova',
+        passwordHash: passwordHash3,
+        active: true,
+        adminEvents: {
+          create: {
+            eventId: event.id,
+          },
+        },
+      },
+    });
+    console.log('✅ Super admin created:', superAdmin3.email);
+
     // Step 3: Create default hotel
     console.log('🏨 Creating hotel...');
     const hotel = await prisma.hotel.create({
