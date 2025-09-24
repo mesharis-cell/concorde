@@ -11,7 +11,10 @@ import { AuditTrailService } from './audit-trail.js';
 import { ConflictDetectionService } from './conflict-detection.js';
 
 export class ActivityService {
-  static async create(data: CreateActivity, performedBy?: string): Promise<Activity> {
+  static async create(
+    data: CreateActivity,
+    performedBy?: string
+  ): Promise<Activity> {
     // Fetch event to validate dates and timezone
     const event = await prisma.event.findUnique({
       where: { id: data.eventId },
@@ -55,17 +58,26 @@ export class ActivityService {
     }
 
     // Check for conflicts if activity is assigned to groups and has capacity limit, and conflicts are not allowed
-    if (data.groupIds && data.groupIds.length > 0 && data.capacity && !data.allowConflicts) {
-      const validation = await ConflictDetectionService.validateNewActivityCapacity(
-        data.groupIds,
-        data.capacity,
-        data.title
-      );
+    if (
+      data.groupIds &&
+      data.groupIds.length > 0 &&
+      data.capacity &&
+      !data.allowConflicts
+    ) {
+      const validation =
+        await ConflictDetectionService.validateNewActivityCapacity(
+          data.groupIds,
+          data.capacity,
+          data.title
+        );
 
       if (validation.hasConflicts) {
-        const conflictDetails = validation.issues.map(issue =>
-          `Groups have ${issue.affectedUserCount + issue.capacity} total members but activity capacity is only ${issue.capacity}`
-        ).join(', ');
+        const conflictDetails = validation.issues
+          .map(
+            (issue) =>
+              `Groups have ${issue.affectedUserCount + issue.capacity} total members but activity capacity is only ${issue.capacity}`
+          )
+          .join(', ');
         throw new Error(`Capacity conflict: ${conflictDetails}`);
       }
     }
@@ -83,6 +95,7 @@ export class ActivityService {
         category: data.category,
         location: data.location,
         content: data.content,
+        dressCode: data.dressCode, // Dress code field
         capacity: data.capacity, // Optional capacity limit
         timingTable: data.timingTable || [], // Structured timing details
         createdBy: data.createdBy,
@@ -508,7 +521,10 @@ export class ActivityService {
 
           // Subtract excluded users
           const excludedUserCount = activity.userExclusions.length;
-          const correctCurrentAttendees = Math.max(0, totalUsersInGroups - excludedUserCount);
+          const correctCurrentAttendees = Math.max(
+            0,
+            totalUsersInGroups - excludedUserCount
+          );
 
           return {
             ...activity,
@@ -594,7 +610,7 @@ export class ActivityService {
     }
 
     // Check for capacity conflicts if updating capacity or group assignments
-    if ((data.capacity !== undefined) || (data.groupIds !== undefined)) {
+    if (data.capacity !== undefined || data.groupIds !== undefined) {
       // Get current activity data to determine final state
       const currentActivity = await prisma.activity.findUnique({
         where: { id },
@@ -605,21 +621,32 @@ export class ActivityService {
         throw new Error('Activity not found');
       }
 
-      const finalCapacity = data.capacity !== undefined ? data.capacity : currentActivity.capacity;
-      const finalGroupIds = data.groupIds !== undefined ? data.groupIds : currentActivity.groupIds;
+      const finalCapacity =
+        data.capacity !== undefined ? data.capacity : currentActivity.capacity;
+      const finalGroupIds =
+        data.groupIds !== undefined ? data.groupIds : currentActivity.groupIds;
 
       // Only validate if there's a capacity limit and groups are assigned, and conflicts are not allowed
-      if (finalCapacity && finalGroupIds && finalGroupIds.length > 0 && !data.allowConflicts) {
-        const validation = await ConflictDetectionService.validateNewActivityCapacity(
-          finalGroupIds,
-          finalCapacity,
-          currentActivity.title
-        );
+      if (
+        finalCapacity &&
+        finalGroupIds &&
+        finalGroupIds.length > 0 &&
+        !data.allowConflicts
+      ) {
+        const validation =
+          await ConflictDetectionService.validateNewActivityCapacity(
+            finalGroupIds,
+            finalCapacity,
+            currentActivity.title
+          );
 
         if (validation.hasConflicts) {
-          const conflictDetails = validation.issues.map(issue =>
-            `Groups have ${issue.affectedUserCount + issue.capacity} total members but activity capacity is only ${issue.capacity}`
-          ).join(', ');
+          const conflictDetails = validation.issues
+            .map(
+              (issue) =>
+                `Groups have ${issue.affectedUserCount + issue.capacity} total members but activity capacity is only ${issue.capacity}`
+            )
+            .join(', ');
           throw new Error(`Capacity conflict: ${conflictDetails}`);
         }
       }
@@ -639,9 +666,11 @@ export class ActivityService {
     if (data.category) updateData.category = data.category;
     if (data.location !== undefined) updateData.location = data.location;
     if (data.content) updateData.content = data.content;
+    if (data.dressCode !== undefined) updateData.dressCode = data.dressCode;
     if (data.groupIds !== undefined) updateData.groupIds = data.groupIds; // Handle group assignments
     if (data.capacity !== undefined) updateData.capacity = data.capacity; // Handle capacity updates
-    if (data.timingTable !== undefined) updateData.timingTable = data.timingTable; // Handle timing updates
+    if (data.timingTable !== undefined)
+      updateData.timingTable = data.timingTable; // Handle timing updates
 
     // Always update modification timestamp and user
     updateData.lastModifiedAt = new Date();
@@ -903,7 +932,10 @@ export class ActivityService {
   /**
    * Get activities with capacity monitoring for specific groups
    */
-  static async getActivitiesWithCapacity(groupIds: string[], pagination: Pagination): Promise<PaginatedResponse<any>> {
+  static async getActivitiesWithCapacity(
+    groupIds: string[],
+    pagination: Pagination
+  ): Promise<PaginatedResponse<any>> {
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
 
@@ -930,7 +962,8 @@ export class ActivityService {
     // Add capacity analysis to each activity
     const activitiesWithCapacity = await Promise.all(
       activities.map(async (activity) => {
-        const capacityStatus = await ConflictDetectionService.getActivityCapacityStatus(activity.id);
+        const capacityStatus =
+          await ConflictDetectionService.getActivityCapacityStatus(activity.id);
         return {
           ...activity,
           capacityStatus,
@@ -973,10 +1006,16 @@ export class ActivityService {
     };
 
     if (filters.dateFrom) {
-      whereClause.startDateTime = { ...whereClause.startDateTime, gte: filters.dateFrom };
+      whereClause.startDateTime = {
+        ...whereClause.startDateTime,
+        gte: filters.dateFrom,
+      };
     }
     if (filters.dateTo) {
-      whereClause.endDateTime = { ...whereClause.endDateTime, lte: filters.dateTo };
+      whereClause.endDateTime = {
+        ...whereClause.endDateTime,
+        lte: filters.dateTo,
+      };
     }
 
     const activities = await prisma.activity.findMany({
@@ -991,7 +1030,7 @@ export class ActivityService {
 
     // Filter out excluded activities
     const availableActivities = activities.filter(
-      activity => activity.userExclusions.length === 0
+      (activity) => activity.userExclusions.length === 0
     );
 
     // Add group context and conflict analysis
@@ -1004,12 +1043,15 @@ export class ActivityService {
         });
 
         // Get capacity status
-        const capacityStatus = await ConflictDetectionService.getActivityCapacityStatus(activity.id);
+        const capacityStatus =
+          await ConflictDetectionService.getActivityCapacityStatus(activity.id);
 
         return {
           ...activity,
           groups: activityGroups,
-          userGroups: activityGroups.filter(g => user.groupIds.includes(g.id)), // Groups this user is in
+          userGroups: activityGroups.filter((g) =>
+            user.groupIds.includes(g.id)
+          ), // Groups this user is in
           capacityStatus,
         };
       })
@@ -1017,7 +1059,7 @@ export class ActivityService {
 
     // Group by date for timeline display
     const timeline: Record<string, any[]> = {};
-    enrichedActivities.forEach(activity => {
+    enrichedActivities.forEach((activity) => {
       const dateKey = activity.startDateTime.toISOString().split('T')[0];
       if (!timeline[dateKey]) {
         timeline[dateKey] = [];
@@ -1035,8 +1077,14 @@ export class ActivityService {
     const warnings = [];
 
     for (const activityId of activityIds) {
-      const status = await ConflictDetectionService.getActivityCapacityStatus(activityId);
-      if (status && (status.status === 'warning' || status.status === 'full' || status.status === 'exceeded')) {
+      const status =
+        await ConflictDetectionService.getActivityCapacityStatus(activityId);
+      if (
+        status &&
+        (status.status === 'warning' ||
+          status.status === 'full' ||
+          status.status === 'exceeded')
+      ) {
         warnings.push({
           activityId,
           ...status,
@@ -1071,8 +1119,10 @@ export class ActivityService {
           lastModifiedAt: new Date(),
         };
 
-        if (update.capacity !== undefined) updateData.capacity = update.capacity;
-        if (update.timingTable !== undefined) updateData.timingTable = update.timingTable;
+        if (update.capacity !== undefined)
+          updateData.capacity = update.capacity;
+        if (update.timingTable !== undefined)
+          updateData.timingTable = update.timingTable;
 
         await prisma.activity.update({
           where: { id: update.id },
@@ -1086,7 +1136,8 @@ export class ActivityService {
         if (performedBy) {
           const changedFields = [];
           if (update.capacity !== undefined) changedFields.push('capacity');
-          if (update.timingTable !== undefined) changedFields.push('timingTable');
+          if (update.timingTable !== undefined)
+            changedFields.push('timingTable');
 
           if (changedFields.length > 0) {
             await AuditTrailService.logUpdate(

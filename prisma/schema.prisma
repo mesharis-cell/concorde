@@ -159,6 +159,7 @@ model Activity {
 
   // Content
   content Json // { html: string }
+  dressCode String? // Dress code for the activity
 
   // Capacity management
   capacity         Int?      // null = unlimited capacity

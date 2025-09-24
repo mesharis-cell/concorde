@@ -169,8 +169,8 @@ export type UpdateGroup = z.infer<typeof UpdateGroupSchema>;
 // ============================================================================
 
 export const ActivityLocationSchema = z.object({
-  name: z.string(),
-  address: z.string(),
+  name: z.string().optional(), // Made optional for temp dashboard compatibility
+  address: z.string().optional(), // Made optional for temp dashboard compatibility
   mapLink: z.string().optional(), // Allow any string content including iframe embeds
 });
 export type ActivityLocation = z.infer<typeof ActivityLocationSchema>;
@@ -189,18 +189,20 @@ export const ActivityTimingEntrySchema = z.object({
 
 export const CreateActivitySchema = z.object({
   eventId: z.string(),
-  groupIds: z.array(z.string()).default([]), // Array of group IDs
+  groupIds: z.array(z.string()).default([]), // Array of group IDs - optional for temp dashboard
   title: z.string().min(1),
   description: z.string().optional(),
   startDateTime: z.coerce.date(),
   endDateTime: z.coerce.date(),
-  thumbnail: z.string().url().optional(),
+  thumbnail: z.string().optional(), // Removed URL validation for flexibility
   category: ActivityCategory.default('OTHER'),
   location: ActivityLocationSchema.optional(),
   content: ActivityContentSchema,
+  dressCode: z.string().optional(), // Dress code field for temp dashboard
   capacity: z.number().int().positive().optional(), // Optional capacity limit
   timingTable: z.array(ActivityTimingEntrySchema).default([]), // Structured timing details
   allowConflicts: z.boolean().optional().default(false), // Allow capacity conflicts
+  createdBy: z.string().optional(), // Made optional for temp dashboard
 });
 export type CreateActivity = z.infer<typeof CreateActivitySchema>;
 
@@ -371,7 +373,9 @@ export const UserAccommodationSchema = z.object({
     .string()
     .refine((val) => {
       if (!val || val === '') return true; // Allow empty
-      return /^(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)$/.test(val);
+      return /^(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)$/.test(
+        val
+      );
     }, 'Must be DD/MM/YYYY or ISO date format')
     .nullable()
     .optional()
@@ -380,7 +384,9 @@ export const UserAccommodationSchema = z.object({
     .string()
     .refine((val) => {
       if (!val || val === '') return true; // Allow empty
-      return /^(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)$/.test(val);
+      return /^(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)$/.test(
+        val
+      );
     }, 'Must be DD/MM/YYYY or ISO date format')
     .nullable()
     .optional()
@@ -412,7 +418,11 @@ export const UserAccommodationSchema = z.object({
   occupancy: z.enum(['single', 'double', 'twin', 'room_sharer']).optional(),
   guestName: z.string().optional(), // If double occupancy
   guestRelation: z.string().optional(), // "Spouse", "Partner", etc.
-  nightsCount: z.number().nullable().optional().transform((val) => (val === null ? undefined : val)), // Auto-computed
+  nightsCount: z
+    .number()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)), // Auto-computed
   roomNumber: z.string().optional(), // From RoomAssignment
   roomDropId: z.string().optional(), // References event.roomDrops[].id
 });
@@ -450,7 +460,11 @@ export type UserRequirements = z.infer<typeof UserRequirementsSchema>;
 
 export const UserMerchandiseSizeSchema = z.object({
   // Singapore Phase 2 addition
-  gender: z.enum(['Men', 'Women']).optional().or(z.literal('')).transform(val => val === '' ? undefined : val),
+  gender: z
+    .enum(['Men', 'Women'])
+    .optional()
+    .or(z.literal(''))
+    .transform((val) => (val === '' ? undefined : val)),
   // Updated to use single size field instead of individual items (includes XS)
   size: z.enum(['XS', 'S', 'M', 'L', 'XL']).optional(),
 
@@ -497,24 +511,49 @@ export const CreateUserSchema = z.object({
   requirements: UserRequirementsSchema.optional(),
   merchandiseSize: UserMerchandiseSizeSchema.optional(),
   emergencyContact: UserEmergencyContactSchema.optional(),
-  guestCategory: z.string().nullable().optional().transform((val) => (val === null ? undefined : val)),
-  tickets: z.array(z.object({
-    name: z.string().min(1, 'Ticket name is required'),
-    number: z.string().min(1, 'Ticket number is required'),
-    valid: z.boolean().default(true)
-  })).optional().default([]),
+  guestCategory: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)),
+  tickets: z
+    .array(
+      z.object({
+        name: z.string().min(1, 'Ticket name is required'),
+        number: z.string().min(1, 'Ticket number is required'),
+        valid: z.boolean().default(true),
+      })
+    )
+    .optional()
+    .default([]),
 
   // Transport assignments - individual car overrides
   carNumbers: z.array(z.string()).optional().default([]), // [] = inherit from group, ["car-5"] = override
 
   // Report-specific notes
   arrivalNotes: z.string().optional(),
-  departureNotes: z.string().nullable().optional().transform((val) => (val === null ? undefined : val)),
-  masterGuestNotes: z.string().nullable().optional().transform((val) => (val === null ? undefined : val)),
+  departureNotes: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)),
+  masterGuestNotes: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)),
 
   // Hotel & room management
-  hotelId: z.string().nullable().optional().transform((val) => (val === null ? undefined : val)),
-  roomDropAssigned: z.string().nullable().optional().transform((val) => (val === null ? undefined : val)),
+  hotelId: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)),
+  roomDropAssigned: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => (val === null ? undefined : val)),
 
   // Admin controls
   active: z.boolean().optional().default(true),
@@ -620,7 +659,9 @@ export const CreateHotelSchema = z.object({
 });
 export type CreateHotel = z.infer<typeof CreateHotelSchema>;
 
-export const UpdateHotelSchema = CreateHotelSchema.partial().omit({ eventId: true });
+export const UpdateHotelSchema = CreateHotelSchema.partial().omit({
+  eventId: true,
+});
 export type UpdateHotel = z.infer<typeof UpdateHotelSchema>;
 
 export const RoomTypeSchema = z.object({
@@ -649,7 +690,10 @@ export const CreateRoomTypeSchema = z.object({
 });
 export type CreateRoomType = z.infer<typeof CreateRoomTypeSchema>;
 
-export const UpdateRoomTypeSchema = CreateRoomTypeSchema.partial().omit({ eventId: true, hotelId: true });
+export const UpdateRoomTypeSchema = CreateRoomTypeSchema.partial().omit({
+  eventId: true,
+  hotelId: true,
+});
 export type UpdateRoomType = z.infer<typeof UpdateRoomTypeSchema>;
 
 // ============================================================================
