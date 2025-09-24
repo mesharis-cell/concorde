@@ -211,7 +211,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Crystal Gold Launch',
     date: '30/09/2025',
     time: '19:00',
-    description: 'Exclusive Crystal Gold product launch event',
+    description: '',
     category: 'EXPERIENCE',
     csvField: 'crystalGoldLaunch',
   },
@@ -221,7 +221,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'CLC Interview',
     date: '01/10/2025',
     time: '14:00',
-    description: 'CLC Interview session',
+    description: '',
     category: 'MEETING',
     csvField: 'clcInterview',
   },
@@ -229,7 +229,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Sandy Interview',
     date: '01/10/2025',
     time: '15:00',
-    description: 'Sandy Interview session',
+    description: '',
     category: 'MEETING',
     csvField: 'sandyInterview',
   },
@@ -239,7 +239,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'AIR CCCC',
     date: '02/10/2025',
     time: '15:00',
-    description: 'AIR CCCC event',
+    description: '',
     category: 'EXPERIENCE',
     csvField: 'airCccc',
   },
@@ -249,7 +249,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Casa Ferrari',
     date: '03/10/2025',
     time: '12:00',
-    description: 'Casa Ferrari experience',
+    description: '',
     category: 'EXPERIENCE',
     csvField: 'casaFerrari',
   },
@@ -257,7 +257,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'PRS Paddock Club - Friday',
     date: '03/10/2025',
     time: '14:00',
-    description: 'PRS Paddock Club access on Friday',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'prsPaddockClubFri',
   },
@@ -265,7 +265,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Regal Club - Friday',
     date: '03/10/2025',
     time: '16:00',
-    description: 'Regal Club experience on Friday',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'regalClubFri',
   },
@@ -273,7 +273,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Crystal Gold Lounge - Friday',
     date: '03/10/2025',
     time: '18:00',
-    description: 'Crystal Gold Lounge access on Friday',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'crystalGoldLoungeFri',
   },
@@ -282,7 +282,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Evening Bar - Manhattan Bar',
     date: '03/10/2025',
     time: '20:00',
-    description: 'Evening experience at Manhattan Bar',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'eveningBar',
     isEveningBar: true,
@@ -301,7 +301,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Evening Bar - Origin Bar',
     date: '03/10/2025',
     time: '20:00',
-    description: 'Evening experience at Origin Bar',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'eveningBar',
     isEveningBar: true,
@@ -310,7 +310,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Evening Bar - Republic Bar Singapore',
     date: '03/10/2025',
     time: '20:00',
-    description: 'Evening experience at Republic Bar Singapore',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'eveningBar',
     isEveningBar: true,
@@ -319,7 +319,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Evening Bar - Stay Gold',
     date: '03/10/2025',
     time: '20:00',
-    description: 'Evening experience at Stay Gold',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'eveningBar',
     isEveningBar: true,
@@ -328,7 +328,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Evening Bar - Nutmeg & Clove',
     date: '03/10/2025',
     time: '20:00',
-    description: 'Evening experience at Nutmeg & Clove',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'eveningBar',
     isEveningBar: true,
@@ -337,7 +337,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Evening Bar - Somma Bar',
     date: '03/10/2025',
     time: '20:00',
-    description: 'Evening experience at Somma Bar',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'eveningBar',
     isEveningBar: true,
@@ -346,7 +346,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Evening Bar - Lobby',
     date: '03/10/2025',
     time: '20:00',
-    description: 'Evening experience at Lobby',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'eveningBar',
     isEveningBar: true,
@@ -355,7 +355,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Evening Bar - Atlas',
     date: '03/10/2025',
     time: '20:00',
-    description: 'Evening experience at Atlas',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'eveningBar',
     isEveningBar: true,
@@ -366,7 +366,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Fred Interview Session',
     date: '04/10/2025',
     time: '10:00',
-    description: 'Fred Interview Session',
+    description: '',
     category: 'MEETING',
     csvField: 'fredInterviewSession',
   },
@@ -374,7 +374,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'PRS Paddock Club - Saturday',
     date: '04/10/2025',
     time: '14:00',
-    description: 'PRS Paddock Club access on Saturday',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'prsPaddockClubSat',
   },
@@ -382,7 +382,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Regal Club - Saturday',
     date: '04/10/2025',
     time: '16:00',
-    description: 'Regal Club experience on Saturday',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'regalClubSat',
   },
@@ -390,7 +390,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Crystal Gold Lounge - Saturday',
     date: '04/10/2025',
     time: '18:00',
-    description: 'Crystal Gold Lounge access on Saturday',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'crystalGoldLoungeSat',
   },
@@ -398,7 +398,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Sushi Samba After Party',
     date: '04/10/2025',
     time: '22:00',
-    description: 'Sushi Samba After Party',
+    description: '',
     category: 'EXPERIENCE',
     csvField: 'sushiSambaAfterParty',
   },
@@ -408,7 +408,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'PRS Paddock Club - Sunday',
     date: '05/10/2025',
     time: '14:00',
-    description: 'PRS Paddock Club access on Sunday',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'prsPaddockClubSun',
   },
@@ -416,7 +416,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Regal Club - Sunday',
     date: '05/10/2025',
     time: '16:00',
-    description: 'Regal Club experience on Sunday',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'regalClubSun',
   },
@@ -424,7 +424,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Crystal Gold Lounge - Sunday',
     date: '05/10/2025',
     time: '18:00',
-    description: 'Crystal Gold Lounge access on Sunday',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'crystalGoldLoungeSun',
   },
@@ -432,7 +432,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'LAVO After Party',
     date: '05/10/2025',
     time: '22:00',
-    description: 'LAVO After Party',
+    description: '',
     category: 'EXPERIENCE',
     csvField: 'lavoAfterParty',
   },
@@ -602,10 +602,17 @@ async function getOrCreateActivity(
     const [hours, minutes] = activityDef.time
       .split(':')
       .map((n) => parseInt(n));
-    const startDateTime = new Date(activityDate);
-    startDateTime.setHours(hours, minutes, 0, 0);
+
+    // 🎯 FIX: Parse date components directly to avoid double timezone conversion
+    const dateParts = activityDef.date.split('/');
+    const day = parseInt(dateParts[0]);
+    const month = parseInt(dateParts[1]) - 1; // JavaScript months are 0-indexed
+    const year = parseInt(dateParts[2]);
+
+    // Create the datetime directly in Singapore timezone
+    const singaporeDateTime = new Date(year, month, day, hours, minutes, 0, 0);
     const utcStartDateTime = dateFnsTz.fromZonedTime(
-      startDateTime,
+      singaporeDateTime,
       EVENT_TIMEZONE
     );
 
@@ -634,6 +641,10 @@ async function getOrCreateActivity(
     console.log(
       `✨ Creating new activity: "${activityDef.title}" on ${activityDef.date} at ${activityDef.time}`
     );
+    console.log(
+      `   📅 Singapore time: ${singaporeDateTime.toLocaleString('en-SG', { timeZone: EVENT_TIMEZONE })}`
+    );
+    console.log(`   🌍 UTC time: ${utcStartDateTime.toISOString()}`);
 
     // Use direct Prisma call to avoid ActivityService validation issues during import
     const newActivity = await prisma.activity.create({
@@ -646,7 +657,7 @@ async function getOrCreateActivity(
         endDateTime: endDateTime,
         category: activityDef.category as any,
         location: null,
-        content: { html: `<p>${activityDef.description}</p>` },
+        content: { html: `${activityDef.description}` },
         capacity: null, // No capacity limits for Singapore activities
         timingTable: [],
         createdBy: adminId,
