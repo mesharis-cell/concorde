@@ -1628,9 +1628,6 @@ export class ReportsService {
         user.eventTransfersRequired ? 'Y' : 'N', // NEW: Event transfers
         user.transferRequirements ? 'Y' : 'N', // Existing: General transfers
         assignedCars,
-        roomAssignment?.hotelNotes || '',
-        user.arrivalNotes || '',
-        user.departureNotes || '',
         user.masterGuestNotes || '',
       ];
 
