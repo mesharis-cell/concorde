@@ -57,7 +57,7 @@ const parseAccommodationDate = (dateInput: any): Date | null => {
 
   if (typeof dateInput === 'string' && dateInput.includes('/')) {
     // DD/MM/YYYY format
-    const [day, month, year] = dateInput.split('/').map(n => parseInt(n));
+    const [day, month, year] = dateInput.split('/').map((n) => parseInt(n));
     return new Date(year, month - 1, day, 12, 0, 0); // Noon to avoid timezone issues
   } else {
     // ISO string or Date object (backward compatibility)
@@ -317,11 +317,13 @@ app.openapi(exportUsersRoute, async (c) => {
         'departureAirport',
         'airline',
         'flightNumber',
+        'transferRequirements',
+        'gpTransfersRequired', // NEW: Grand Prix transfers
+        'eventTransfersRequired', // NEW: General event transfers
         'emergencyContactName',
         'emergencyContactPhone',
         'emergencyContactEmail',
         'emergencyContactRelationship',
-        'transferRequirements',
         'shirtSize',
         'jacketSize',
         'hatSize',
@@ -360,22 +362,26 @@ app.openapi(exportUsersRoute, async (c) => {
           accommodation.required ? 'Yes' : 'No',
           accommodation.hotel || '',
           accommodation.checkIn
-            ? (parseAccommodationDate(accommodation.checkIn)?.toISOString().split('T')[0] || '')
+            ? parseAccommodationDate(accommodation.checkIn)
+                ?.toISOString()
+                .split('T')[0] || ''
             : '',
           accommodation.checkOut
-            ? (parseAccommodationDate(accommodation.checkOut)?.toISOString().split('T')[0] || '')
+            ? parseAccommodationDate(accommodation.checkOut)
+                ?.toISOString()
+                .split('T')[0] || ''
             : '',
           flight.arrival
             ? new Date(flight.arrival)
-              .toISOString()
-              .slice(0, 16)
-              .replace('T', ' ')
+                .toISOString()
+                .slice(0, 16)
+                .replace('T', ' ')
             : '',
           flight.departure
             ? new Date(flight.departure)
-              .toISOString()
-              .slice(0, 16)
-              .replace('T', ' ')
+                .toISOString()
+                .slice(0, 16)
+                .replace('T', ' ')
             : '',
           flight.arrivalAirport || '',
           flight.departureAirport || '',
@@ -385,7 +391,9 @@ app.openapi(exportUsersRoute, async (c) => {
           emergency.phone || '',
           emergency.email || '',
           emergency.relationship || '',
-          user.transferRequirements || '',
+          user.transferRequirements ? 'Yes' : 'No',
+          user.gpTransfersRequired ? 'Yes' : 'No', // NEW: GP transfers
+          user.eventTransfersRequired ? 'Yes' : 'No', // NEW: Event transfers
           merchandiseSize.shirt || '',
           merchandiseSize.jacket || '',
           merchandiseSize.hat || '',
@@ -401,7 +409,8 @@ app.openapi(exportUsersRoute, async (c) => {
       c.header('Content-Type', 'text/csv');
       c.header(
         'Content-Disposition',
-        `attachment; filename="users-${eventId}-${new Date().toISOString().split('T')[0]
+        `attachment; filename="users-${eventId}-${
+          new Date().toISOString().split('T')[0]
         }.csv"`
       );
 
@@ -594,29 +603,40 @@ const getUserItineraryRoute = createRoute({
     'Retrieve the exact timeline and excluded activities that a user sees, including user profile context',
   request: {
     params: z.object({
-      userId: z.string().min(1).openapi({
-        param: {
-          name: 'userId',
-          in: 'path',
-        },
-        example: '60f7b3b3b3b3b3b3b3b3b3b3',
-      }),
+      userId: z
+        .string()
+        .min(1)
+        .openapi({
+          param: {
+            name: 'userId',
+            in: 'path',
+          },
+          example: '60f7b3b3b3b3b3b3b3b3b3b3',
+        }),
     }),
     query: z.object({
-      dateFrom: z.string().datetime().optional().openapi({
-        param: {
-          name: 'dateFrom',
-          in: 'query',
-        },
-        example: '2025-01-01T00:00:00Z',
-      }),
-      dateTo: z.string().datetime().optional().openapi({
-        param: {
-          name: 'dateTo',
-          in: 'query',
-        },
-        example: '2025-01-31T23:59:59Z',
-      }),
+      dateFrom: z
+        .string()
+        .datetime()
+        .optional()
+        .openapi({
+          param: {
+            name: 'dateFrom',
+            in: 'query',
+          },
+          example: '2025-01-01T00:00:00Z',
+        }),
+      dateTo: z
+        .string()
+        .datetime()
+        .optional()
+        .openapi({
+          param: {
+            name: 'dateTo',
+            in: 'query',
+          },
+          example: '2025-01-31T23:59:59Z',
+        }),
     }),
   },
   responses: {
@@ -711,7 +731,7 @@ app.openapi(getUserItineraryRoute, async (c) => {
 
     // Get groups info for context
     const groups = await Promise.all(
-      user.groupIds.map(groupId => GroupService.findById(groupId))
+      user.groupIds.map((groupId) => GroupService.findById(groupId))
     );
     const validGroups = groups.filter(Boolean);
 
@@ -882,7 +902,19 @@ app.openapi(updateUserRoute, async (c) => {
 
     // Handle profile fields - support both nested and flat structure
     const profileUpdates = updates.profile || {};
-    const profileFields = ['firstName', 'lastName', 'preferredFirstName', 'email', 'phone', 'jobTitle', 'company', 'guestType', 'vip', 'initials', 'host'];
+    const profileFields = [
+      'firstName',
+      'lastName',
+      'preferredFirstName',
+      'email',
+      'phone',
+      'jobTitle',
+      'company',
+      'guestType',
+      'vip',
+      'initials',
+      'host',
+    ];
 
     // Check for profile updates in nested structure or at root level
     const hasProfileUpdates = profileFields.some(
@@ -1078,7 +1110,11 @@ app.openapi(assignUserRoute, async (c) => {
     const { groupId } = c.req.valid('json');
     const authUser = c.get('user');
 
-    const result = await UserService.assignToGroups(userId, [groupId], authUser.id);
+    const result = await UserService.assignToGroups(
+      userId,
+      [groupId],
+      authUser.id
+    );
 
     return c.json({
       success: true,
@@ -1160,10 +1196,13 @@ const getEventConflictsRoute = createRoute({
   summary: 'Get all conflicts and issues for an event',
   request: {
     params: z.object({
-      eventId: z.string().min(1).openapi({
-        param: { name: 'eventId', in: 'path' },
-        example: '60f7b3b3b3b3b3b3b3b3b3b3',
-      }),
+      eventId: z
+        .string()
+        .min(1)
+        .openapi({
+          param: { name: 'eventId', in: 'path' },
+          example: '60f7b3b3b3b3b3b3b3b3b3b3',
+        }),
     }),
   },
   responses: {
@@ -1174,30 +1213,36 @@ const getEventConflictsRoute = createRoute({
             success: z.literal(true),
             data: z.object({
               hasIssues: z.boolean(),
-              capacityIssues: z.array(z.object({
-                type: z.enum(['capacity_exceeded', 'capacity_warning']),
-                activityId: z.string(),
-                activityTitle: z.string(),
-                capacity: z.number(),
-                currentAttendees: z.number(),
-                affectedUserCount: z.number(),
-                severity: z.enum(['low', 'medium', 'high']),
-              })),
-              timingConflicts: z.array(z.object({
-                type: z.enum(['timing_overlap']),
-                userId: z.string(),
-                userEmail: z.string().optional(),
-                activities: z.array(z.object({
-                  id: z.string(),
-                  title: z.string(),
-                  groupId: z.string(),
-                  groupName: z.string().optional(),
-                  startDateTime: z.string(),
-                  endDateTime: z.string(),
-                })),
-                overlapDuration: z.number(),
-                severity: z.enum(['low', 'medium', 'high']),
-              })),
+              capacityIssues: z.array(
+                z.object({
+                  type: z.enum(['capacity_exceeded', 'capacity_warning']),
+                  activityId: z.string(),
+                  activityTitle: z.string(),
+                  capacity: z.number(),
+                  currentAttendees: z.number(),
+                  affectedUserCount: z.number(),
+                  severity: z.enum(['low', 'medium', 'high']),
+                })
+              ),
+              timingConflicts: z.array(
+                z.object({
+                  type: z.enum(['timing_overlap']),
+                  userId: z.string(),
+                  userEmail: z.string().optional(),
+                  activities: z.array(
+                    z.object({
+                      id: z.string(),
+                      title: z.string(),
+                      groupId: z.string(),
+                      groupName: z.string().optional(),
+                      startDateTime: z.string(),
+                      endDateTime: z.string(),
+                    })
+                  ),
+                  overlapDuration: z.number(),
+                  severity: z.enum(['low', 'medium', 'high']),
+                })
+              ),
               summary: z.object({
                 totalIssues: z.number(),
                 highSeverityCount: z.number(),
@@ -1224,7 +1269,8 @@ app.openapi(getEventConflictsRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
 
-    const conflicts = await ConflictDetectionService.getAllEventConflicts(eventId);
+    const conflicts =
+      await ConflictDetectionService.getAllEventConflicts(eventId);
 
     return c.json({
       success: true,
@@ -1262,7 +1308,10 @@ const assignRoomRoute = createRoute({
     body: {
       content: {
         'application/json': {
-          schema: CreateRoomAssignmentSchema.omit({ userId: true, eventId: true }),
+          schema: CreateRoomAssignmentSchema.omit({
+            userId: true,
+            eventId: true,
+          }),
         },
       },
     },
@@ -1296,7 +1345,8 @@ app.openapi(assignRoomRoute, async (c) => {
     const authUser = c.get('user');
 
     // Get eventId from user data or query parameter
-    let eventId = authUser.eventId || authUser.adminData?.assignedEvents?.[0]?.eventId;
+    let eventId =
+      authUser.eventId || authUser.adminData?.assignedEvents?.[0]?.eventId;
 
     // If still no eventId, get it from the user's record
     if (!eventId) {
@@ -1402,7 +1452,8 @@ const getRoomMatrixDetailedRoute = createRoute({
   method: 'get',
   path: '/events/{eventId}/room-matrix-detailed',
   tags: ['Admin - Room Management'],
-  summary: 'Get detailed room matrix with automatic sync and over-allocation detection',
+  summary:
+    'Get detailed room matrix with automatic sync and over-allocation detection',
   request: {
     params: z.object({
       eventId: z.string().min(1),
@@ -1426,7 +1477,8 @@ app.openapi(getRoomMatrixDetailedRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
 
-    const detailedMatrix = await RoomMatrixDetailedService.getDetailedRoomMatrix(eventId);
+    const detailedMatrix =
+      await RoomMatrixDetailedService.getDetailedRoomMatrix(eventId);
 
     return c.json({
       success: true,
@@ -1640,12 +1692,18 @@ app.openapi(validateRoomMatrixRoute, async (c) => {
 
     // Verify admin has access to this event
     if (authUser.adminData?.role !== 'SUPER') {
-      const hasAccess = await AdminService.verifyEventAccess(authUser.adminData.id, eventId);
+      const hasAccess = await AdminService.verifyEventAccess(
+        authUser.adminData.id,
+        eventId
+      );
       if (!hasAccess) {
-        return c.json({
-          success: false,
-          error: 'Access denied to this event',
-        }, 403);
+        return c.json(
+          {
+            success: false,
+            error: 'Access denied to this event',
+          },
+          403
+        );
       }
     }
 
@@ -1654,7 +1712,9 @@ app.openapi(validateRoomMatrixRoute, async (c) => {
     return c.json({
       success: true,
       data: validation,
-      message: validation.isValid ? 'Room matrix is valid' : 'Room matrix has integrity issues',
+      message: validation.isValid
+        ? 'Room matrix is valid'
+        : 'Room matrix has integrity issues',
     });
   } catch (error: any) {
     return c.json(
@@ -1796,10 +1856,13 @@ const assignUserToMultipleGroupsRoute = createRoute({
   summary: 'Assign user to multiple groups with conflict analysis',
   request: {
     params: z.object({
-      userId: z.string().min(1).openapi({
-        param: { name: 'userId', in: 'path' },
-        example: '60f7b3b3b3b3b3b3b3b3b3b3',
-      }),
+      userId: z
+        .string()
+        .min(1)
+        .openapi({
+          param: { name: 'userId', in: 'path' },
+          example: '60f7b3b3b3b3b3b3b3b3b3b3',
+        }),
     }),
     body: {
       content: {
@@ -1849,7 +1912,12 @@ app.openapi(assignUserToMultipleGroupsRoute, async (c) => {
     const { groupIds, allowConflicts } = c.req.valid('json');
     const authUser = c.get('user');
 
-    const result = await UserService.assignToGroups(userId, groupIds, authUser.id, { allowConflicts });
+    const result = await UserService.assignToGroups(
+      userId,
+      groupIds,
+      authUser.id,
+      { allowConflicts }
+    );
 
     return c.json({
       success: true,
@@ -1912,7 +1980,10 @@ app.openapi(analyzeAssignmentConflictsRoute, async (c) => {
   try {
     const { userIds, groupIds } = c.req.valid('json');
 
-    const analysis = await ConflictDetectionService.analyzeAssignmentConflicts(userIds, groupIds);
+    const analysis = await ConflictDetectionService.analyzeAssignmentConflicts(
+      userIds,
+      groupIds
+    );
 
     return c.json({
       success: true,
@@ -2013,7 +2084,8 @@ app.openapi(exportGroupsRoute, async (c) => {
       c.header('Content-Type', 'text/csv');
       c.header(
         'Content-Disposition',
-        `attachment; filename="groups-${eventId}-${new Date().toISOString().split('T')[0]
+        `attachment; filename="groups-${eventId}-${
+          new Date().toISOString().split('T')[0]
         }.csv"`
       );
       return c.text(csvContent);
@@ -3195,7 +3267,8 @@ app.openapi(exportActivitiesRoute, async (c) => {
       c.header('Content-Type', 'text/csv');
       c.header(
         'Content-Disposition',
-        `attachment; filename="activities-${eventId}-${new Date().toISOString().split('T')[0]
+        `attachment; filename="activities-${eventId}-${
+          new Date().toISOString().split('T')[0]
         }.csv"`
       );
       return c.text(csvContent);
@@ -4501,10 +4574,12 @@ const getMessageDetailRoute = createRoute({
                   id: z.string(),
                   name: z.string(),
                 }),
-                group: z.object({
-                  id: z.string(),
-                  name: z.string(),
-                }).nullable(),
+                group: z
+                  .object({
+                    id: z.string(),
+                    name: z.string(),
+                  })
+                  .nullable(),
                 admin: z.object({
                   id: z.string(),
                   firstName: z.string(),
@@ -4512,18 +4587,20 @@ const getMessageDetailRoute = createRoute({
                   email: z.string(),
                 }),
               }),
-              recipients: z.array(z.object({
-                userId: z.string(),
-                email: z.string(),
-                firstName: z.string(),
-                lastName: z.string(),
-                groupName: z.string().nullable(),
-                status: z.enum(['sent', 'delivered', 'failed', 'pending']),
-                sentAt: z.string().nullable(),
-                openedAt: z.string().nullable(),
-                error: z.string().nullable(),
-                trackingEnabled: z.boolean(),
-              })),
+              recipients: z.array(
+                z.object({
+                  userId: z.string(),
+                  email: z.string(),
+                  firstName: z.string(),
+                  lastName: z.string(),
+                  groupName: z.string().nullable(),
+                  status: z.enum(['sent', 'delivered', 'failed', 'pending']),
+                  sentAt: z.string().nullable(),
+                  openedAt: z.string().nullable(),
+                  error: z.string().nullable(),
+                  trackingEnabled: z.boolean(),
+                })
+              ),
               summary: z.object({
                 totalRecipients: z.number(),
                 sentCount: z.number(),
@@ -4565,7 +4642,7 @@ app.openapi(getMessageDetailRoute, async (c) => {
             id: true,
             name: true,
             type: true,
-            subject: true
+            subject: true,
           },
         },
         emailTracking: {
@@ -4586,10 +4663,13 @@ app.openapi(getMessageDetailRoute, async (c) => {
     });
 
     if (!message) {
-      return c.json({
-        success: false,
-        error: 'Message not found',
-      }, 404);
+      return c.json(
+        {
+          success: false,
+          error: 'Message not found',
+        },
+        404
+      );
     }
 
     // Get admin details
@@ -4601,14 +4681,20 @@ app.openapi(getMessageDetailRoute, async (c) => {
     // Extract recipients from deliveries JSON
     const deliveries = (message.deliveries as any[]) || [];
     const recipients = deliveries.map((delivery: any) => {
-      const tracking = message.emailTracking.find(t => t.userId === delivery.user);
+      const tracking = message.emailTracking.find(
+        (t) => t.userId === delivery.user
+      );
       const userProfile = tracking?.user.profile as any;
 
       return {
         userId: delivery.user,
         email: delivery.userEmail || userProfile?.email || '',
-        firstName: delivery.userName?.split(' ')[0] || userProfile?.firstName || '',
-        lastName: delivery.userName?.split(' ').slice(1).join(' ') || userProfile?.lastName || '',
+        firstName:
+          delivery.userName?.split(' ')[0] || userProfile?.firstName || '',
+        lastName:
+          delivery.userName?.split(' ').slice(1).join(' ') ||
+          userProfile?.lastName ||
+          '',
         groupName: tracking?.user.group?.name || null,
         status: delivery.email?.sent ? 'sent' : 'failed',
         sentAt: delivery.email?.sentAt || null,
@@ -4619,23 +4705,34 @@ app.openapi(getMessageDetailRoute, async (c) => {
     });
 
     // Calculate summary stats
-    const sentCount = recipients.filter(r => r.status === 'sent').length;
-    const failedCount = recipients.filter(r => r.status === 'failed').length;
-    const openedCount = recipients.filter(r => r.openedAt).length;
-    const groups = [...new Set(recipients.map(r => r.groupName).filter(Boolean))];
+    const sentCount = recipients.filter((r) => r.status === 'sent').length;
+    const failedCount = recipients.filter((r) => r.status === 'failed').length;
+    const openedCount = recipients.filter((r) => r.openedAt).length;
+    const groups = [
+      ...new Set(recipients.map((r) => r.groupName).filter(Boolean)),
+    ];
 
     const messageDetail = {
       log: {
         id: message.id,
         type: message.type || 'COMMUNICATION',
         channel: 'email',
-        purpose: message.template?.type === 'AUTHENTICATION' ? 'authentication' : 'communication',
-        subject: message.emailSubject || message.template?.subject || 'Untitled',
+        purpose:
+          message.template?.type === 'AUTHENTICATION'
+            ? 'authentication'
+            : 'communication',
+        subject:
+          message.emailSubject || message.template?.subject || 'Untitled',
         recipientType: message.recipientType.toLowerCase(),
         status: message.status || 'sent',
         sentAt: message.createdAt,
         event: message.event,
-        admin: admin || { id: message.sentBy, firstName: 'Unknown', lastName: 'Admin', email: '' },
+        admin: admin || {
+          id: message.sentBy,
+          firstName: 'Unknown',
+          lastName: 'Admin',
+          email: '',
+        },
       },
       recipients,
       summary: {
@@ -4654,11 +4751,14 @@ app.openapi(getMessageDetailRoute, async (c) => {
     });
   } catch (error: any) {
     console.error('Failed to retrieve message detail:', error);
-    return c.json({
-      success: false,
-      error: 'Failed to retrieve message details',
-      details: error.message,
-    }, 500);
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to retrieve message details',
+        details: error.message,
+      },
+      500
+    );
   }
 });
 
@@ -4742,8 +4842,9 @@ app.openapi(sendAuthenticationRoute, async (c) => {
       recipientIds: [userId],
       variables: {
         ...variables,
-        magicLink: `${process.env.FRONTEND_URL || 'https://chivasregalmonza.com'
-          }/auth/magic?token=${magicLink.token}&event=${user.eventId}`,
+        magicLink: `${
+          process.env.FRONTEND_URL || 'https://chivasregalmonza.com'
+        }/auth/magic?token=${magicLink.token}&event=${user.eventId}`,
       },
       adminId,
     });
@@ -4832,8 +4933,9 @@ app.openapi(generateUploadUrlRoute, async (c) => {
     let folderPath: string;
     switch (folder) {
       case 'activities':
-        folderPath = `events/${eventId}/activities${activityId ? `/${activityId}` : ''
-          }`;
+        folderPath = `events/${eventId}/activities${
+          activityId ? `/${activityId}` : ''
+        }`;
         break;
       case 'events':
         folderPath = `events/${eventId}/assets`;
@@ -5041,7 +5143,16 @@ app.openapi(importUsersRoute, async (c) => {
               userData.emergencyContact.relationship = value;
               break;
             case 'transferRequirements':
-              userData.transferRequirements = value;
+              userData.transferRequirements =
+                value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
+              break;
+            case 'gpTransfersRequired':
+              userData.gpTransfersRequired =
+                value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
+              break;
+            case 'eventTransfersRequired':
+              userData.eventTransfersRequired =
+                value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
               break;
             case 'specialRequests':
               userData.requirements.specialRequests = value;
@@ -5420,7 +5531,8 @@ app.openapi(importActivitiesRoute, async (c) => {
           !activityData.endDateTime
         ) {
           errors.push(
-            `Row ${i + 2
+            `Row ${
+              i + 2
             }: Missing required fields (title, group, startDateTime, endDateTime)`
           );
           continue;
@@ -5969,10 +6081,10 @@ app.openapi(getCommunicationHistoryRoute, async (c) => {
       templateId: message.templateId,
       template: message.template
         ? {
-          name: message.template.name,
-          type: message.template.type,
-          subject: message.template.subject,
-        }
+            name: message.template.name,
+            type: message.template.type,
+            subject: message.template.subject,
+          }
         : null,
       subject: message.emailSubject || 'Untitled', // emailSubject now contains processed subject
       recipientType: message.recipientType,
@@ -6140,37 +6252,78 @@ const getAuditTrailRoute = createRoute({
   path: '/audit-trail',
   tags: ['Super Admin - Audit Trail'],
   summary: 'Get system audit trail timeline (Super Admin only)',
-  description: 'Retrieve comprehensive audit trail of all system changes with filtering options',
+  description:
+    'Retrieve comprehensive audit trail of all system changes with filtering options',
   request: {
     query: PaginationSchema.extend({
-      eventId: z.string().optional().openapi({
-        param: { name: 'eventId', in: 'query' },
-        example: '68c1a6975faa5f8e91d9e846',
-      }),
-      performedBy: z.string().optional().openapi({
-        param: { name: 'performedBy', in: 'query' },
-        example: '68c1a6975faa5f8e91d9e847',
-      }),
-      resourceType: z.enum(['User', 'Activity', 'Group', 'Event', 'EmailTemplate', 'Admin', 'BulkOperation', 'RoomAssignment']).optional().openapi({
-        param: { name: 'resourceType', in: 'query' },
-        example: 'User',
-      }),
-      action: z.enum(['CREATE', 'UPDATE', 'DELETE', 'IMPORT', 'EXPORT', 'ASSIGN', 'UNASSIGN']).optional().openapi({
-        param: { name: 'action', in: 'query' },
-        example: 'CREATE',
-      }),
-      resourceId: z.string().optional().openapi({
-        param: { name: 'resourceId', in: 'query' },
-        example: '68c1a6975faa5f8e91d9e848',
-      }),
-      dateFrom: z.string().datetime().optional().openapi({
-        param: { name: 'dateFrom', in: 'query' },
-        example: '2025-01-01T00:00:00Z',
-      }),
-      dateTo: z.string().datetime().optional().openapi({
-        param: { name: 'dateTo', in: 'query' },
-        example: '2025-12-31T23:59:59Z',
-      }),
+      eventId: z
+        .string()
+        .optional()
+        .openapi({
+          param: { name: 'eventId', in: 'query' },
+          example: '68c1a6975faa5f8e91d9e846',
+        }),
+      performedBy: z
+        .string()
+        .optional()
+        .openapi({
+          param: { name: 'performedBy', in: 'query' },
+          example: '68c1a6975faa5f8e91d9e847',
+        }),
+      resourceType: z
+        .enum([
+          'User',
+          'Activity',
+          'Group',
+          'Event',
+          'EmailTemplate',
+          'Admin',
+          'BulkOperation',
+          'RoomAssignment',
+        ])
+        .optional()
+        .openapi({
+          param: { name: 'resourceType', in: 'query' },
+          example: 'User',
+        }),
+      action: z
+        .enum([
+          'CREATE',
+          'UPDATE',
+          'DELETE',
+          'IMPORT',
+          'EXPORT',
+          'ASSIGN',
+          'UNASSIGN',
+        ])
+        .optional()
+        .openapi({
+          param: { name: 'action', in: 'query' },
+          example: 'CREATE',
+        }),
+      resourceId: z
+        .string()
+        .optional()
+        .openapi({
+          param: { name: 'resourceId', in: 'query' },
+          example: '68c1a6975faa5f8e91d9e848',
+        }),
+      dateFrom: z
+        .string()
+        .datetime()
+        .optional()
+        .openapi({
+          param: { name: 'dateFrom', in: 'query' },
+          example: '2025-01-01T00:00:00Z',
+        }),
+      dateTo: z
+        .string()
+        .datetime()
+        .optional()
+        .openapi({
+          param: { name: 'dateTo', in: 'query' },
+          example: '2025-12-31T23:59:59Z',
+        }),
     }),
   },
   responses: {
@@ -6208,7 +6361,17 @@ app.openapi(getAuditTrailRoute, async (c) => {
       );
     }
 
-    const { page, limit, eventId, performedBy, resourceType, action, resourceId, dateFrom, dateTo } = c.req.valid('query');
+    const {
+      page,
+      limit,
+      eventId,
+      performedBy,
+      resourceType,
+      action,
+      resourceId,
+      dateFrom,
+      dateTo,
+    } = c.req.valid('query');
 
     const filters: any = {};
     if (eventId) filters.eventId = eventId;
@@ -6248,10 +6411,13 @@ const getAuditTrailStatsRoute = createRoute({
   description: 'Get comprehensive statistics about system changes',
   request: {
     query: z.object({
-      eventId: z.string().optional().openapi({
-        param: { name: 'eventId', in: 'query' },
-        example: '68c1a6975faa5f8e91d9e846',
-      }),
+      eventId: z
+        .string()
+        .optional()
+        .openapi({
+          param: { name: 'eventId', in: 'query' },
+          example: '68c1a6975faa5f8e91d9e846',
+        }),
     }),
   },
   responses: {
@@ -6316,10 +6482,13 @@ const getActivityCapacityStatusRoute = createRoute({
   summary: 'Get activity capacity status and attendee information',
   request: {
     params: z.object({
-      activityId: z.string().min(1).openapi({
-        param: { name: 'activityId', in: 'path' },
-        example: '60f7b3b3b3b3b3b3b3b3b3b3',
-      }),
+      activityId: z
+        .string()
+        .min(1)
+        .openapi({
+          param: { name: 'activityId', in: 'path' },
+          example: '60f7b3b3b3b3b3b3b3b3b3b3',
+        }),
     }),
   },
   responses: {
@@ -6346,7 +6515,8 @@ app.openapi(getActivityCapacityStatusRoute, async (c) => {
   try {
     const { activityId } = c.req.valid('param');
 
-    const status = await ConflictDetectionService.getActivityCapacityStatus(activityId);
+    const status =
+      await ConflictDetectionService.getActivityCapacityStatus(activityId);
 
     if (!status) {
       return c.json(
@@ -6385,16 +6555,22 @@ const updateActivityCapacityRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({
-            updates: z.array(z.object({
-              id: z.string(),
-              capacity: z.number().int().positive().optional(),
-              timingTable: z.array(z.object({
-                enabled: z.boolean(),
-                time: z.string(),
-                description: z.string(),
-                location: z.string().optional(),
-              })).optional(),
-            })),
+            updates: z.array(
+              z.object({
+                id: z.string(),
+                capacity: z.number().int().positive().optional(),
+                timingTable: z
+                  .array(
+                    z.object({
+                      enabled: z.boolean(),
+                      time: z.string(),
+                      description: z.string(),
+                      location: z.string().optional(),
+                    })
+                  )
+                  .optional(),
+              })
+            ),
           }),
         },
       },
@@ -6563,7 +6739,10 @@ app.openapi(exportReportRoute, async (c) => {
         reportData = await ReportsService.getGuestListAlphaReport(eventId);
         break;
       case 'activity-attendance':
-        reportData = await ReportsService.getActivityAttendanceReport(eventId, activityId);
+        reportData = await ReportsService.getActivityAttendanceReport(
+          eventId,
+          activityId
+        );
         break;
       case 'guest-list-type':
         reportData = await ReportsService.getGuestListByTypeReport(eventId);
@@ -6633,10 +6812,13 @@ app.openapi(exportReportRoute, async (c) => {
         );
     }
 
-    // Multi-tab Excel generation for activity attendance reports
-    const excelBuffer = reportType === 'activity-attendance' && (reportData as any).isMultiTab
-      ? await ReportsService.generateMultiTabExcelFile(reportData)
-      : await ReportsService.generateExcelFile(reportData);
+    // Excel generation for activity attendance reports
+    // Single activity: Multi-tab format
+    // All activities: Single tab with Y/N columns (no multi-tab needed)
+    const excelBuffer =
+      reportType === 'activity-attendance' && (reportData as any).isMultiTab
+        ? await ReportsService.generateMultiTabExcelFile(reportData)
+        : await ReportsService.generateExcelFile(reportData);
 
     // Log export operation
     await AuditTrailService.logExport(
@@ -6647,7 +6829,10 @@ app.openapi(exportReportRoute, async (c) => {
       eventId
     );
 
-    c.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    c.header(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
     c.header(
       'Content-Disposition',
       `attachment; filename="${reportType}-${eventId}-${new Date().toISOString().split('T')[0]}.xlsx"`
@@ -6708,7 +6893,8 @@ const previewReportRoute = createRoute({
 app.openapi(previewReportRoute, async (c) => {
   try {
     const { reportType } = c.req.valid('param');
-    const { eventId, activityId, page, limit, dateFrom, dateTo } = c.req.valid('query');
+    const { eventId, activityId, page, limit, dateFrom, dateTo } =
+      c.req.valid('query');
     const authUser = c.get('user');
 
     // Check if admin has access to this event
@@ -6753,7 +6939,10 @@ app.openapi(previewReportRoute, async (c) => {
         reportData = await ReportsService.getGuestListAlphaReport(eventId);
         break;
       case 'activity-attendance':
-        reportData = await ReportsService.getActivityAttendanceReport(eventId, activityId);
+        reportData = await ReportsService.getActivityAttendanceReport(
+          eventId,
+          activityId
+        );
         break;
       case 'guest-list-type':
         reportData = await ReportsService.getGuestListByTypeReport(eventId);
@@ -6937,7 +7126,8 @@ app.openapi(bulkExportReportsRoute, async (c) => {
           reportData = await ReportsService.getGuestListAlphaReport(eventId);
           break;
         case 'activity-attendance':
-          reportData = await ReportsService.getActivityAttendanceReport(eventId);
+          reportData =
+            await ReportsService.getActivityAttendanceReport(eventId);
           break;
         case 'guest-list-type':
           reportData = await ReportsService.getGuestListByTypeReport(eventId);
@@ -6950,19 +7140,44 @@ app.openapi(bulkExportReportsRoute, async (c) => {
           break;
         case 'change-report-user':
           const userChangeReportPagination = { page: 1, limit: 50000 };
-          reportData = await ReportsService.getUserChangeReport(eventId, userChangeReportPagination, undefined, undefined);
+          reportData = await ReportsService.getUserChangeReport(
+            eventId,
+            userChangeReportPagination,
+            undefined,
+            undefined
+          );
           break;
         case 'change-report-activity':
-          reportData = await ReportsService.getActivityChangeReport(eventId, { page: 1, limit: 50000 }, undefined, undefined);
+          reportData = await ReportsService.getActivityChangeReport(
+            eventId,
+            { page: 1, limit: 50000 },
+            undefined,
+            undefined
+          );
           break;
         case 'change-report-group':
-          reportData = await ReportsService.getGroupChangeReport(eventId, { page: 1, limit: 50000 }, undefined, undefined);
+          reportData = await ReportsService.getGroupChangeReport(
+            eventId,
+            { page: 1, limit: 50000 },
+            undefined,
+            undefined
+          );
           break;
         case 'change-report-event':
-          reportData = await ReportsService.getEventChangeReport(eventId, { page: 1, limit: 50000 }, undefined, undefined);
+          reportData = await ReportsService.getEventChangeReport(
+            eventId,
+            { page: 1, limit: 50000 },
+            undefined,
+            undefined
+          );
           break;
         case 'change-report-operations':
-          reportData = await ReportsService.getOperationsChangeReport(eventId, { page: 1, limit: 50000 }, undefined, undefined);
+          reportData = await ReportsService.getOperationsChangeReport(
+            eventId,
+            { page: 1, limit: 50000 },
+            undefined,
+            undefined
+          );
           break;
         case 'merchandise-report':
           reportData = await ReportsService.getMerchandiseReport(eventId);
@@ -7078,10 +7293,7 @@ app.openapi(getHotelsRoute, async (c) => {
           },
         },
       },
-      orderBy: [
-        { isDefault: 'desc' },
-        { name: 'asc' },
-      ],
+      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
     });
 
     return c.json({
@@ -7159,11 +7371,14 @@ app.openapi(createHotelRoute, async (c) => {
       },
     });
 
-    return c.json({
-      success: true,
-      data: { hotel },
-      message: 'Hotel created successfully',
-    }, 201);
+    return c.json(
+      {
+        success: true,
+        data: { hotel },
+        message: 'Hotel created successfully',
+      },
+      201
+    );
   } catch (error: any) {
     return c.json(
       {
@@ -7328,10 +7543,7 @@ app.openapi(getRoomTypesRoute, async (c) => {
           },
         },
       },
-      orderBy: [
-        { hotel: { name: 'asc' } },
-        { name: 'asc' },
-      ],
+      orderBy: [{ hotel: { name: 'asc' } }, { name: 'asc' }],
     });
 
     return c.json({
@@ -7422,11 +7634,14 @@ app.openapi(createRoomTypeRoute, async (c) => {
       },
     });
 
-    return c.json({
-      success: true,
-      data: { roomType },
-      message: 'Room type created successfully',
-    }, 201);
+    return c.json(
+      {
+        success: true,
+        data: { roomType },
+        message: 'Room type created successfully',
+      },
+      201
+    );
   } catch (error: any) {
     return c.json(
       {
@@ -7511,7 +7726,7 @@ app.get('/transport/assignments/:eventId', async (c) => {
           select: {
             profile: true,
             flight: true,
-            accommodation: true
+            accommodation: true,
           },
         });
 
@@ -7522,8 +7737,10 @@ app.get('/transport/assignments/:eventId', async (c) => {
         return {
           ...assignment,
           contactNumber: profile?.phone || '',
-          arrivalDate: flight?.inbound?.arrivalDate || accommodation?.checkIn || '',
-          departureDate: flight?.outbound?.departureDate || accommodation?.checkOut || '',
+          arrivalDate:
+            flight?.inbound?.arrivalDate || accommodation?.checkIn || '',
+          departureDate:
+            flight?.outbound?.departureDate || accommodation?.checkOut || '',
         };
       })
     );
@@ -7655,7 +7872,11 @@ app.put('/groups/bulk/cars', async (c) => {
 
     const authUser = c.get('user');
 
-    await TransportService.bulkAssignCarsToGroups(groupIds, carNumbers, authUser.id);
+    await TransportService.bulkAssignCarsToGroups(
+      groupIds,
+      carNumbers,
+      authUser.id
+    );
 
     return c.json({
       success: true,
@@ -7712,7 +7933,11 @@ app.put('/groups/:groupId/cars', async (c) => {
 
     const authUser = c.get('user');
 
-    await TransportService.assignCarsToGroup(groupId, body.carNumbers, authUser.id);
+    await TransportService.assignCarsToGroup(
+      groupId,
+      body.carNumbers,
+      authUser.id
+    );
 
     return c.json({
       success: true,
@@ -7773,11 +7998,15 @@ app.get('/transport/conflicts/:eventId', async (c) => {
   try {
     const eventId = c.req.param('eventId');
     // Use improved conflict detection with configurable buffer
-    const conflicts = await ImprovedTransportConflictService.detectAirportTimingConflictsOptimized(eventId, {
-      windowMinutes: 180, // 3 hour conflict window
-      includeBuffer: true, // Add buffer for airport travel time
-      airportDistanceMinutes: 60 // 1 hour to/from airport
-    });
+    const conflicts =
+      await ImprovedTransportConflictService.detectAirportTimingConflictsOptimized(
+        eventId,
+        {
+          windowMinutes: 180, // 3 hour conflict window
+          includeBuffer: true, // Add buffer for airport travel time
+          airportDistanceMinutes: 60, // 1 hour to/from airport
+        }
+      );
 
     return c.json({
       success: true,

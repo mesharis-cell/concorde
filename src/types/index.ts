@@ -508,6 +508,8 @@ export const CreateUserSchema = z.object({
   flight: UserFlightSchema.optional(),
   accommodation: UserAccommodationSchema.optional(),
   transferRequirements: z.boolean().optional().default(false),
+  gpTransfersRequired: z.boolean().optional().default(false), // NEW: Grand Prix transfers
+  eventTransfersRequired: z.boolean().optional().default(false), // NEW: General event transfers
   requirements: UserRequirementsSchema.optional(),
   merchandiseSize: UserMerchandiseSizeSchema.optional(),
   emergencyContact: UserEmergencyContactSchema.optional(),
@@ -569,6 +571,8 @@ export const PublicRegistrationSchema = z.object({
     whatsappOptIn: false,
   }),
   transferRequirements: z.boolean().optional().default(false),
+  gpTransfersRequired: z.boolean().optional().default(false), // NEW: Grand Prix transfers
+  eventTransfersRequired: z.boolean().optional().default(false), // NEW: General event transfers
   requirements: UserRequirementsSchema.optional(), // Optional: dietary, medical, accessibility
   merchandiseSize: UserMerchandiseSizeSchema.optional(), // Enhanced: gender + size
   emergencyContact: UserEmergencyContactSchema.optional(), // Optional: name, relationship, phone, email
