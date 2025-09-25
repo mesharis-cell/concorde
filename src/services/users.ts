@@ -117,17 +117,17 @@ export class UserService {
       search?: string;
       hasRequirements?: boolean;
       requirementType?:
-      | 'dietary'
-      | 'medical'
-      | 'accessibility'
-      | 'accommodation'
-      | 'any';
+        | 'dietary'
+        | 'medical'
+        | 'accessibility'
+        | 'accommodation'
+        | 'any';
       communicationType?:
-      | 'email-only'
-      | 'whatsapp-only'
-      | 'both'
-      | 'none'
-      | 'any';
+        | 'email-only'
+        | 'whatsapp-only'
+        | 'both'
+        | 'none'
+        | 'any';
     } = {}
   ): Promise<PaginatedResponse<User>> {
     const { page, limit } = pagination;
@@ -259,7 +259,11 @@ export class UserService {
     };
   }
 
-  static async update(id: string, data: Partial<CreateUser>, performedBy?: string): Promise<User> {
+  static async update(
+    id: string,
+    data: Partial<CreateUser>,
+    performedBy?: string
+  ): Promise<User> {
     // If email is being updated, normalize and check for duplicates within the same event
     if (data.profile?.email) {
       data.profile.email = data.profile.email.toLowerCase();
@@ -308,21 +312,23 @@ export class UserService {
       updateData.arrivalNotes = data.arrivalNotes;
     if (data.departureNotes !== undefined)
       updateData.departureNotes = data.departureNotes;
-    if (data.tickets !== undefined)
-      updateData.tickets = data.tickets;
+    if (data.tickets !== undefined) updateData.tickets = data.tickets;
     if (data.guestCategory !== undefined)
       updateData.guestCategory = data.guestCategory;
-    if (data.hotelId !== undefined)
-      updateData.hotelId = data.hotelId;
-    if (data.carNumbers !== undefined)
-      updateData.carNumbers = data.carNumbers;
+    if (data.hotelId !== undefined) updateData.hotelId = data.hotelId;
+    if (data.carNumbers !== undefined) updateData.carNumbers = data.carNumbers;
     if (data.roomDropAssigned !== undefined)
       updateData.roomDropAssigned = data.roomDropAssigned;
-    if (data.active !== undefined)
-      updateData.active = data.active;
+    if (data.gpTransfersRequired !== undefined)
+      updateData.gpTransfersRequired = data.gpTransfersRequired;
+    if (data.eventTransfersRequired !== undefined)
+      updateData.eventTransfersRequired = data.eventTransfersRequired;
+    if (data.active !== undefined) updateData.active = data.active;
 
     // Get current user data for audit trail
-    const currentUser = performedBy ? await prisma.user.findUnique({ where: { id } }) : null;
+    const currentUser = performedBy
+      ? await prisma.user.findUnique({ where: { id } })
+      : null;
 
     const updatedUser = await prisma.user.update({
       where: { id },
@@ -331,7 +337,10 @@ export class UserService {
 
     // Log audit trail
     if (performedBy && currentUser) {
-      const changedFields = AuditTrailService.getChangedFields(currentUser, updatedUser);
+      const changedFields = AuditTrailService.getChangedFields(
+        currentUser,
+        updatedUser
+      );
       if (changedFields.length > 0) {
         await AuditTrailService.logUpdate(
           'User',
@@ -385,22 +394,30 @@ export class UserService {
     }
 
     // Analyze conflicts
-    const conflictAnalysis = await ConflictDetectionService.analyzeAssignmentConflicts([userId], groupIds);
+    const conflictAnalysis =
+      await ConflictDetectionService.analyzeAssignmentConflicts(
+        [userId],
+        groupIds
+      );
 
     // Block assignment if there are high-severity conflicts and conflicts are not allowed
     if (!options.allowConflicts && conflictAnalysis.hasIssues) {
       const highSeverityIssues = [
-        ...conflictAnalysis.capacityIssues.filter(i => i.severity === 'high'),
-        ...conflictAnalysis.timingConflicts.filter(c => c.severity === 'high'),
+        ...conflictAnalysis.capacityIssues.filter((i) => i.severity === 'high'),
+        ...conflictAnalysis.timingConflicts.filter(
+          (c) => c.severity === 'high'
+        ),
       ];
 
       if (highSeverityIssues.length > 0) {
         const issueDetails = [
-          ...conflictAnalysis.capacityIssues.map(i =>
-            `Activity "${i.activityTitle}" capacity exceeded (${i.capacity} max, ${i.affectedUserCount + i.capacity} potential attendees)`
+          ...conflictAnalysis.capacityIssues.map(
+            (i) =>
+              `Activity "${i.activityTitle}" capacity exceeded (${i.capacity} max, ${i.affectedUserCount + i.capacity} potential attendees)`
           ),
-          ...conflictAnalysis.timingConflicts.map(c =>
-            `Timing conflict: ${c.activities.length} overlapping activities`
+          ...conflictAnalysis.timingConflicts.map(
+            (c) =>
+              `Timing conflict: ${c.activities.length} overlapping activities`
           ),
         ].join('; ');
 
@@ -423,32 +440,40 @@ export class UserService {
     });
 
     // Update all affected group member counts (both old and new groups)
-    const allAffectedGroups = Array.from(new Set([...user.groupIds, ...newGroupIds]));
-    await Promise.all(allAffectedGroups.map(groupId => GroupService.updateMemberCount(groupId)));
+    const allAffectedGroups = Array.from(
+      new Set([...user.groupIds, ...newGroupIds])
+    );
+    await Promise.all(
+      allAffectedGroups.map((groupId) =>
+        GroupService.updateMemberCount(groupId)
+      )
+    );
 
     // Update activity attendee counts for all affected activities
     const activities = await prisma.activity.findMany({
       where: { groupIds: { hasSome: allAffectedGroups } },
       select: { id: true },
     });
-    await ConflictDetectionService.batchUpdateAttendeeCount(activities.map(a => a.id));
+    await ConflictDetectionService.batchUpdateAttendeeCount(
+      activities.map((a) => a.id)
+    );
 
     // Log audit trail for added groups
-    const addedGroups = groupIds.filter(id => !user.groupIds.includes(id));
+    const addedGroups = groupIds.filter((id) => !user.groupIds.includes(id));
     for (const groupId of addedGroups) {
       const [group, admin, userProfile] = await Promise.all([
         prisma.group.findUnique({
           where: { id: groupId },
-          select: { name: true }
+          select: { name: true },
         }),
         prisma.admin.findUnique({
           where: { id: adminId },
-          select: { email: true, firstName: true, lastName: true }
+          select: { email: true, firstName: true, lastName: true },
         }),
         prisma.user.findUnique({
           where: { id: userId },
-          select: { profile: true }
-        })
+          select: { profile: true },
+        }),
       ]);
 
       const userEmail = (userProfile?.profile as any)?.email || 'Unknown User';
@@ -467,27 +492,27 @@ export class UserService {
           userEmail,
           adminEmail,
           groupName: group?.name || groupId,
-          ...(conflictAnalysis.hasIssues ? { conflictsDetected: true } : {})
-        }
+          ...(conflictAnalysis.hasIssues ? { conflictsDetected: true } : {}),
+        },
       });
     }
 
     // Log audit trail for removed groups
-    const removedGroups = user.groupIds.filter(id => !groupIds.includes(id));
+    const removedGroups = user.groupIds.filter((id) => !groupIds.includes(id));
     for (const groupId of removedGroups) {
       const [group, admin, userProfile] = await Promise.all([
         prisma.group.findUnique({
           where: { id: groupId },
-          select: { name: true }
+          select: { name: true },
         }),
         prisma.admin.findUnique({
           where: { id: adminId },
-          select: { email: true, firstName: true, lastName: true }
+          select: { email: true, firstName: true, lastName: true },
         }),
         prisma.user.findUnique({
           where: { id: userId },
-          select: { profile: true }
-        })
+          select: { profile: true },
+        }),
       ]);
 
       const userEmail = (userProfile?.profile as any)?.email || 'Unknown User';
@@ -506,7 +531,7 @@ export class UserService {
           userEmail,
           adminEmail,
           groupName: group?.name || groupId,
-        }
+        },
       });
     }
 
@@ -548,8 +573,12 @@ export class UserService {
     }
 
     // Filter out the groups to remove
-    const remainingGroupIds = user.groupIds.filter(id => !groupIds.includes(id));
-    const actuallyRemovedGroups = user.groupIds.filter(id => groupIds.includes(id));
+    const remainingGroupIds = user.groupIds.filter(
+      (id) => !groupIds.includes(id)
+    );
+    const actuallyRemovedGroups = user.groupIds.filter((id) =>
+      groupIds.includes(id)
+    );
 
     if (actuallyRemovedGroups.length === 0) {
       throw new Error('User is not assigned to any of the specified groups');
@@ -568,22 +597,30 @@ export class UserService {
 
     // Update affected group member counts
     await Promise.all([
-      ...remainingGroupIds.map(groupId => GroupService.updateMemberCount(groupId)),
-      ...actuallyRemovedGroups.map(groupId => GroupService.updateMemberCount(groupId)),
+      ...remainingGroupIds.map((groupId) =>
+        GroupService.updateMemberCount(groupId)
+      ),
+      ...actuallyRemovedGroups.map((groupId) =>
+        GroupService.updateMemberCount(groupId)
+      ),
     ]);
 
     // Update activity attendee counts
     const activities = await prisma.activity.findMany({
-      where: { groupIds: { hasSome: [...remainingGroupIds, ...actuallyRemovedGroups] } },
+      where: {
+        groupIds: { hasSome: [...remainingGroupIds, ...actuallyRemovedGroups] },
+      },
       select: { id: true },
     });
-    await ConflictDetectionService.batchUpdateAttendeeCount(activities.map(a => a.id));
+    await ConflictDetectionService.batchUpdateAttendeeCount(
+      activities.map((a) => a.id)
+    );
 
     // Log audit trail for each removed group
     for (const groupId of actuallyRemovedGroups) {
       const group = await prisma.group.findUnique({
         where: { id: groupId },
-        select: { name: true }
+        select: { name: true },
       });
 
       await AuditTrailService.logUnassign(
@@ -617,7 +654,11 @@ export class UserService {
     }
 
     // Remove from all groups for backward compatibility
-    const result = await this.unassignFromGroups(userId, user.groupIds, adminId);
+    const result = await this.unassignFromGroups(
+      userId,
+      user.groupIds,
+      adminId
+    );
     return result.user;
   }
 
@@ -778,7 +819,7 @@ export class UserService {
       prisma.user.findMany({
         where: {
           groupIds: {
-            has: groupId
+            has: groupId,
           },
           assigned: true,
           active: true,
@@ -790,7 +831,7 @@ export class UserService {
       prisma.user.count({
         where: {
           groupIds: {
-            has: groupId
+            has: groupId,
           },
           assigned: true,
           active: true,
@@ -880,7 +921,7 @@ export class UserService {
     // Update group member counts for all groups user was assigned to
     if (user.groupIds && user.groupIds.length > 0) {
       await Promise.all(
-        user.groupIds.map(groupId => GroupService.updateMemberCount(groupId))
+        user.groupIds.map((groupId) => GroupService.updateMemberCount(groupId))
       );
 
       // Update activity attendee counts for all affected activities
@@ -890,7 +931,9 @@ export class UserService {
       });
 
       if (activities.length > 0) {
-        await ConflictDetectionService.batchUpdateAttendeeCount(activities.map(a => a.id));
+        await ConflictDetectionService.batchUpdateAttendeeCount(
+          activities.map((a) => a.id)
+        );
       }
     }
 
@@ -898,7 +941,7 @@ export class UserService {
     if (performedBy) {
       const admin = await prisma.admin.findUnique({
         where: { id: performedBy },
-        select: { email: true, firstName: true, lastName: true }
+        select: { email: true, firstName: true, lastName: true },
       });
 
       const userEmail = (user.profile as any)?.email || 'Unknown User';
@@ -920,8 +963,8 @@ export class UserService {
             email: (user.profile as any)?.email,
             firstName: (user.profile as any)?.firstName,
             lastName: (user.profile as any)?.lastName,
-          }
-        }
+          },
+        },
       });
     }
 
@@ -983,7 +1026,9 @@ export class UserService {
   /**
    * Generate a magic link token for admin preview (no email sent)
    */
-  static async generateMagicLink(userId: string): Promise<{ token: string; expiresAt: Date }> {
+  static async generateMagicLink(
+    userId: string
+  ): Promise<{ token: string; expiresAt: Date }> {
     const user = await prisma.user.findUnique({
       where: { id: userId, active: true },
       select: { eventId: true },
@@ -1038,17 +1083,23 @@ export class UserService {
       },
     });
 
-    const userFlightData = users.map(user => {
+    const userFlightData = users.map((user) => {
       const flight = user.flight as any;
       const email = (user.profile as any)?.email;
 
-      const inboundDeparture = flight?.inbound?.departureDate ? new Date(flight.inbound.departureDate) : null;
-      const inboundArrival = flight?.inbound?.arrivalDate ? new Date(flight.inbound.arrivalDate) : null;
+      const inboundDeparture = flight?.inbound?.departureDate
+        ? new Date(flight.inbound.departureDate)
+        : null;
+      const inboundArrival = flight?.inbound?.arrivalDate
+        ? new Date(flight.inbound.arrivalDate)
+        : null;
 
       // Calculate flight duration if both dates are available
       let flightDuration;
       if (inboundDeparture && inboundArrival) {
-        flightDuration = Math.round((inboundArrival.getTime() - inboundDeparture.getTime()) / (1000 * 60)); // minutes
+        flightDuration = Math.round(
+          (inboundArrival.getTime() - inboundDeparture.getTime()) / (1000 * 60)
+        ); // minutes
       }
 
       return {
@@ -1068,24 +1119,37 @@ export class UserService {
     });
 
     // Calculate stats
-    const usersWithValidFlights = userFlightData.filter(u => u.departureDate && u.arrivalDate);
-    const durations = usersWithValidFlights.map(u => u.flightDuration).filter(Boolean) as number[];
-    const departureDates = userFlightData.map(u => u.departureDate).filter(Boolean) as Date[];
-    const arrivalDates = userFlightData.map(u => u.arrivalDate).filter(Boolean) as Date[];
+    const usersWithValidFlights = userFlightData.filter(
+      (u) => u.departureDate && u.arrivalDate
+    );
+    const durations = usersWithValidFlights
+      .map((u) => u.flightDuration)
+      .filter(Boolean) as number[];
+    const departureDates = userFlightData
+      .map((u) => u.departureDate)
+      .filter(Boolean) as Date[];
+    const arrivalDates = userFlightData
+      .map((u) => u.arrivalDate)
+      .filter(Boolean) as Date[];
 
     return {
       usersByDeparture: sortedUsers,
       stats: {
         totalWithFlights: users.length,
-        averageFlightDuration: durations.length > 0
-          ? Math.round(durations.reduce((sum, d) => sum + d, 0) / durations.length)
-          : 0,
-        earliestDeparture: departureDates.length > 0
-          ? new Date(Math.min(...departureDates.map(d => d.getTime())))
-          : null,
-        latestArrival: arrivalDates.length > 0
-          ? new Date(Math.max(...arrivalDates.map(d => d.getTime())))
-          : null,
+        averageFlightDuration:
+          durations.length > 0
+            ? Math.round(
+                durations.reduce((sum, d) => sum + d, 0) / durations.length
+              )
+            : 0,
+        earliestDeparture:
+          departureDates.length > 0
+            ? new Date(Math.min(...departureDates.map((d) => d.getTime())))
+            : null,
+        latestArrival:
+          arrivalDates.length > 0
+            ? new Date(Math.max(...arrivalDates.map((d) => d.getTime())))
+            : null,
       },
     };
   }
