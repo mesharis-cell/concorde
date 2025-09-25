@@ -420,7 +420,7 @@ const getUserItineraryRoute = createRoute({
 
 app.openapi(getUserItineraryRoute, async (c) => {
   // Apply authentication middleware manually
-  const authResult = await authenticateUserByEmail(c, async () => { });
+  const authResult = await authenticateUserByEmail(c, async () => {});
   if (authResult) {
     return authResult; // Return auth error response
   }
@@ -438,7 +438,10 @@ app.openapi(getUserItineraryRoute, async (c) => {
       );
     }
 
-    if (!userContext.userData?.groupId) {
+    if (
+      !userContext.userData?.groupIds ||
+      userContext.userData.groupIds.length === 0
+    ) {
       return c.json(
         {
           success: false,
@@ -551,7 +554,7 @@ const getUserProfileRoute = createRoute({
 
 app.openapi(getUserProfileRoute, async (c) => {
   // Apply authentication middleware manually
-  const authResult = await authenticateUserByEmail(c, async () => { });
+  const authResult = await authenticateUserByEmail(c, async () => {});
   if (authResult) {
     return authResult; // Return auth error response
   }
@@ -664,7 +667,7 @@ const updateCommunicationPreferencesRoute = createRoute({
 
 app.openapi(updateCommunicationPreferencesRoute, async (c) => {
   // Manually run authentication middleware
-  const authResult = await authenticateUserByEmail(c, async () => { });
+  const authResult = await authenticateUserByEmail(c, async () => {});
   if (authResult) {
     return authResult; // Return auth error response
   }
