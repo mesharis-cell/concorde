@@ -25,9 +25,9 @@ interface CSVRow {
   firstName: string;
   lastName: string;
   nickname: string;
+  guestType: string;
   jobTitle: string;
   company: string;
-  guestType: string;
   internalVip: string;
   vipGuest: string;
   email: string;
@@ -65,14 +65,15 @@ interface CSVRow {
   checkInDate: string;
   checkOutDate: string;
   numberOfNights: string;
-  roomDrop: string;
   hotelBookingForVisa: string;
   notes: string;
-  gpTransfersRequired: string;
-  eventTransfersRequired: string;
+  roomDrop: string;
+  // Skip columns 48-52 (all "-" empty columns)
   // Activity assignments
   crystalGoldLaunch: string;
+  // Skip column 54 ("-" empty column)
   clcInterview: string;
+  sandyInterview: string; // New column
   airCccc: string;
   casaFerrari: string;
   prsPaddockClubFri: string;
@@ -80,14 +81,18 @@ interface CSVRow {
   crystalGoldLoungeFri: string;
   eveningBar: string; // Special: contains venue name rather than Y/N
   fredInterviewSession: string;
+  // Skip column 64 ("-" empty column)
   prsPaddockClubSat: string;
   regalClubSat: string;
   crystalGoldLoungeSat: string;
   sushiSambaAfterParty: string;
   prsPaddockClubSun: string;
   regalClubSun: string;
+  // Skip column 71 ("-" empty column)
   crystalGoldLoungeSun: string;
   lavoAfterParty: string;
+  gpTransfersRequired: string;
+  eventTransfersRequired: string;
   // Car assignment
   marketCarNumber: string;
   marketCarNumberNotes: string;
@@ -206,7 +211,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Crystal Gold Launch',
     date: '30/09/2025',
     time: '19:00',
-    description: 'Exclusive Crystal Gold product launch event',
+    description: '',
     category: 'EXPERIENCE',
     csvField: 'crystalGoldLaunch',
   },
@@ -216,9 +221,17 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'CLC Interview',
     date: '01/10/2025',
     time: '14:00',
-    description: 'CLC Interview session',
+    description: '',
     category: 'MEETING',
     csvField: 'clcInterview',
+  },
+  {
+    title: 'Sandy Interview',
+    date: '01/10/2025',
+    time: '15:00',
+    description: '',
+    category: 'MEETING',
+    csvField: 'sandyInterview',
   },
 
   // THURSDAY 2nd October 2025
@@ -226,7 +239,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'AIR CCCC',
     date: '02/10/2025',
     time: '15:00',
-    description: 'AIR CCCC event',
+    description: '',
     category: 'EXPERIENCE',
     csvField: 'airCccc',
   },
@@ -236,7 +249,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Casa Ferrari',
     date: '03/10/2025',
     time: '12:00',
-    description: 'Casa Ferrari experience',
+    description: '',
     category: 'EXPERIENCE',
     csvField: 'casaFerrari',
   },
@@ -244,7 +257,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'PRS Paddock Club - Friday',
     date: '03/10/2025',
     time: '14:00',
-    description: 'PRS Paddock Club access on Friday',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'prsPaddockClubFri',
   },
@@ -252,7 +265,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Regal Club - Friday',
     date: '03/10/2025',
     time: '16:00',
-    description: 'Regal Club experience on Friday',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'regalClubFri',
   },
@@ -260,7 +273,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Crystal Gold Lounge - Friday',
     date: '03/10/2025',
     time: '18:00',
-    description: 'Crystal Gold Lounge access on Friday',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'crystalGoldLoungeFri',
   },
@@ -269,7 +282,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Evening Bar - Manhattan Bar',
     date: '03/10/2025',
     time: '20:00',
-    description: 'Evening experience at Manhattan Bar',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'eveningBar',
     isEveningBar: true,
@@ -288,7 +301,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Evening Bar - Origin Bar',
     date: '03/10/2025',
     time: '20:00',
-    description: 'Evening experience at Origin Bar',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'eveningBar',
     isEveningBar: true,
@@ -297,7 +310,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Evening Bar - Republic Bar Singapore',
     date: '03/10/2025',
     time: '20:00',
-    description: 'Evening experience at Republic Bar Singapore',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'eveningBar',
     isEveningBar: true,
@@ -306,7 +319,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Evening Bar - Stay Gold',
     date: '03/10/2025',
     time: '20:00',
-    description: 'Evening experience at Stay Gold',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'eveningBar',
     isEveningBar: true,
@@ -315,7 +328,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Evening Bar - Nutmeg & Clove',
     date: '03/10/2025',
     time: '20:00',
-    description: 'Evening experience at Nutmeg & Clove',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'eveningBar',
     isEveningBar: true,
@@ -324,7 +337,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Evening Bar - Somma Bar',
     date: '03/10/2025',
     time: '20:00',
-    description: 'Evening experience at Somma Bar',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'eveningBar',
     isEveningBar: true,
@@ -333,7 +346,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Evening Bar - Lobby',
     date: '03/10/2025',
     time: '20:00',
-    description: 'Evening experience at Lobby',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'eveningBar',
     isEveningBar: true,
@@ -342,7 +355,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Evening Bar - Atlas',
     date: '03/10/2025',
     time: '20:00',
-    description: 'Evening experience at Atlas',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'eveningBar',
     isEveningBar: true,
@@ -353,7 +366,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Fred Interview Session',
     date: '04/10/2025',
     time: '10:00',
-    description: 'Fred Interview Session',
+    description: '',
     category: 'MEETING',
     csvField: 'fredInterviewSession',
   },
@@ -361,7 +374,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'PRS Paddock Club - Saturday',
     date: '04/10/2025',
     time: '14:00',
-    description: 'PRS Paddock Club access on Saturday',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'prsPaddockClubSat',
   },
@@ -369,7 +382,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Regal Club - Saturday',
     date: '04/10/2025',
     time: '16:00',
-    description: 'Regal Club experience on Saturday',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'regalClubSat',
   },
@@ -377,7 +390,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Crystal Gold Lounge - Saturday',
     date: '04/10/2025',
     time: '18:00',
-    description: 'Crystal Gold Lounge access on Saturday',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'crystalGoldLoungeSat',
   },
@@ -385,7 +398,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Sushi Samba After Party',
     date: '04/10/2025',
     time: '22:00',
-    description: 'Sushi Samba After Party',
+    description: '',
     category: 'EXPERIENCE',
     csvField: 'sushiSambaAfterParty',
   },
@@ -395,7 +408,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'PRS Paddock Club - Sunday',
     date: '05/10/2025',
     time: '14:00',
-    description: 'PRS Paddock Club access on Sunday',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'prsPaddockClubSun',
   },
@@ -403,7 +416,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Regal Club - Sunday',
     date: '05/10/2025',
     time: '16:00',
-    description: 'Regal Club experience on Sunday',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'regalClubSun',
   },
@@ -411,7 +424,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Crystal Gold Lounge - Sunday',
     date: '05/10/2025',
     time: '18:00',
-    description: 'Crystal Gold Lounge access on Sunday',
+    description: '',
     category: 'HOSPITALITY',
     csvField: 'crystalGoldLoungeSun',
   },
@@ -419,7 +432,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'LAVO After Party',
     date: '05/10/2025',
     time: '22:00',
-    description: 'LAVO After Party',
+    description: '',
     category: 'EXPERIENCE',
     csvField: 'lavoAfterParty',
   },
@@ -589,10 +602,17 @@ async function getOrCreateActivity(
     const [hours, minutes] = activityDef.time
       .split(':')
       .map((n) => parseInt(n));
-    const startDateTime = new Date(activityDate);
-    startDateTime.setHours(hours, minutes, 0, 0);
+
+    // 🎯 FIX: Parse date components directly to avoid double timezone conversion
+    const dateParts = activityDef.date.split('/');
+    const day = parseInt(dateParts[0]);
+    const month = parseInt(dateParts[1]) - 1; // JavaScript months are 0-indexed
+    const year = parseInt(dateParts[2]);
+
+    // Create the datetime directly in Singapore timezone
+    const singaporeDateTime = new Date(year, month, day, hours, minutes, 0, 0);
     const utcStartDateTime = dateFnsTz.fromZonedTime(
-      startDateTime,
+      singaporeDateTime,
       EVENT_TIMEZONE
     );
 
@@ -621,6 +641,10 @@ async function getOrCreateActivity(
     console.log(
       `✨ Creating new activity: "${activityDef.title}" on ${activityDef.date} at ${activityDef.time}`
     );
+    console.log(
+      `   📅 Singapore time: ${singaporeDateTime.toLocaleString('en-SG', { timeZone: EVENT_TIMEZONE })}`
+    );
+    console.log(`   🌍 UTC time: ${utcStartDateTime.toISOString()}`);
 
     // Use direct Prisma call to avoid ActivityService validation issues during import
     const newActivity = await prisma.activity.create({
@@ -633,7 +657,7 @@ async function getOrCreateActivity(
         endDateTime: endDateTime,
         category: activityDef.category as any,
         location: null,
-        content: { html: `<p>${activityDef.description}</p>` },
+        content: { html: `${activityDef.description}` },
         capacity: null, // No capacity limits for Singapore activities
         timingTable: [],
         createdBy: adminId,
@@ -1014,6 +1038,24 @@ async function main() {
     });
     console.log('✅ Super admin created:', superAdmin2.email);
 
+    // Create third super admin - Desislava Nikolova
+    const passwordHash3 = await bcrypt.hash('zz#S9QBJDKCB', 12);
+    const superAdmin3 = await prisma.admin.create({
+      data: {
+        email: 'dnikolova@invnt.com',
+        firstName: 'Desislava',
+        lastName: 'Nikolova',
+        passwordHash: passwordHash3,
+        active: true,
+        adminEvents: {
+          create: {
+            eventId: event.id,
+          },
+        },
+      },
+    });
+    console.log('✅ Super admin created:', superAdmin3.email);
+
     // Step 3: Create default hotel
     console.log('🏨 Creating hotel...');
     const hotel = await prisma.hotel.create({
@@ -1384,75 +1426,83 @@ async function main() {
 
     const records = parse(csvContent, {
       columns: [
-        'market',
-        'firstName',
-        'lastName',
-        'nickname',
-        'jobTitle',
-        'company',
-        'guestType',
-        'internalVip',
-        'vipGuest',
-        'email',
-        'contactMobile',
-        'host',
-        'emergencyContactName',
-        'emergencyContactNumber',
-        'gender',
-        'sizeRequirements',
-        'initials',
-        'accessibilityRequirements',
-        'dietaryRequirements',
-        'medicalInformation',
-        'transportMode',
-        'inboundDepartureFrom',
-        'inboundDepartureDate',
-        'inboundDepartureTime',
-        'inboundDepartureTerminal',
-        'inboundFlightNumber',
-        'connectingFlight',
-        'inboundArrivalDate',
-        'inboundArrivalTime',
-        'inboundArrivalTo',
-        'transportRequired',
-        'outboundDepartureFrom',
-        'outboundDepartureDate',
-        'outboundDepartureTime',
-        'outboundDepartureTerminal',
-        'outboundFlightNumber',
-        'outboundArrivalTo',
-        'accommodationRequired',
-        'hotelName',
-        'roomCategory',
-        'occupancy',
-        'checkInDate',
-        'checkOutDate',
-        'numberOfNights',
-        'roomDrop',
-        'hotelBookingForVisa',
-        'notes',
-        'gpTransfersRequired',
-        'eventTransfersRequired',
-        // Activity assignments
-        'crystalGoldLaunch',
-        'clcInterview',
-        'airCccc',
-        'casaFerrari',
-        'prsPaddockClubFri',
-        'regalClubFri',
-        'crystalGoldLoungeFri',
-        'eveningBar',
-        'fredInterviewSession',
-        'prsPaddockClubSat',
-        'regalClubSat',
-        'crystalGoldLoungeSat',
-        'sushiSambaAfterParty',
-        'prsPaddockClubSun',
-        'regalClubSun',
-        'crystalGoldLoungeSun',
-        'lavoAfterParty',
-        'marketCarNumber',
-        'marketCarNumberNotes',
+        'market', // 1
+        'firstName', // 2
+        'lastName', // 3
+        'nickname', // 4
+        'guestType', // 5
+        'jobTitle', // 6
+        'company', // 7
+        'internalVip', // 8
+        'vipGuest', // 9
+        'email', // 10
+        'contactMobile', // 11
+        'host', // 12
+        'emergencyContactName', // 13
+        'emergencyContactNumber', // 14
+        'gender', // 15
+        'sizeRequirements', // 16
+        'initials', // 17
+        'accessibilityRequirements', // 18
+        'dietaryRequirements', // 19
+        'medicalInformation', // 20
+        'transportMode', // 21
+        'inboundDepartureFrom', // 22
+        'inboundDepartureDate', // 23
+        'inboundDepartureTime', // 24
+        'inboundDepartureTerminal', // 25
+        'inboundFlightNumber', // 26
+        'connectingFlight', // 27
+        'inboundArrivalDate', // 28
+        'inboundArrivalTime', // 29
+        'inboundArrivalTo', // 30
+        'transportRequired', // 31
+        'outboundDepartureFrom', // 32
+        'outboundDepartureDate', // 33
+        'outboundDepartureTime', // 34
+        'outboundDepartureTerminal', // 35
+        'outboundFlightNumber', // 36
+        'outboundArrivalTo', // 37
+        'accommodationRequired', // 38
+        'hotelName', // 39
+        'roomCategory', // 40
+        'occupancy', // 41
+        'checkInDate', // 42
+        'checkOutDate', // 43
+        'numberOfNights', // 44
+        'hotelBookingForVisa', // 45
+        'notes', // 46
+        'roomDrop', // 47
+        null, // 48 - Skip "-" column
+        null, // 49 - Skip "-" column
+        null, // 50 - Skip "-" column
+        null, // 51 - Skip "-" column
+        null, // 52 - Skip "-" column
+        'crystalGoldLaunch', // 53
+        null, // 54 - Skip "-" column
+        'clcInterview', // 55
+        'sandyInterview', // 56
+        'airCccc', // 57
+        'casaFerrari', // 58
+        'prsPaddockClubFri', // 59
+        'regalClubFri', // 60
+        'crystalGoldLoungeFri', // 61
+        'eveningBar', // 62
+        'fredInterviewSession', // 63
+        null, // 64 - Skip "-" column
+        'prsPaddockClubSat', // 65
+        'regalClubSat', // 66
+        'crystalGoldLoungeSat', // 67
+        'sushiSambaAfterParty', // 68
+        'prsPaddockClubSun', // 69
+        'regalClubSun', // 70
+        null, // 71 - Skip "-" column
+        'crystalGoldLoungeSun', // 72
+        'lavoAfterParty', // 73
+        'gpTransfersRequired', // 74
+        'eventTransfersRequired', // 75
+        'marketCarNumber', // 76
+        'marketCarNumberNotes', // 77
       ],
       skip_empty_lines: true,
       trim: true,

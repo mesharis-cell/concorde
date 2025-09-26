@@ -7,15 +7,15 @@ const prisma = new PrismaClient({
   log: ['error'],
 });
 
-// Same CSV interface as validation script
+// Same CSV interface as validation script - Updated for new CSV structure
 interface CSVRow {
   market: string;
   firstName: string;
   lastName: string;
   nickname: string;
+  guestType: string;
   jobTitle: string;
   company: string;
-  guestType: string;
   internalVip: string;
   vipGuest: string;
   email: string;
@@ -53,29 +53,35 @@ interface CSVRow {
   checkInDate: string;
   checkOutDate: string;
   numberOfNights: string;
-  roomDrop: string;
   hotelBookingForVisa: string;
   notes: string;
-  gpTransfersRequired: string;
-  eventTransfersRequired: string;
+  roomDrop: string;
+  // Skip columns 48-52 (all "-" empty columns)
   // Activity assignments
   crystalGoldLaunch: string;
+  // Skip column 54 ("-" empty column)
   clcInterview: string;
+  sandyInterview: string; // New column
   airCccc: string;
   casaFerrari: string;
   prsPaddockClubFri: string;
   regalClubFri: string;
   crystalGoldLoungeFri: string;
-  eveningBar: string;
+  eveningBar: string; // Special: contains venue name rather than Y/N
   fredInterviewSession: string;
+  // Skip column 64 ("-" empty column)
   prsPaddockClubSat: string;
   regalClubSat: string;
   crystalGoldLoungeSat: string;
   sushiSambaAfterParty: string;
   prsPaddockClubSun: string;
   regalClubSun: string;
+  // Skip column 71 ("-" empty column)
   crystalGoldLoungeSun: string;
   lavoAfterParty: string;
+  gpTransfersRequired: string;
+  eventTransfersRequired: string;
+  // Car assignment
   marketCarNumber: string;
   marketCarNumberNotes: string;
 }
@@ -105,75 +111,83 @@ async function loadCSVData(): Promise<CSVRow[]> {
 
   const records = parse(csvContent, {
     columns: [
-      'market',
-      'firstName',
-      'lastName',
-      'nickname',
-      'jobTitle',
-      'company',
-      'guestType',
-      'internalVip',
-      'vipGuest',
-      'email',
-      'contactMobile',
-      'host',
-      'emergencyContactName',
-      'emergencyContactNumber',
-      'gender',
-      'sizeRequirements',
-      'initials',
-      'accessibilityRequirements',
-      'dietaryRequirements',
-      'medicalInformation',
-      'transportMode',
-      'inboundDepartureFrom',
-      'inboundDepartureDate',
-      'inboundDepartureTime',
-      'inboundDepartureTerminal',
-      'inboundFlightNumber',
-      'connectingFlight',
-      'inboundArrivalDate',
-      'inboundArrivalTime',
-      'inboundArrivalTo',
-      'transportRequired',
-      'outboundDepartureFrom',
-      'outboundDepartureDate',
-      'outboundDepartureTime',
-      'outboundDepartureTerminal',
-      'outboundFlightNumber',
-      'outboundArrivalTo',
-      'accommodationRequired',
-      'hotelName',
-      'roomCategory',
-      'occupancy',
-      'checkInDate',
-      'checkOutDate',
-      'numberOfNights',
-      'roomDrop',
-      'hotelBookingForVisa',
-      'notes',
-      'gpTransfersRequired',
-      'eventTransfersRequired',
-      // Activity assignments
-      'crystalGoldLaunch',
-      'clcInterview',
-      'airCccc',
-      'casaFerrari',
-      'prsPaddockClubFri',
-      'regalClubFri',
-      'crystalGoldLoungeFri',
-      'eveningBar',
-      'fredInterviewSession',
-      'prsPaddockClubSat',
-      'regalClubSat',
-      'crystalGoldLoungeSat',
-      'sushiSambaAfterParty',
-      'prsPaddockClubSun',
-      'regalClubSun',
-      'crystalGoldLoungeSun',
-      'lavoAfterParty',
-      'marketCarNumber',
-      'marketCarNumberNotes',
+      'market', // 1
+      'firstName', // 2
+      'lastName', // 3
+      'nickname', // 4
+      'guestType', // 5
+      'jobTitle', // 6
+      'company', // 7
+      'internalVip', // 8
+      'vipGuest', // 9
+      'email', // 10
+      'contactMobile', // 11
+      'host', // 12
+      'emergencyContactName', // 13
+      'emergencyContactNumber', // 14
+      'gender', // 15
+      'sizeRequirements', // 16
+      'initials', // 17
+      'accessibilityRequirements', // 18
+      'dietaryRequirements', // 19
+      'medicalInformation', // 20
+      'transportMode', // 21
+      'inboundDepartureFrom', // 22
+      'inboundDepartureDate', // 23
+      'inboundDepartureTime', // 24
+      'inboundDepartureTerminal', // 25
+      'inboundFlightNumber', // 26
+      'connectingFlight', // 27
+      'inboundArrivalDate', // 28
+      'inboundArrivalTime', // 29
+      'inboundArrivalTo', // 30
+      'transportRequired', // 31
+      'outboundDepartureFrom', // 32
+      'outboundDepartureDate', // 33
+      'outboundDepartureTime', // 34
+      'outboundDepartureTerminal', // 35
+      'outboundFlightNumber', // 36
+      'outboundArrivalTo', // 37
+      'accommodationRequired', // 38
+      'hotelName', // 39
+      'roomCategory', // 40
+      'occupancy', // 41
+      'checkInDate', // 42
+      'checkOutDate', // 43
+      'numberOfNights', // 44
+      'hotelBookingForVisa', // 45
+      'notes', // 46
+      'roomDrop', // 47
+      null, // 48 - Skip "-" column
+      null, // 49 - Skip "-" column
+      null, // 50 - Skip "-" column
+      null, // 51 - Skip "-" column
+      null, // 52 - Skip "-" column
+      'crystalGoldLaunch', // 53
+      null, // 54 - Skip "-" column
+      'clcInterview', // 55
+      'sandyInterview', // 56
+      'airCccc', // 57
+      'casaFerrari', // 58
+      'prsPaddockClubFri', // 59
+      'regalClubFri', // 60
+      'crystalGoldLoungeFri', // 61
+      'eveningBar', // 62
+      'fredInterviewSession', // 63
+      null, // 64 - Skip "-" column
+      'prsPaddockClubSat', // 65
+      'regalClubSat', // 66
+      'crystalGoldLoungeSat', // 67
+      'sushiSambaAfterParty', // 68
+      'prsPaddockClubSun', // 69
+      'regalClubSun', // 70
+      null, // 71 - Skip "-" column
+      'crystalGoldLoungeSun', // 72
+      'lavoAfterParty', // 73
+      'gpTransfersRequired', // 74
+      'eventTransfersRequired', // 75
+      'marketCarNumber', // 76
+      'marketCarNumberNotes', // 77
     ],
     skip_empty_lines: true,
     trim: true,

@@ -30,7 +30,7 @@ export class ReportsService {
 
     if (typeof dateInput === 'string' && dateInput.includes('/')) {
       // DD/MM/YYYY format
-      const [day, month, year] = dateInput.split('/').map(n => parseInt(n));
+      const [day, month, year] = dateInput.split('/').map((n) => parseInt(n));
       return new Date(year, month - 1, day, 12, 0, 0); // Noon to avoid timezone issues
     } else {
       // ISO string or Date object (backward compatibility)
@@ -74,7 +74,7 @@ export class ReportsService {
         }
 
         // For arrays of strings (like car numbers), show the actual values
-        if (value.every(item => typeof item === 'string')) {
+        if (value.every((item) => typeof item === 'string')) {
           return `[${value.join(', ')}]`;
         }
 
@@ -90,9 +90,14 @@ export class ReportsService {
    * Check if a field is a parent object that has child fields also being tracked
    * This prevents meaningless "{2 fields} → {2 fields}" entries
    */
-  private static isParentObjectField(field: string, allFields: string[]): boolean {
+  private static isParentObjectField(
+    field: string,
+    allFields: string[]
+  ): boolean {
     // If there are any fields that start with this field + ".", then this is a parent
-    const hasChildFields = allFields.some(f => f !== field && f.startsWith(field + '.'));
+    const hasChildFields = allFields.some(
+      (f) => f !== field && f.startsWith(field + '.')
+    );
     return hasChildFields;
   }
 
@@ -103,38 +108,38 @@ export class ReportsService {
     // Split on dots and capitalize each part
     const parts = field.split('.');
 
-    const readableParts = parts.map(part => {
+    const readableParts = parts.map((part) => {
       // Handle common field name patterns
       const fieldMap: Record<string, string> = {
-        'firstName': 'First Name',
-        'lastName': 'Last Name',
-        'preferredFirstName': 'Preferred First Name',
-        'guestType': 'Guest Type',
-        'jobTitle': 'Job Title',
-        'vip': 'VIP Status',
-        'emailOptIn': 'Email Opt-in',
-        'whatsappOptIn': 'WhatsApp Opt-in',
-        'departureFrom': 'Departure From',
-        'departureTo': 'Departure To',
-        'arrivalDate': 'Arrival Date',
-        'arrivalTime': 'Arrival Time',
-        'departureDate': 'Departure Date',
-        'departureTime': 'Departure Time',
-        'flightNumber': 'Flight Number',
-        'arrivalToAirport': 'Arrival Airport',
-        'departureTerminal': 'Departure Terminal',
-        'checkIn': 'Check-in Date',
-        'checkOut': 'Check-out Date',
-        'roomType': 'Room Type',
-        'doubleOccupancy': 'Double Occupancy',
-        'visaBookingRequired': 'Visa Booking Required',
-        'nightsCount': 'Nights Count',
-        'carNumbers': 'Car Numbers',
-        'effectiveCarNumbers': 'Effective Car Numbers',
-        'transferRequirements': 'Transfer Requirements',
-        'guestCategory': 'Guest Category',
-        'hotelId': 'Hotel',
-        'roomAssignments': 'Room Assignments'
+        firstName: 'First Name',
+        lastName: 'Last Name',
+        preferredFirstName: 'Preferred First Name',
+        guestType: 'Guest Type',
+        jobTitle: 'Job Title',
+        vip: 'VIP Status',
+        emailOptIn: 'Email Opt-in',
+        whatsappOptIn: 'WhatsApp Opt-in',
+        departureFrom: 'Departure From',
+        departureTo: 'Departure To',
+        arrivalDate: 'Arrival Date',
+        arrivalTime: 'Arrival Time',
+        departureDate: 'Departure Date',
+        departureTime: 'Departure Time',
+        flightNumber: 'Flight Number',
+        arrivalToAirport: 'Arrival Airport',
+        departureTerminal: 'Departure Terminal',
+        checkIn: 'Check-in Date',
+        checkOut: 'Check-out Date',
+        roomType: 'Room Type',
+        doubleOccupancy: 'Double Occupancy',
+        visaBookingRequired: 'Visa Booking Required',
+        nightsCount: 'Nights Count',
+        carNumbers: 'Car Numbers',
+        effectiveCarNumbers: 'Effective Car Numbers',
+        transferRequirements: 'Transfer Requirements',
+        guestCategory: 'Guest Category',
+        hotelId: 'Hotel',
+        roomAssignments: 'Room Assignments',
       };
 
       // Use mapped name if available, otherwise capitalize and add spaces
@@ -145,7 +150,7 @@ export class ReportsService {
       // Convert camelCase to Title Case
       return part
         .replace(/([A-Z])/g, ' $1') // Add space before capitals
-        .replace(/^./, str => str.toUpperCase()) // Capitalize first letter
+        .replace(/^./, (str) => str.toUpperCase()) // Capitalize first letter
         .trim();
     });
 
@@ -161,19 +166,19 @@ export class ReportsService {
       where: {
         eventId,
         action: 'UPDATE',
-        resourceType: { in: ['User', 'RoomAssignment'] }
+        resourceType: { in: ['User', 'RoomAssignment'] },
       },
       select: {
-        createdAt: true
+        createdAt: true,
       },
       orderBy: {
-        createdAt: 'desc'
-      }
+        createdAt: 'desc',
+      },
     });
 
     // Get unique dates (UTC)
     const uniqueDates = new Set<string>();
-    changes.forEach(change => {
+    changes.forEach((change) => {
       const date = change.createdAt.toISOString().split('T')[0]; // YYYY-MM-DD
       uniqueDates.add(date);
     });
@@ -225,16 +230,16 @@ export class ReportsService {
       'Assigned Cars',
       'Transfer Requirements',
       'Arrival Notes',
-      'General notes'
+      'General notes',
     ];
 
     const rows = [];
     const rowMetadata = [];
-    const groupMap = new Map(groups.map(g => [g.id, g.name]));
+    const groupMap = new Map(groups.map((g) => [g.id, g.name]));
 
     // Sort by arrival date, arrival time, then alpha by last name
     const sortedUsers = users
-      .filter(user => (user.flight as any)?.inbound)
+      .filter((user) => (user.flight as any)?.inbound)
       .sort((a, b) => {
         const aFlight = (a.flight as any)?.inbound;
         const bFlight = (b.flight as any)?.inbound;
@@ -243,13 +248,17 @@ export class ReportsService {
 
         // Compare arrival dates first
         if (aFlight?.arrivalDate && bFlight?.arrivalDate) {
-          const dateDiff = aFlight.arrivalDate.localeCompare(bFlight.arrivalDate);
+          const dateDiff = aFlight.arrivalDate.localeCompare(
+            bFlight.arrivalDate
+          );
           if (dateDiff !== 0) return dateDiff;
         }
 
         // Then compare arrival times
         if (aFlight?.arrivalTime && bFlight?.arrivalTime) {
-          const timeDiff = aFlight.arrivalTime.localeCompare(bFlight.arrivalTime);
+          const timeDiff = aFlight.arrivalTime.localeCompare(
+            bFlight.arrivalTime
+          );
           if (timeDiff !== 0) return timeDiff;
         }
 
@@ -265,26 +274,32 @@ export class ReportsService {
         return aFirstName.localeCompare(bFirstName);
       });
 
-    sortedUsers.forEach(user => {
+    sortedUsers.forEach((user) => {
       const profile = user.profile as any;
       const flight = (user.flight as any)?.inbound;
       const accommodation = user.accommodation as any;
 
       // Get market/group names
-      const marketNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
+      const marketNames = user.groupIds
+        .map((id) => groupMap.get(id))
+        .filter(Boolean)
+        .join(', ');
 
       // Get car assignments (individual overrides take precedence)
       const userCarNumbers = (user.carNumbers as string[]) || [];
-      const groupCarNumbers = user.groupIds.map(id => {
-        const group = groups.find(g => g.id === id);
-        return (group as any)?.carNumbers || [];
-      }).flat();
+      const groupCarNumbers = user.groupIds
+        .map((id) => {
+          const group = groups.find((g) => g.id === id);
+          return (group as any)?.carNumbers || [];
+        })
+        .flat();
       const uniqueGroupCars = [...new Set(groupCarNumbers)];
-      const assignedCars = userCarNumbers.length > 0
-        ? userCarNumbers.join(', ')
-        : uniqueGroupCars.length > 0
-          ? uniqueGroupCars.join(', ')
-          : 'None';
+      const assignedCars =
+        userCarNumbers.length > 0
+          ? userCarNumbers.join(', ')
+          : uniqueGroupCars.length > 0
+            ? uniqueGroupCars.join(', ')
+            : 'None';
 
       rows.push([
         flight?.departureDate || '',
@@ -305,8 +320,8 @@ export class ReportsService {
         profile?.vip ? 'Y' : 'N', // VIP Guest
         assignedCars, // Assigned Cars
         'Airport transfers required', // Transfer Requirements (always true for this filtered report)
-        user.arrivalNotes || '',          // 🎯 Arrival-specific notes
-        user.masterGuestNotes || '',      // General notes
+        user.arrivalNotes || '', // 🎯 Arrival-specific notes
+        user.masterGuestNotes || '', // General notes
       ]);
 
       // Add metadata for editing capabilities
@@ -348,10 +363,7 @@ export class ReportsService {
             where: { eventId },
           },
         },
-        orderBy: [
-          { guestCategory: 'asc' },
-          { updatedAt: 'asc' },
-        ],
+        orderBy: [{ guestCategory: 'asc' }, { updatedAt: 'asc' }],
       }),
       prisma.group.findMany({
         where: { eventId, active: true, deleted: false },
@@ -359,7 +371,7 @@ export class ReportsService {
       }),
     ]);
 
-    const groupMap = new Map(groups.map(g => [g.id, g.name]));
+    const groupMap = new Map(groups.map((g) => [g.id, g.name]));
 
     const headers = [
       'Hotel',
@@ -379,7 +391,7 @@ export class ReportsService {
       'Assigned Cars',
       'Transfer Requirements',
       'Departure Notes',
-      'General notes'
+      'General notes',
     ];
 
     const rows = [];
@@ -387,7 +399,7 @@ export class ReportsService {
 
     // Sort by departure date, departure time, then alpha by last name
     const sortedUsers = users
-      .filter(user => (user.flight as any)?.outbound)
+      .filter((user) => (user.flight as any)?.outbound)
       .sort((a, b) => {
         const aFlight = (a.flight as any)?.outbound;
         const bFlight = (b.flight as any)?.outbound;
@@ -396,13 +408,17 @@ export class ReportsService {
 
         // Compare departure dates first
         if (aFlight?.departureDate && bFlight?.departureDate) {
-          const dateDiff = aFlight.departureDate.localeCompare(bFlight.departureDate);
+          const dateDiff = aFlight.departureDate.localeCompare(
+            bFlight.departureDate
+          );
           if (dateDiff !== 0) return dateDiff;
         }
 
         // Then compare departure times
         if (aFlight?.departureTime && bFlight?.departureTime) {
-          const timeDiff = aFlight.departureTime.localeCompare(bFlight.departureTime);
+          const timeDiff = aFlight.departureTime.localeCompare(
+            bFlight.departureTime
+          );
           if (timeDiff !== 0) return timeDiff;
         }
 
@@ -418,32 +434,42 @@ export class ReportsService {
         return aFirstName.localeCompare(bFirstName);
       });
 
-    sortedUsers.forEach(user => {
+    sortedUsers.forEach((user) => {
       const profile = user.profile as any;
       const flight = (user.flight as any)?.outbound;
       const accommodation = user.accommodation as any;
       const roomAssignment = user.roomAssignments[0];
-      const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
+      const groupNames = user.groupIds
+        .map((id) => groupMap.get(id))
+        .filter(Boolean)
+        .join(', ');
 
       // Get car assignments (individual overrides take precedence)
       const userCarNumbers = (user.carNumbers as string[]) || [];
-      const groupCarNumbers = user.groupIds.map(id => {
-        const group = groups.find(g => g.id === id);
-        return (group as any)?.carNumbers || [];
-      }).flat();
+      const groupCarNumbers = user.groupIds
+        .map((id) => {
+          const group = groups.find((g) => g.id === id);
+          return (group as any)?.carNumbers || [];
+        })
+        .flat();
       const uniqueGroupCars = [...new Set(groupCarNumbers)];
-      const assignedCars = userCarNumbers.length > 0
-        ? userCarNumbers.join(', ')
-        : uniqueGroupCars.length > 0
-          ? uniqueGroupCars.join(', ')
-          : 'None';
+      const assignedCars =
+        userCarNumbers.length > 0
+          ? userCarNumbers.join(', ')
+          : uniqueGroupCars.length > 0
+            ? uniqueGroupCars.join(', ')
+            : 'None';
 
       // Get hotel checkout time from room assignment or accommodation
-      const hotelName = accommodation?.hotel || roomAssignment?.hotel?.name || '';
+      const hotelName =
+        accommodation?.hotel || roomAssignment?.hotel?.name || '';
       const checkOutDate = this.parseAccommodationDate(accommodation?.checkOut);
-      const hotelDepartureTime = checkOutDate ?
-        checkOutDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) :
-        '12:00'; // Default checkout time
+      const hotelDepartureTime = checkOutDate
+        ? checkOutDate.toLocaleTimeString('en-GB', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : '12:00'; // Default checkout time
 
       rows.push([
         hotelName,
@@ -507,10 +533,7 @@ export class ReportsService {
             where: { eventId },
           },
         },
-        orderBy: [
-          { guestCategory: 'asc' },
-          { updatedAt: 'asc' },
-        ],
+        orderBy: [{ guestCategory: 'asc' }, { updatedAt: 'asc' }],
       }),
       prisma.group.findMany({
         where: { eventId, active: true, deleted: false },
@@ -518,7 +541,7 @@ export class ReportsService {
       }),
     ]);
 
-    const groupMap = new Map(groups.map(g => [g.id, g.name]));
+    const groupMap = new Map(groups.map((g) => [g.id, g.name]));
 
     const headers = [
       'First Name',
@@ -533,18 +556,21 @@ export class ReportsService {
       'Emergency Contact Phone',
       'Emergency Contact Email',
       'Relationship',
-      'Group Assignment'
+      'Group Assignment',
     ];
 
     const rows = [];
     const rowMetadata = [];
 
-    users.forEach(user => {
+    users.forEach((user) => {
       const profile = user.profile as any;
       const requirements = user.requirements as any;
       const emergency = user.emergencyContact as any;
       const roomAssignment = user.roomAssignments[0];
-      const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
+      const groupNames = user.groupIds
+        .map((id) => groupMap.get(id))
+        .filter(Boolean)
+        .join(', ');
 
       rows.push([
         profile?.firstName || '',
@@ -552,9 +578,15 @@ export class ReportsService {
         user.guestCategory || 'Standard',
         profile?.email || '',
         profile?.phone || '',
-        requirements?.medical?.enabled ? requirements.medical.details || 'Yes' : '',
-        requirements?.allergiesIntolerances?.enabled ? requirements.allergiesIntolerances.details || 'Yes' : '',
-        requirements?.accessibility?.enabled ? requirements.accessibility.details || 'Yes' : '',
+        requirements?.medical?.enabled
+          ? requirements.medical.details || 'Yes'
+          : '',
+        requirements?.allergiesIntolerances?.enabled
+          ? requirements.allergiesIntolerances.details || 'Yes'
+          : '',
+        requirements?.accessibility?.enabled
+          ? requirements.accessibility.details || 'Yes'
+          : '',
         emergency?.name || '',
         emergency?.phone || '',
         emergency?.email || '',
@@ -604,10 +636,7 @@ export class ReportsService {
             select: { activityId: true },
           },
         },
-        orderBy: [
-          { guestCategory: 'asc' },
-          { updatedAt: 'asc' },
-        ],
+        orderBy: [{ guestCategory: 'asc' }, { updatedAt: 'asc' }],
       }),
       prisma.group.findMany({
         where: { eventId, active: true, deleted: false },
@@ -620,7 +649,7 @@ export class ReportsService {
       }),
     ]);
 
-    const groupMap = new Map(groups.map(g => [g.id, g.name]));
+    const groupMap = new Map(groups.map((g) => [g.id, g.name]));
 
     // Base headers: Name fields first, then dietary columns immediately, then minimal other fields
     const baseHeaders = [
@@ -636,26 +665,33 @@ export class ReportsService {
     ];
 
     // Add activity attendance columns dynamically
-    const activityHeaders = activities.map(activity => activity.title);
+    const activityHeaders = activities.map((activity) => activity.title);
     const headers = [...baseHeaders, ...activityHeaders];
 
     const rows = [];
     const rowMetadata = [];
 
-    users.forEach(user => {
+    users.forEach((user) => {
       const profile = user.profile as any;
       const requirements = user.requirements as any;
       const roomAssignment = user.roomAssignments[0];
-      const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
-      const exclusions = new Set(user.activityExclusions.map(e => e.activityId));
+      const groupNames = user.groupIds
+        .map((id) => groupMap.get(id))
+        .filter(Boolean)
+        .join(', ');
+      const exclusions = new Set(
+        user.activityExclusions.map((e) => e.activityId)
+      );
 
       // Base row data matching the baseHeaders order
       const baseRow = [
         profile?.firstName || '',
         profile?.lastName || '',
         requirements?.dietary?.details || '',
-        requirements?.allergiesIntolerances?.enabled ? requirements.allergiesIntolerances.details || '' : '',
-        '', // Special meal requests  
+        requirements?.allergiesIntolerances?.enabled
+          ? requirements.allergiesIntolerances.details || ''
+          : '',
+        '', // Special meal requests
         user.guestCategory || '',
         profile?.email || '',
         profile?.phone || '',
@@ -663,9 +699,11 @@ export class ReportsService {
       ];
 
       // Add activity attendance (Y/N for each activity)
-      const activityAttendance = activities.map(activity => {
+      const activityAttendance = activities.map((activity) => {
         // Check if user is in activity's groups and not excluded
-        const isInActivityGroup = activity.groupIds.some(groupId => user.groupIds.includes(groupId));
+        const isInActivityGroup = activity.groupIds.some((groupId) =>
+          user.groupIds.includes(groupId)
+        );
         const isExcluded = exclusions.has(activity.id);
 
         if (isInActivityGroup && !isExcluded) {
@@ -677,10 +715,7 @@ export class ReportsService {
         }
       });
 
-      rows.push([
-        ...baseRow,
-        ...activityAttendance,
-      ]);
+      rows.push([...baseRow, ...activityAttendance]);
 
       // Add metadata for editing capabilities
       rowMetadata.push({
@@ -697,7 +732,8 @@ export class ReportsService {
       rowMetadata,
       metadata: {
         title: 'Dietary List',
-        description: 'Dietary restrictions and catering requirements with activity attendance',
+        description:
+          'Dietary restrictions and catering requirements with activity attendance',
         generatedAt: new Date(),
         totalCount: rows.length,
       },
@@ -708,7 +744,9 @@ export class ReportsService {
    * Dietary Requirements Export - Custom report for catering coordination
    * Shows only users with dietary.enabled = true
    */
-  static async getDietaryRequirementsReport(eventId: string): Promise<ReportData> {
+  static async getDietaryRequirementsReport(
+    eventId: string
+  ): Promise<ReportData> {
     const [users, groups, activities] = await Promise.all([
       prisma.user.findMany({
         where: {
@@ -725,10 +763,7 @@ export class ReportsService {
             select: { activityId: true },
           },
         },
-        orderBy: [
-          { guestCategory: 'asc' },
-          { updatedAt: 'asc' },
-        ],
+        orderBy: [{ guestCategory: 'asc' }, { updatedAt: 'asc' }],
       }),
       prisma.group.findMany({
         where: { eventId, active: true, deleted: false },
@@ -741,10 +776,10 @@ export class ReportsService {
       }),
     ]);
 
-    const groupMap = new Map(groups.map(g => [g.id, g.name]));
+    const groupMap = new Map(groups.map((g) => [g.id, g.name]));
 
     // Filter users with dietary requirements enabled
-    const usersWithDietary = users.filter(user => {
+    const usersWithDietary = users.filter((user) => {
       const requirements = user.requirements as any;
       return requirements?.dietary?.enabled === true;
     });
@@ -761,17 +796,22 @@ export class ReportsService {
     ];
 
     // Add activity attendance columns dynamically
-    const activityHeaders = activities.map(activity => activity.title);
+    const activityHeaders = activities.map((activity) => activity.title);
     const headers = [...baseHeaders, ...activityHeaders];
 
     const rows = [];
     const rowMetadata = [];
 
-    usersWithDietary.forEach(user => {
+    usersWithDietary.forEach((user) => {
       const profile = user.profile as any;
       const requirements = user.requirements as any;
-      const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
-      const exclusions = new Set(user.activityExclusions.map(e => e.activityId));
+      const groupNames = user.groupIds
+        .map((id) => groupMap.get(id))
+        .filter(Boolean)
+        .join(', ');
+      const exclusions = new Set(
+        user.activityExclusions.map((e) => e.activityId)
+      );
 
       // Base row data matching the baseHeaders order
       const baseRow = [
@@ -785,9 +825,11 @@ export class ReportsService {
       ];
 
       // Add activity attendance (Y/N for each activity)
-      const activityAttendance = activities.map(activity => {
+      const activityAttendance = activities.map((activity) => {
         // Check if user is in activity's groups and not excluded
-        const isInActivityGroup = activity.groupIds.some(groupId => user.groupIds.includes(groupId));
+        const isInActivityGroup = activity.groupIds.some((groupId) =>
+          user.groupIds.includes(groupId)
+        );
         const isExcluded = exclusions.has(activity.id);
 
         if (isInActivityGroup && !isExcluded) {
@@ -797,10 +839,7 @@ export class ReportsService {
         }
       });
 
-      rows.push([
-        ...baseRow,
-        ...activityAttendance,
-      ]);
+      rows.push([...baseRow, ...activityAttendance]);
 
       // Add metadata for editing capabilities
       rowMetadata.push({
@@ -817,7 +856,8 @@ export class ReportsService {
       rowMetadata,
       metadata: {
         title: 'Dietary Requirements Export',
-        description: 'Users with dietary requirements for catering coordination with activity attendance',
+        description:
+          'Users with dietary requirements for catering coordination with activity attendance',
         generatedAt: new Date(),
         totalCount: rows.length,
       },
@@ -835,10 +875,7 @@ export class ReportsService {
           active: true,
           emergencyContact: { not: null },
         },
-        orderBy: [
-          { guestCategory: 'asc' },
-          { updatedAt: 'asc' },
-        ],
+        orderBy: [{ guestCategory: 'asc' }, { updatedAt: 'asc' }],
       }),
       prisma.group.findMany({
         where: { eventId, active: true, deleted: false },
@@ -846,7 +883,7 @@ export class ReportsService {
       }),
     ]);
 
-    const groupMap = new Map(groups.map(g => [g.id, g.name]));
+    const groupMap = new Map(groups.map((g) => [g.id, g.name]));
 
     const headers = [
       'Guest Name',
@@ -863,13 +900,18 @@ export class ReportsService {
     const rows = [];
     const rowMetadata = [];
 
-    users.forEach(user => {
+    users.forEach((user) => {
       const profile = user.profile as any;
       const emergency = user.emergencyContact as any;
-      const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
+      const groupNames = user.groupIds
+        .map((id) => groupMap.get(id))
+        .filter(Boolean)
+        .join(', ');
 
       // Combine first name and last name for the Name column
-      const fullName = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ');
+      const fullName = [profile?.firstName, profile?.lastName]
+        .filter(Boolean)
+        .join(' ');
 
       rows.push([
         fullName,
@@ -953,7 +995,9 @@ export class ReportsService {
 
     while (current <= endDate) {
       // Format as YYYY-MM-DD for consistent comparison
-      const dateStr = format(current, 'yyyy-MM-dd', { timeZone: EVENT_TIMEZONE });
+      const dateStr = format(current, 'yyyy-MM-dd', {
+        timeZone: EVENT_TIMEZONE,
+      });
       eventDates.push(dateStr);
       current.setDate(current.getDate() + 1);
     }
@@ -971,7 +1015,9 @@ export class ReportsService {
         const date = new Date(dateStr + 'T12:00:00'); // Noon to avoid timezone issues
         const singaporeDate = toZonedTime(date, EVENT_TIMEZONE);
         const day = format(singaporeDate, 'EEEE', { timeZone: EVENT_TIMEZONE }); // Monday, Tuesday, etc.
-        const shortDate = format(singaporeDate, 'dd/MM/yyyy', { timeZone: EVENT_TIMEZONE }); // 29/09/2025
+        const shortDate = format(singaporeDate, 'dd/MM/yyyy', {
+          timeZone: EVENT_TIMEZONE,
+        }); // 29/09/2025
         return `${day}\n${shortDate}`;
       }),
       'Room Category',
@@ -983,7 +1029,7 @@ export class ReportsService {
       'VIP Guest',
       'Assigned Cars',
       'Hotel Notes',
-      'General notes'
+      'General notes',
     ];
 
     const [groups] = await Promise.all([
@@ -993,10 +1039,10 @@ export class ReportsService {
       }),
     ]);
 
-    const groupMap = new Map(groups.map(g => [g.id, g.name]));
+    const groupMap = new Map(groups.map((g) => [g.id, g.name]));
 
     // Filter out users without check-in date
-    const usersWithCheckIn = users.filter(user => {
+    const usersWithCheckIn = users.filter((user) => {
       const accommodation = user.accommodation as any;
       const checkIn = this.parseAccommodationDate(accommodation?.checkIn);
       return checkIn !== null;
@@ -1038,30 +1084,36 @@ export class ReportsService {
     const rows = [];
     const rowMetadata = [];
 
-    usersWithCheckIn.forEach(user => {
+    usersWithCheckIn.forEach((user) => {
       const profile = user.profile as any;
       const accommodation = user.accommodation as any;
       const flight = user.flight as any;
       const roomAssignment = user.roomAssignments[0];
       const checkIn = this.parseAccommodationDate(accommodation?.checkIn);
       const checkOut = this.parseAccommodationDate(accommodation?.checkOut);
-      const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
+      const groupNames = user.groupIds
+        .map((id) => groupMap.get(id))
+        .filter(Boolean)
+        .join(', ');
 
       // Get car assignments (individual overrides take precedence)
       const userCarNumbers = (user.carNumbers as string[]) || [];
-      const groupCarNumbers = user.groupIds.map(id => {
-        const group = groups.find(g => g.id === id);
-        return (group as any)?.carNumbers || [];
-      }).flat();
+      const groupCarNumbers = user.groupIds
+        .map((id) => {
+          const group = groups.find((g) => g.id === id);
+          return (group as any)?.carNumbers || [];
+        })
+        .flat();
       const uniqueGroupCars = [...new Set(groupCarNumbers)];
-      const assignedCars = userCarNumbers.length > 0
-        ? userCarNumbers.join(', ')
-        : uniqueGroupCars.length > 0
-          ? uniqueGroupCars.join(', ')
-          : 'None';
+      const assignedCars =
+        userCarNumbers.length > 0
+          ? userCarNumbers.join(', ')
+          : uniqueGroupCars.length > 0
+            ? uniqueGroupCars.join(', ')
+            : 'None';
 
       // 🎯 FIX: Calculate occupancy with proper date comparison
-      const occupancyData = eventDates.map(dateStr => {
+      const occupancyData = eventDates.map((dateStr) => {
         if (!checkIn || !checkOut) return null;
 
         // Convert event date to Date object for comparison
@@ -1071,17 +1123,27 @@ export class ReportsService {
         let checkInSg: Date;
         let checkOutSg: Date;
 
-        if (typeof accommodation.checkIn === 'string' && accommodation.checkIn.includes('/')) {
+        if (
+          typeof accommodation.checkIn === 'string' &&
+          accommodation.checkIn.includes('/')
+        ) {
           // Parse dd/MM/yyyy format
-          const [day, month, year] = accommodation.checkIn.split('/').map(n => parseInt(n));
+          const [day, month, year] = accommodation.checkIn
+            .split('/')
+            .map((n) => parseInt(n));
           checkInSg = new Date(year, month - 1, day, 12, 0, 0); // Noon Singapore
         } else {
           checkInSg = toZonedTime(checkIn, EVENT_TIMEZONE);
         }
 
-        if (typeof accommodation.checkOut === 'string' && accommodation.checkOut.includes('/')) {
-          // Parse dd/MM/yyyy format  
-          const [day, month, year] = accommodation.checkOut.split('/').map(n => parseInt(n));
+        if (
+          typeof accommodation.checkOut === 'string' &&
+          accommodation.checkOut.includes('/')
+        ) {
+          // Parse dd/MM/yyyy format
+          const [day, month, year] = accommodation.checkOut
+            .split('/')
+            .map((n) => parseInt(n));
           checkOutSg = new Date(year, month - 1, day, 12, 0, 0); // Noon Singapore
         } else {
           checkOutSg = toZonedTime(checkOut, EVENT_TIMEZONE);
@@ -1159,7 +1221,7 @@ export class ReportsService {
       }),
     ]);
 
-    const groupMap = new Map(groups.map(g => [g.id, g.name]));
+    const groupMap = new Map(groups.map((g) => [g.id, g.name]));
 
     const headers = [
       'Last Name',
@@ -1177,10 +1239,13 @@ export class ReportsService {
     const rows = [];
     const rowMetadata = [];
 
-    users.forEach(user => {
+    users.forEach((user) => {
       const profile = user.profile as any;
       const roomAssignment = user.roomAssignments[0];
-      const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
+      const groupNames = user.groupIds
+        .map((id) => groupMap.get(id))
+        .filter(Boolean)
+        .join(', ');
 
       rows.push([
         profile?.lastName || '',
@@ -1192,8 +1257,13 @@ export class ReportsService {
         roomAssignment?.roomType || '',
         new Date(user.registeredAt).toLocaleDateString('en-GB'),
         // Enhanced ticket information
-        (user.tickets as any)?.map((t: any) => `${t.name} (${t.number})`).join(', ') || 'No tickets',
-        (user.tickets as any)?.filter((t: any) => t.valid).map((t: any) => `${t.name} (${t.number})`).join(', ') || 'None',
+        (user.tickets as any)
+          ?.map((t: any) => `${t.name} (${t.number})`)
+          .join(', ') || 'No tickets',
+        (user.tickets as any)
+          ?.filter((t: any) => t.valid)
+          .map((t: any) => `${t.name} (${t.number})`)
+          .join(', ') || 'None',
       ]);
 
       rowMetadata.push({
@@ -1218,8 +1288,9 @@ export class ReportsService {
   }
 
   /**
-   * Activity Attendance Report - Multi-tab with detailed guest information
-   * Supports both single activity export and all activities with separate tabs
+   * Activity Attendance Report - Enhanced with transfer requirements and single-tab all activities
+   * Single Activity: Traditional multi-tab format
+   * All Activities: Single tab with Y/N columns for each activity (like dietary report)
    */
   static async getActivityAttendanceReport(
     eventId: string,
@@ -1254,7 +1325,48 @@ export class ReportsService {
     });
     const groupMap = new Map(allGroups.map((g) => [g.id, g]));
 
-    // Define headers (same as car assignment report but focused on user data)
+    const isMultiActivity = activities.length > 1;
+    const isSingleActivity = !!activityId;
+
+    // SINGLE ACTIVITY MODE: Use multi-tab format (existing behavior)
+    if (isSingleActivity) {
+      return this.generateSingleActivityReport(
+        activities[0],
+        allGroups,
+        groupMap,
+        eventId
+      );
+    }
+
+    // ALL ACTIVITIES MODE: Use single tab with Y/N columns for each activity
+    if (isMultiActivity) {
+      return this.generateAllActivitiesReport(
+        activities,
+        allGroups,
+        groupMap,
+        eventId
+      );
+    }
+
+    // Fallback for single activity without activityId specified
+    return this.generateSingleActivityReport(
+      activities[0],
+      allGroups,
+      groupMap,
+      eventId
+    );
+  }
+
+  /**
+   * Generate single activity report (multi-tab format for consistency)
+   */
+  private static async generateSingleActivityReport(
+    activity: any,
+    allGroups: any[],
+    groupMap: Map<string, any>,
+    eventId: string
+  ): Promise<ReportData & { isMultiTab?: boolean; activityTabs?: any[] }> {
+    // Define headers with enhanced transfer requirements
     const headers = [
       'First Name',
       'Surname',
@@ -1264,120 +1376,111 @@ export class ReportsService {
       'Contact mobile number',
       'Market host',
       'VIP Guest',
-      'Transfer Requirements',
+      'GP Transfers Required', // NEW: Grand Prix transfers
+      'Event Transfers Required', // NEW: General event transfers
+      'Transfer Requirements', // Existing: General transfer flag
       'Assigned Cars',
-      'Hotel Notes',
-      'Arrival Notes',
-      'Departure Notes',
       'General notes',
     ];
 
-    const activityTabs: any[] = [];
-    const allRows: any[][] = [];
-    const allRowMetadata: any[] = [];
-
-    for (const activity of activities) {
-      // Get users assigned to this activity's groups
-      const users = await prisma.user.findMany({
-        where: {
-          eventId,
-          active: true,
-          groupIds: { hasSome: activity.groups.map(g => g.id) },
+    // Get users assigned to this activity's groups
+    const users = await prisma.user.findMany({
+      where: {
+        eventId,
+        active: true,
+        groupIds: { hasSome: activity.groups.map((g: any) => g.id) },
+      },
+      include: {
+        roomAssignments: {
+          where: { eventId },
         },
-        include: {
-          roomAssignments: {
-            where: { eventId },
-          },
-        },
-        orderBy: [
-          { registeredAt: 'asc' },
-        ],
-      });
+      },
+      orderBy: [{ registeredAt: 'asc' }],
+    });
 
-      // Sort users alphabetically by last name, then first name (since we can't do it in Prisma with JSON fields)
-      users.sort((a, b) => {
-        const aProfile = a.profile as any;
-        const bProfile = b.profile as any;
+    // Sort users alphabetically by last name, then first name
+    users.sort((a, b) => {
+      const aProfile = a.profile as any;
+      const bProfile = b.profile as any;
 
-        const aLastName = aProfile?.lastName || '';
-        const bLastName = bProfile?.lastName || '';
-        const aFirstName = aProfile?.firstName || '';
-        const bFirstName = bProfile?.firstName || '';
+      const aLastName = aProfile?.lastName || '';
+      const bLastName = bProfile?.lastName || '';
+      const aFirstName = aProfile?.firstName || '';
+      const bFirstName = bProfile?.firstName || '';
 
-        // Compare last names first
-        if (aLastName !== bLastName) {
-          return aLastName.localeCompare(bLastName);
-        }
-        // If last names are equal, compare first names
-        return aFirstName.localeCompare(bFirstName);
-      });
+      if (aLastName !== bLastName) {
+        return aLastName.localeCompare(bLastName);
+      }
+      return aFirstName.localeCompare(bFirstName);
+    });
 
-      const excludedUserIds = activity.userExclusions.map(e => e.user.id);
-      const activityRows: any[][] = [];
-      const activityRowMetadata: any[] = [];
+    const excludedUserIds = activity.userExclusions.map((e: any) => e.user.id);
+    const activityRows: any[][] = [];
+    const activityRowMetadata: any[] = [];
 
-      // Process each user (excluding those with exclusions)
-      users
-        .filter(user => !excludedUserIds.includes(user.id))
-        .forEach(user => {
-          const profile = user.profile as any;
-          const flight = user.flight as any;
-          const accommodation = user.accommodation as any;
+    // Process each user (excluding those with exclusions)
+    users
+      .filter((user) => !excludedUserIds.includes(user.id))
+      .forEach((user) => {
+        const profile = user.profile as any;
+        const accommodation = user.accommodation as any;
 
-          // Get user groups from groupIds array
-          const userGroupIds = (user.groupIds as string[]) || [];
-          const userGroups = userGroupIds.map((id) => groupMap.get(id)).filter(Boolean);
-          const groupNames = userGroups.map((g) => g?.name).join(', ') || 'No Group';
+        // Get user groups from groupIds array
+        const userGroupIds = (user.groupIds as string[]) || [];
+        const userGroups = userGroupIds
+          .map((id) => groupMap.get(id))
+          .filter(Boolean);
+        const groupNames =
+          userGroups.map((g) => g?.name).join(', ') || 'No Group';
 
-          // Get car assignments (same logic as car assignment report)
-          const userCarNumbers = (user.carNumbers as string[]) || [];
-          const groupCarNumbers = userGroups.flatMap((g) => (g as any)?.carNumbers || []);
-          const uniqueGroupCars = [...new Set(groupCarNumbers)];
+        // Get car assignments (individual overrides take precedence)
+        const userCarNumbers = (user.carNumbers as string[]) || [];
+        const groupCarNumbers = userGroups.flatMap(
+          (g) => (g as any)?.carNumbers || []
+        );
+        const uniqueGroupCars = [...new Set(groupCarNumbers)];
 
-          // Use individual cars if assigned, otherwise inherit from groups
-          const assignedCars = userCarNumbers.length > 0
+        const assignedCars =
+          userCarNumbers.length > 0
             ? userCarNumbers.join(', ')
             : uniqueGroupCars.length > 0
               ? uniqueGroupCars.join(', ')
               : 'None';
 
-          // Get hotel name from room assignment or accommodation
-          const roomAssignment = user.roomAssignments?.[0];
-          const hotelName = accommodation?.hotel || roomAssignment?.hotel?.name || '';
+        // Get hotel name from room assignment or accommodation
+        const roomAssignment = user.roomAssignments?.[0];
+        const hotelName =
+          accommodation?.hotel || roomAssignment?.hotel?.name || '';
 
-          const row = [
-            profile?.firstName || '',
-            profile?.lastName || '',
-            hotelName,
-            profile?.guestType || '',
-            groupNames, // Market = Groups
-            profile?.phone || '',
-            profile?.host || '',
-            profile?.vip ? 'Y' : 'N',
-            user.transferRequirements ? 'Y' : 'N',
-            assignedCars,
-            roomAssignment?.hotelNotes || '',
-            user.arrivalNotes || '',
-            user.departureNotes || '',
-            user.masterGuestNotes || '',
-          ];
+        const row = [
+          profile?.firstName || '',
+          profile?.lastName || '',
+          hotelName,
+          profile?.guestType || '',
+          groupNames,
+          profile?.phone || '',
+          profile?.host || '',
+          profile?.vip ? 'Y' : 'N',
+          user.gpTransfersRequired ? 'Y' : 'N', // NEW: GP transfers
+          user.eventTransfersRequired ? 'Y' : 'N', // NEW: Event transfers
+          user.transferRequirements ? 'Y' : 'N', // Existing: General transfers
+          assignedCars,
+          user.masterGuestNotes || '',
+        ];
 
-          activityRows.push(row);
-          allRows.push(row);
+        activityRows.push(row);
 
-          const metadata = {
-            userId: user.id,
-            entityId: user.id,
-            entityType: 'user' as const,
-            editable: true,
-          };
-
-          activityRowMetadata.push(metadata);
-          allRowMetadata.push(metadata);
+        activityRowMetadata.push({
+          userId: user.id,
+          entityId: user.id,
+          entityType: 'user' as const,
+          editable: true,
         });
+      });
 
-      // Store activity tab data
-      activityTabs.push({
+    // Store activity tab data
+    const activityTabs = [
+      {
         activityId: activity.id,
         activityName: activity.title,
         startDateTime: activity.startDateTime,
@@ -1386,28 +1489,188 @@ export class ReportsService {
         rowMetadata: activityRowMetadata,
         attendeeCount: activityRows.length,
         excludedCount: excludedUserIds.length,
-      });
-    }
-
-    const isMultiActivity = activities.length > 1;
-    const reportTitle = isMultiActivity
-      ? 'Activities Attendance - All Activities'
-      : `Activity Attendance - ${activities[0]?.title || 'Single Activity'}`;
+      },
+    ];
 
     return {
       headers,
-      rows: allRows,
-      rowMetadata: allRowMetadata,
+      rows: activityRows,
+      rowMetadata: activityRowMetadata,
       metadata: {
-        title: reportTitle,
-        description: isMultiActivity
-          ? `Activities attendance report with detailed guest information for ${activities.length} activities`
-          : 'Single activity attendance report with detailed guest information',
+        title: `Activity Attendance - ${activity.title}`,
+        description:
+          'Single activity attendance report with detailed guest information',
         generatedAt: new Date(),
-        totalCount: allRows.length,
+        totalCount: activityRows.length,
       },
-      isMultiTab: isMultiActivity,
+      isMultiTab: true, // Keep multi-tab for consistency
       activityTabs,
+    };
+  }
+
+  /**
+   * Generate all activities report (single tab with Y/N columns)
+   */
+  private static async generateAllActivitiesReport(
+    activities: any[],
+    allGroups: any[],
+    groupMap: Map<string, any>,
+    eventId: string
+  ): Promise<ReportData & { isMultiTab?: boolean; activityTabs?: any[] }> {
+    // Get all users for the event
+    const [users] = await Promise.all([
+      prisma.user.findMany({
+        where: {
+          eventId,
+          active: true,
+          assigned: true, // Only assigned users
+        },
+        include: {
+          roomAssignments: {
+            where: { eventId },
+          },
+          activityExclusions: {
+            where: { eventId },
+            select: { activityId: true },
+          },
+        },
+        orderBy: [{ registeredAt: 'asc' }],
+      }),
+    ]);
+
+    // Sort users alphabetically by last name, then first name
+    users.sort((a, b) => {
+      const aProfile = a.profile as any;
+      const bProfile = b.profile as any;
+
+      const aLastName = aProfile?.lastName || '';
+      const bLastName = bProfile?.lastName || '';
+      const aFirstName = aProfile?.firstName || '';
+      const bFirstName = bProfile?.firstName || '';
+
+      if (aLastName !== bLastName) {
+        return aLastName.localeCompare(bLastName);
+      }
+      return aFirstName.localeCompare(bFirstName);
+    });
+
+    // Base headers with enhanced transfer requirements
+    const baseHeaders = [
+      'First Name',
+      'Surname',
+      'Hotel',
+      'Guest type',
+      'Market', // Group names
+      'Contact mobile number',
+      'Market host',
+      'VIP Guest',
+      'GP Transfers Required', // NEW: Grand Prix transfers
+      'Event Transfers Required', // NEW: General event transfers
+      'Transfer Requirements', // Existing: General transfer flag
+      'Assigned Cars',
+      'General notes',
+    ];
+
+    // Add activity attendance columns dynamically (like dietary report)
+    const activityHeaders = activities.map((activity) => activity.title);
+    const headers = [...baseHeaders, ...activityHeaders];
+
+    const rows: any[][] = [];
+    const rowMetadata: any[] = [];
+
+    users.forEach((user) => {
+      const profile = user.profile as any;
+      const accommodation = user.accommodation as any;
+      const roomAssignment = user.roomAssignments[0];
+      const groupNames = user.groupIds
+        .map((id: string) => groupMap.get(id)?.name)
+        .filter(Boolean)
+        .join(', ');
+      const exclusions = new Set(
+        user.activityExclusions.map((e: any) => e.activityId)
+      );
+
+      // Get user groups for car assignments
+      const userGroupIds = (user.groupIds as string[]) || [];
+      const userGroups = userGroupIds
+        .map((id) => groupMap.get(id))
+        .filter(Boolean);
+
+      // Get car assignments (individual overrides take precedence)
+      const userCarNumbers = (user.carNumbers as string[]) || [];
+      const groupCarNumbers = userGroups.flatMap(
+        (g) => (g as any)?.carNumbers || []
+      );
+      const uniqueGroupCars = [...new Set(groupCarNumbers)];
+
+      const assignedCars =
+        userCarNumbers.length > 0
+          ? userCarNumbers.join(', ')
+          : uniqueGroupCars.length > 0
+            ? uniqueGroupCars.join(', ')
+            : 'None';
+
+      // Get hotel name from room assignment or accommodation
+      const hotelName =
+        accommodation?.hotel || roomAssignment?.hotel?.name || '';
+
+      // Base row data matching the baseHeaders order
+      const baseRow = [
+        profile?.firstName || '',
+        profile?.lastName || '',
+        hotelName,
+        profile?.guestType || '',
+        groupNames,
+        profile?.phone || '',
+        profile?.host || '',
+        profile?.vip ? 'Y' : 'N',
+        user.gpTransfersRequired ? 'Y' : 'N', // NEW: GP transfers
+        user.eventTransfersRequired ? 'Y' : 'N', // NEW: Event transfers
+        user.transferRequirements ? 'Y' : 'N', // Existing: General transfers
+        assignedCars,
+        user.masterGuestNotes || '',
+      ];
+
+      // Add activity attendance (Y/N for each activity) - Same logic as dietary report
+      const activityAttendance = activities.map((activity) => {
+        // Check if user is in activity's groups and not excluded
+        const isInActivityGroup = activity.groupIds.some((groupId: string) =>
+          user.groupIds.includes(groupId)
+        );
+        const isExcluded = exclusions.has(activity.id);
+
+        if (isInActivityGroup && !isExcluded) {
+          return 'Y';
+        } else if (isInActivityGroup && isExcluded) {
+          return 'N'; // Explicitly excluded
+        } else {
+          return 'N/A'; // Not in activity's groups
+        }
+      });
+
+      rows.push([...baseRow, ...activityAttendance]);
+
+      // Add metadata for editing capabilities
+      rowMetadata.push({
+        userId: user.id,
+        entityId: user.id,
+        entityType: 'user' as const,
+        editable: true,
+      });
+    });
+
+    return {
+      headers,
+      rows,
+      rowMetadata,
+      metadata: {
+        title: 'Activities Attendance - All Activities',
+        description: `All activities attendance report with Y/N columns for ${activities.length} activities`,
+        generatedAt: new Date(),
+        totalCount: rows.length,
+      },
+      isMultiTab: false, // Single tab format
+      activityTabs: [], // No separate tabs
     };
   }
 
@@ -1426,10 +1689,7 @@ export class ReportsService {
             where: { eventId },
           },
         },
-        orderBy: [
-          { guestCategory: 'asc' },
-          { updatedAt: 'asc' },
-        ],
+        orderBy: [{ guestCategory: 'asc' }, { updatedAt: 'asc' }],
       }),
       prisma.group.findMany({
         where: { eventId, active: true, deleted: false },
@@ -1437,7 +1697,7 @@ export class ReportsService {
       }),
     ]);
 
-    const groupMap = new Map(groups.map(g => [g.id, g.name]));
+    const groupMap = new Map(groups.map((g) => [g.id, g.name]));
 
     const headers = [
       'Guest Category',
@@ -1456,10 +1716,13 @@ export class ReportsService {
     const rows = [];
     const rowMetadata = [];
 
-    users.forEach(user => {
+    users.forEach((user) => {
       const profile = user.profile as any;
       const roomAssignment = user.roomAssignments[0];
-      const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
+      const groupNames = user.groupIds
+        .map((id) => groupMap.get(id))
+        .filter(Boolean)
+        .join(', ');
 
       rows.push([
         user.guestCategory || 'Standard',
@@ -1472,8 +1735,13 @@ export class ReportsService {
         user.roomDropAssigned || '',
         new Date(user.registeredAt).toLocaleDateString('en-GB'),
         // Enhanced ticket information
-        (user.tickets as any)?.map((t: any) => `${t.name} (${t.number})`).join(', ') || 'No tickets',
-        (user.tickets as any)?.filter((t: any) => t.valid).map((t: any) => `${t.name} (${t.number})`).join(', ') || 'None',
+        (user.tickets as any)
+          ?.map((t: any) => `${t.name} (${t.number})`)
+          .join(', ') || 'No tickets',
+        (user.tickets as any)
+          ?.filter((t: any) => t.valid)
+          .map((t: any) => `${t.name} (${t.number})`)
+          .join(', ') || 'None',
       ]);
 
       // Add metadata for editing capabilities
@@ -1541,11 +1809,11 @@ export class ReportsService {
     const rowMetadata = [];
 
     for (const group of groups) {
-      const groupUsers = users.filter(user =>
+      const groupUsers = users.filter((user) =>
         user.groupIds.includes(group.id)
       );
 
-      groupUsers.forEach(user => {
+      groupUsers.forEach((user) => {
         const profile = user.profile as any;
         const roomAssignment = user.roomAssignments[0];
 
@@ -1559,8 +1827,13 @@ export class ReportsService {
           roomAssignment?.roomType || '',
           new Date(user.registeredAt).toLocaleDateString(),
           // Enhanced ticket information
-          (user.tickets as any)?.map((t: any) => `${t.name} (${t.number})`).join(', ') || 'No tickets',
-          (user.tickets as any)?.filter((t: any) => t.valid).map((t: any) => `${t.name} (${t.number})`).join(', ') || 'None',
+          (user.tickets as any)
+            ?.map((t: any) => `${t.name} (${t.number})`)
+            .join(', ') || 'No tickets',
+          (user.tickets as any)
+            ?.filter((t: any) => t.valid)
+            .map((t: any) => `${t.name} (${t.number})`)
+            .join(', ') || 'None',
         ]);
 
         // Add metadata for editing capabilities
@@ -1617,7 +1890,7 @@ export class ReportsService {
       }),
     ]);
 
-    const groupMap = new Map(groups.map(g => [g.id, g.name]));
+    const groupMap = new Map(groups.map((g) => [g.id, g.name]));
 
     // Base headers
     const baseHeaders = [
@@ -1654,13 +1927,20 @@ export class ReportsService {
     ];
 
     // Add activity attendance columns dynamically
-    const activityHeaders = activities.map(activity => activity.title);
-    const headers = [...baseHeaders, ...activityHeaders, 'General notes', 'Arrival Notes', 'Departure Notes', 'Hotel Notes'];
+    const activityHeaders = activities.map((activity) => activity.title);
+    const headers = [
+      ...baseHeaders,
+      ...activityHeaders,
+      'General notes',
+      'Arrival Notes',
+      'Departure Notes',
+      'Hotel Notes',
+    ];
 
     const rows = [];
     const rowMetadata = [];
 
-    users.forEach(user => {
+    users.forEach((user) => {
       const profile = user.profile as any;
       const accommodation = user.accommodation as any;
       const flight = user.flight as any;
@@ -1668,12 +1948,22 @@ export class ReportsService {
       const emergency = user.emergencyContact as any;
       const merchandise = user.merchandiseSize as any;
       const roomAssignment = user.roomAssignments[0];
-      const exclusions = new Set(user.activityExclusions.map(e => e.activityId));
+      const exclusions = new Set(
+        user.activityExclusions.map((e) => e.activityId)
+      );
 
-      const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
+      const groupNames = user.groupIds
+        .map((id) => groupMap.get(id))
+        .filter(Boolean)
+        .join(', ');
       const checkIn = this.parseAccommodationDate(accommodation?.checkIn);
       const checkOut = this.parseAccommodationDate(accommodation?.checkOut);
-      const nights = checkIn && checkOut ? Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)) : '';
+      const nights =
+        checkIn && checkOut
+          ? Math.ceil(
+              (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)
+            )
+          : '';
 
       // Base row data
       const baseRow = [
@@ -1691,12 +1981,20 @@ export class ReportsService {
         emergency?.name || '',
         emergency?.phone || '',
         merchandise?.size || merchandise?.shirt || '',
-        requirements?.accessibility?.enabled ? requirements.accessibility.details || 'Yes' : 'N/A',
-        requirements?.dietary?.enabled ? requirements.dietary.details || 'Yes' : 'N/A',
-        requirements?.medical?.enabled ? requirements.medical.details || 'Yes' : 'N/A',
+        requirements?.accessibility?.enabled
+          ? requirements.accessibility.details || 'Yes'
+          : 'N/A',
+        requirements?.dietary?.enabled
+          ? requirements.dietary.details || 'Yes'
+          : 'N/A',
+        requirements?.medical?.enabled
+          ? requirements.medical.details || 'Yes'
+          : 'N/A',
         flight?.inbound ? 'Airplane' : 'N/A',
         accommodation?.required ? 'Y' : 'N',
-        accommodation?.hotel || roomAssignment?.roomType?.includes('Casa') ? 'Casa Brera' : '',
+        accommodation?.hotel || roomAssignment?.roomType?.includes('Casa')
+          ? 'Casa Brera'
+          : '',
         roomAssignment?.roomType || accommodation?.roomType || '',
         checkIn ? checkIn.toLocaleDateString('en-GB') : '',
         checkOut ? checkOut.toLocaleDateString('en-GB') : '',
@@ -1704,16 +2002,26 @@ export class ReportsService {
         user.roomDropAssigned ? 'Y' : 'N',
         roomAssignment?.billingNotes || 'All charges to Master Account',
         // Enhanced ticket information
-        (user.tickets as any)?.map((t: any) => t.name).join(', ') || 'No tickets',
-        (user.tickets as any)?.map((t: any) => t.number).join(', ') || 'No numbers',
-        (user.tickets as any)?.filter((t: any) => t.valid).map((t: any) => t.name).join(', ') || 'None',
-        (user.tickets as any)?.filter((t: any) => !t.valid).map((t: any) => t.name).join(', ') || 'None',
+        (user.tickets as any)?.map((t: any) => t.name).join(', ') ||
+          'No tickets',
+        (user.tickets as any)?.map((t: any) => t.number).join(', ') ||
+          'No numbers',
+        (user.tickets as any)
+          ?.filter((t: any) => t.valid)
+          .map((t: any) => t.name)
+          .join(', ') || 'None',
+        (user.tickets as any)
+          ?.filter((t: any) => !t.valid)
+          .map((t: any) => t.name)
+          .join(', ') || 'None',
       ];
 
       // Add activity attendance (Y/N for each activity)
-      const activityAttendance = activities.map(activity => {
+      const activityAttendance = activities.map((activity) => {
         // Check if user is in activity's groups and not excluded
-        const isInActivityGroup = activity.groupIds.some(groupId => user.groupIds.includes(groupId));
+        const isInActivityGroup = activity.groupIds.some((groupId) =>
+          user.groupIds.includes(groupId)
+        );
         const isExcluded = exclusions.has(activity.id);
 
         if (isInActivityGroup && !isExcluded) {
@@ -1728,10 +2036,10 @@ export class ReportsService {
       rows.push([
         ...baseRow,
         ...activityAttendance,
-        user.masterGuestNotes || '',  // General notes (first - most important)
-        user.arrivalNotes || '',      // Arrival Notes
-        user.departureNotes || '',    // Departure Notes
-        roomAssignment?.hotelNotes || '' // Hotel Notes
+        user.masterGuestNotes || '', // General notes (first - most important)
+        user.arrivalNotes || '', // Arrival Notes
+        user.departureNotes || '', // Departure Notes
+        roomAssignment?.hotelNotes || '', // Hotel Notes
       ]);
 
       // Add metadata for editing capabilities
@@ -1768,7 +2076,7 @@ export class ReportsService {
     const where: any = {
       eventId,
       // Only user-related operations (including room assignments which affect users)
-      resourceType: { in: ['User', 'RoomAssignment'] }
+      resourceType: { in: ['User', 'RoomAssignment'] },
     };
 
     if (dateFrom || dateTo) {
@@ -1788,7 +2096,7 @@ export class ReportsService {
     });
 
     const allFields = new Set<string>();
-    recentLogs.forEach(log => {
+    recentLogs.forEach((log) => {
       const changes = log.changes as any;
       if (changes?.fields && Array.isArray(changes.fields)) {
         changes.fields.forEach((field: string) => {
@@ -1802,9 +2110,15 @@ export class ReportsService {
     });
 
     const sortedFields = Array.from(allFields).sort();
-    console.log(`🔍 Direct query found ${sortedFields.length} fields:`, sortedFields);
+    console.log(
+      `🔍 Direct query found ${sortedFields.length} fields:`,
+      sortedFields
+    );
 
-    console.log(`🔍 Found ${sortedFields.length} unique changed fields:`, sortedFields.slice(0, 10));
+    console.log(
+      `🔍 Found ${sortedFields.length} unique changed fields:`,
+      sortedFields.slice(0, 10)
+    );
 
     // 🎯 FIX: Use export-appropriate limits for change reports
     const isExport = pagination.limit >= 1000; // Detect if this is an export request
@@ -1839,7 +2153,7 @@ export class ReportsService {
 
     // Create separate old/new columns for each changed field with readable names
     const fieldColumns: string[] = [];
-    sortedFields.forEach(field => {
+    sortedFields.forEach((field) => {
       const readableField = this.makeFieldNameReadable(field);
       fieldColumns.push(`${readableField} (old)`);
       fieldColumns.push(`${readableField} (new)`);
@@ -1850,7 +2164,7 @@ export class ReportsService {
     console.log(`🔍 Final headers (${headers.length} total):`, headers);
 
     // Build rows with enhanced guest info and separate old/new columns
-    const rows = auditLogs.map(log => {
+    const rows = auditLogs.map((log) => {
       const metadata = log.metadata as any;
       const changes = log.changes as any;
 
@@ -1860,10 +2174,15 @@ export class ReportsService {
 
       // Get user profile data (prefer after, fallback to before)
       const profile = afterData?.profile || beforeData?.profile || {};
-      const guestName = profile?.firstName && profile?.lastName
-        ? `${profile.firstName} ${profile.lastName}`
-        : profile?.firstName || profile?.lastName || 'Unknown User';
-      const guestType = profile?.guestType || afterData?.guestCategory || beforeData?.guestCategory || '';
+      const guestName =
+        profile?.firstName && profile?.lastName
+          ? `${profile.firstName} ${profile.lastName}`
+          : profile?.firstName || profile?.lastName || 'Unknown User';
+      const guestType =
+        profile?.guestType ||
+        afterData?.guestCategory ||
+        beforeData?.guestCategory ||
+        '';
       const market = metadata?.groupName || ''; // Extract from metadata if available
       const marketHost = profile?.host || '';
       const contactNumber = profile?.phone || '';
@@ -1886,10 +2205,13 @@ export class ReportsService {
 
       // Enhanced field matrix with separate old/new columns
       const changedFieldsInThisRecord = (log.changes as any)?.fields || [];
-      console.log(`🔍 Processing log for ${log.summary}: fields=`, changedFieldsInThisRecord);
+      console.log(
+        `🔍 Processing log for ${log.summary}: fields=`,
+        changedFieldsInThisRecord
+      );
 
       const fieldMatrix: string[] = [];
-      sortedFields.forEach(fieldPath => {
+      sortedFields.forEach((fieldPath) => {
         if (!changedFieldsInThisRecord.includes(fieldPath)) {
           // Field not changed - add empty values for both old and new columns
           fieldMatrix.push(''); // old column
@@ -1898,12 +2220,24 @@ export class ReportsService {
         }
 
         // Get before and after values for this specific field path
-        const beforeValue = ReportsService.getNestedValue(changes?.before, fieldPath);
-        const afterValue = ReportsService.getNestedValue(changes?.after, fieldPath);
+        const beforeValue = ReportsService.getNestedValue(
+          changes?.before,
+          fieldPath
+        );
+        const afterValue = ReportsService.getNestedValue(
+          changes?.after,
+          fieldPath
+        );
 
         // Add separate old and new values
-        fieldMatrix.push(beforeValue !== undefined ? ReportsService.formatValue(beforeValue) : ''); // old column
-        fieldMatrix.push(afterValue !== undefined ? ReportsService.formatValue(afterValue) : ''); // new column
+        fieldMatrix.push(
+          beforeValue !== undefined
+            ? ReportsService.formatValue(beforeValue)
+            : ''
+        ); // old column
+        fieldMatrix.push(
+          afterValue !== undefined ? ReportsService.formatValue(afterValue) : ''
+        ); // new column
       });
 
       return [...baseData, ...fieldMatrix];
@@ -1996,7 +2330,7 @@ export class ReportsService {
       }),
     ]);
 
-    const groupMap = new Map(groups.map(g => [g.id, g.name]));
+    const groupMap = new Map(groups.map((g) => [g.id, g.name]));
 
     const headers = [
       'First Name',
@@ -2011,11 +2345,14 @@ export class ReportsService {
     const rows = [];
     const rowMetadata = [];
 
-    users.forEach(user => {
+    users.forEach((user) => {
       const profile = user.profile as any;
       const merchandise = user.merchandiseSize as any;
       const roomAssignment = user.roomAssignments[0];
-      const groupNames = user.groupIds.map(id => groupMap.get(id)).filter(Boolean).join(', ');
+      const groupNames = user.groupIds
+        .map((id) => groupMap.get(id))
+        .filter(Boolean)
+        .join(', ');
 
       rows.push([
         profile?.firstName || '',
@@ -2089,7 +2426,7 @@ export class ReportsService {
     const rows = [];
     const rowMetadata = [];
 
-    users.forEach(user => {
+    users.forEach((user) => {
       const profile = user.profile as any;
       const roomAssignment = user.roomAssignments[0];
       const roomDrop = roomDropMap.get(user.roomDropAssigned);
@@ -2163,8 +2500,16 @@ export class ReportsService {
       // Get market names for comparison
       const aUserGroupIds = (a.groupIds as string[]) || [];
       const bUserGroupIds = (b.groupIds as string[]) || [];
-      const aGroupNames = aUserGroupIds.map((id) => groupMap.get(id)?.name).filter(Boolean).join(', ') || 'ZZZ'; // Put users without groups at end
-      const bGroupNames = bUserGroupIds.map((id) => groupMap.get(id)?.name).filter(Boolean).join(', ') || 'ZZZ';
+      const aGroupNames =
+        aUserGroupIds
+          .map((id) => groupMap.get(id)?.name)
+          .filter(Boolean)
+          .join(', ') || 'ZZZ'; // Put users without groups at end
+      const bGroupNames =
+        bUserGroupIds
+          .map((id) => groupMap.get(id)?.name)
+          .filter(Boolean)
+          .join(', ') || 'ZZZ';
 
       // Compare markets first
       if (aGroupNames !== bGroupNames) {
@@ -2194,32 +2539,40 @@ export class ReportsService {
 
       // Get user groups from groupIds array
       const userGroupIds = (user.groupIds as string[]) || [];
-      const userGroups = userGroupIds.map((id) => groupMap.get(id)).filter(Boolean);
-      const groupNames = userGroups.map((g) => g?.name).join(', ') || 'No Group';
+      const userGroups = userGroupIds
+        .map((id) => groupMap.get(id))
+        .filter(Boolean);
+      const groupNames =
+        userGroups.map((g) => g?.name).join(', ') || 'No Group';
 
       // Get car assignments (individual overrides take precedence)
       const userCarNumbers = (user.carNumbers as string[]) || [];
-      const groupCarNumbers = userGroups.flatMap((g) => (g as any)?.carNumbers || []);
+      const groupCarNumbers = userGroups.flatMap(
+        (g) => (g as any)?.carNumbers || []
+      );
       const uniqueGroupCars = [...new Set(groupCarNumbers)];
 
       // Use individual cars if assigned, otherwise inherit from groups
-      const assignedCars = userCarNumbers.length > 0
-        ? userCarNumbers.join(', ')
-        : uniqueGroupCars.length > 0
-          ? uniqueGroupCars.join(', ')
-          : 'None';
+      const assignedCars =
+        userCarNumbers.length > 0
+          ? userCarNumbers.join(', ')
+          : uniqueGroupCars.length > 0
+            ? uniqueGroupCars.join(', ')
+            : 'None';
 
       // Combine first name and last name for Guest Name
-      const fullName = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ');
+      const fullName = [profile?.firstName, profile?.lastName]
+        .filter(Boolean)
+        .join(' ');
 
       const row = [
-        groupNames,                           // Market
-        fullName,                             // Guest Name
-        assignedCars,                         // Car Number
-        user.guestCategory || 'Standard',     // Guest Type
-        profile?.phone || '',                 // Contact
-        profile?.host || '',                  // Market Host
-        profile?.vip ? 'Yes' : 'No',         // VIP
+        groupNames, // Market
+        fullName, // Guest Name
+        assignedCars, // Car Number
+        user.guestCategory || 'Standard', // Guest Type
+        profile?.phone || '', // Contact
+        profile?.host || '', // Market Host
+        profile?.vip ? 'Yes' : 'No', // VIP
       ];
 
       rows.push(row);
@@ -2236,7 +2589,8 @@ export class ReportsService {
       })),
       metadata: {
         title: 'Car Assignment Report',
-        description: 'Transport allocation organized by market with guest and car details',
+        description:
+          'Transport allocation organized by market with guest and car details',
         generatedAt: new Date(),
         totalCount: rows.length,
       },
@@ -2257,11 +2611,13 @@ export class ReportsService {
     if (reportTitle === 'Rooming List') {
       // Add title and summary rows
       worksheet.mergeCells('A1:D1');
-      worksheet.getCell('A1').value = 'HOTEL ROOMING LIST - ROOM ALLOCATION MATRIX';
+      worksheet.getCell('A1').value =
+        'HOTEL ROOMING LIST - ROOM ALLOCATION MATRIX';
       worksheet.getCell('A1').font = { bold: true, size: 14 };
 
       worksheet.mergeCells('A2:D2');
-      worksheet.getCell('A2').value = `Generated ${new Date().toLocaleDateString('en-GB')} - Capacity Matrix with Over-allocation Alerts`;
+      worksheet.getCell('A2').value =
+        `Generated ${new Date().toLocaleDateString('en-GB')} - Capacity Matrix with Over-allocation Alerts`;
 
       // Generate room matrix with real data
       const matrixData = await this.generateRoomMatrix(reportData);
@@ -2276,14 +2632,18 @@ export class ReportsService {
     headerRow.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FFE6E6FA' }
+      fgColor: { argb: 'FFE6E6FA' },
     };
-    headerRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    headerRow.alignment = {
+      horizontal: 'center',
+      vertical: 'middle',
+      wrapText: true,
+    };
     headerRow.border = {
       top: { style: 'thin', color: { argb: 'FF000000' } },
       left: { style: 'thin', color: { argb: 'FF000000' } },
       bottom: { style: 'thin', color: { argb: 'FF000000' } },
-      right: { style: 'thin', color: { argb: 'FF000000' } }
+      right: { style: 'thin', color: { argb: 'FF000000' } },
     };
 
     // Add data rows with alternating colors
@@ -2295,24 +2655,27 @@ export class ReportsService {
         dataRow.fill = {
           type: 'pattern',
           pattern: 'solid',
-          fgColor: { argb: 'FFF8F8FF' }
+          fgColor: { argb: 'FFF8F8FF' },
         };
       }
 
       // Add borders
-      dataRow.eachCell(cell => {
+      dataRow.eachCell((cell) => {
         cell.border = {
           top: { style: 'thin', color: { argb: 'FFD3D3D3' } },
           left: { style: 'thin', color: { argb: 'FFD3D3D3' } },
           bottom: { style: 'thin', color: { argb: 'FFD3D3D3' } },
-          right: { style: 'thin', color: { argb: 'FFD3D3D3' } }
+          right: { style: 'thin', color: { argb: 'FFD3D3D3' } },
         };
         cell.alignment = { vertical: 'middle', wrapText: true };
       });
 
       // Format date columns (European format)
       dataRow.eachCell((cell, colNumber) => {
-        if (typeof cell.value === 'string' && cell.value.match(/\d{2}\/\d{2}\/\d{4}/)) {
+        if (
+          typeof cell.value === 'string' &&
+          cell.value.match(/\d{2}\/\d{2}\/\d{4}/)
+        ) {
           cell.numFmt = 'dd/mm/yyyy';
         }
       });
@@ -2322,8 +2685,8 @@ export class ReportsService {
     worksheet.columns.forEach((column, index) => {
       if (column.values && column.values.length > 0) {
         const lengths = column.values
-          .filter(v => v != null)
-          .map(v => v.toString().length);
+          .filter((v) => v != null)
+          .map((v) => v.toString().length);
 
         if (lengths.length > 0) {
           const maxLength = Math.max(...lengths);
@@ -2341,23 +2704,26 @@ export class ReportsService {
     // Add report metadata and generation info
     if (reportData.metadata) {
       const lastRow = worksheet.rowCount + 2;
-      worksheet.getCell(`A${lastRow}`).value = `Generated: ${reportData.metadata.generatedAt.toLocaleString('en-GB')}`;
-      worksheet.getCell(`A${lastRow + 1}`).value = `Total Records: ${reportData.metadata.totalCount}`;
-      worksheet.getCell(`A${lastRow + 2}`).value = `Description: ${reportData.metadata.description}`;
+      worksheet.getCell(`A${lastRow}`).value =
+        `Generated: ${reportData.metadata.generatedAt.toLocaleString('en-GB')}`;
+      worksheet.getCell(`A${lastRow + 1}`).value =
+        `Total Records: ${reportData.metadata.totalCount}`;
+      worksheet.getCell(`A${lastRow + 2}`).value =
+        `Description: ${reportData.metadata.description}`;
 
       // Style metadata
-      [lastRow, lastRow + 1, lastRow + 2].forEach(row => {
+      [lastRow, lastRow + 1, lastRow + 2].forEach((row) => {
         const cell = worksheet.getCell(`A${row}`);
         cell.font = { italic: true, size: 10 };
         cell.fill = {
           type: 'pattern',
           pattern: 'solid',
-          fgColor: { argb: 'FFF0F0F0' }
+          fgColor: { argb: 'FFF0F0F0' },
         };
       });
     }
 
-    return await workbook.xlsx.writeBuffer() as Buffer;
+    return (await workbook.xlsx.writeBuffer()) as Buffer;
   }
 
   /**
@@ -2379,23 +2745,35 @@ export class ReportsService {
         .replace(/[\\\/:*?"<>|]/g, '_') // Remove invalid characters for sheet names
         .substring(0, 31); // Excel sheet name limit
 
-      const worksheet = workbook.addWorksheet(safeName || `Activity ${index + 1}`);
+      const worksheet = workbook.addWorksheet(
+        safeName || `Activity ${index + 1}`
+      );
 
       // Add activity header info
       worksheet.mergeCells('A1:N1');
       worksheet.getCell('A1').value = `ACTIVITY: ${activityTab.activityName}`;
-      worksheet.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF000000' } };
+      worksheet.getCell('A1').font = {
+        bold: true,
+        size: 14,
+        color: { argb: 'FF000000' },
+      };
       worksheet.getCell('A1').fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: 'FF4A90E2' } // Blue header
+        fgColor: { argb: 'FF4A90E2' }, // Blue header
       };
-      worksheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+      worksheet.getCell('A1').alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+      };
 
       // Add activity details
       worksheet.mergeCells('A2:N2');
-      const activityTime = new Date(activityTab.startDateTime).toLocaleString('en-GB');
-      worksheet.getCell('A2').value = `Time: ${activityTime} | Attendees: ${activityTab.attendeeCount} | Excluded: ${activityTab.excludedCount}`;
+      const activityTime = new Date(activityTab.startDateTime).toLocaleString(
+        'en-GB'
+      );
+      worksheet.getCell('A2').value =
+        `Time: ${activityTime} | Attendees: ${activityTab.attendeeCount} | Excluded: ${activityTab.excludedCount}`;
       worksheet.getCell('A2').font = { italic: true, size: 12 };
       worksheet.getCell('A2').alignment = { horizontal: 'center' };
 
@@ -2405,14 +2783,18 @@ export class ReportsService {
       headerRow.fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: 'FF2E7D32' } // Green headers
+        fgColor: { argb: 'FF2E7D32' }, // Green headers
       };
-      headerRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      headerRow.alignment = {
+        horizontal: 'center',
+        vertical: 'middle',
+        wrapText: true,
+      };
       headerRow.border = {
         top: { style: 'thin', color: { argb: 'FF000000' } },
         left: { style: 'thin', color: { argb: 'FF000000' } },
         bottom: { style: 'thin', color: { argb: 'FF000000' } },
-        right: { style: 'thin', color: { argb: 'FF000000' } }
+        right: { style: 'thin', color: { argb: 'FF000000' } },
       };
 
       // Add data rows with alternating colors
@@ -2424,7 +2806,7 @@ export class ReportsService {
           dataRow.fill = {
             type: 'pattern',
             pattern: 'solid',
-            fgColor: { argb: 'FFF8F9FA' } // Light gray for alternate rows
+            fgColor: { argb: 'FFF8F9FA' }, // Light gray for alternate rows
           };
         }
 
@@ -2434,7 +2816,7 @@ export class ReportsService {
             top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
             left: { style: 'thin', color: { argb: 'FFE0E0E0' } },
             bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } },
-            right: { style: 'thin', color: { argb: 'FFE0E0E0' } }
+            right: { style: 'thin', color: { argb: 'FFE0E0E0' } },
           };
           cell.alignment = { vertical: 'middle', wrapText: true };
         });
@@ -2445,8 +2827,8 @@ export class ReportsService {
         if (activityTab.rows.length > 0) {
           const headerLength = (activityTab.headers[colIndex] || '').length;
           const maxLength = Math.max(
-            ...activityTab.rows.map((row: any[]) =>
-              String(row[colIndex] || '').length
+            ...activityTab.rows.map(
+              (row: any[]) => String(row[colIndex] || '').length
             )
           );
           column.width = Math.min(Math.max(maxLength, headerLength, 10), 40);
@@ -2457,18 +2839,21 @@ export class ReportsService {
 
       // Add metadata at the bottom
       const lastRow = worksheet.rowCount + 2;
-      worksheet.getCell(`A${lastRow}`).value = `Generated: ${new Date().toLocaleString('en-GB')}`;
-      worksheet.getCell(`A${lastRow + 1}`).value = `Activity: ${activityTab.activityName}`;
-      worksheet.getCell(`A${lastRow + 2}`).value = `Attendees: ${activityTab.attendeeCount} (Excluding ${activityTab.excludedCount} excluded users)`;
+      worksheet.getCell(`A${lastRow}`).value =
+        `Generated: ${new Date().toLocaleString('en-GB')}`;
+      worksheet.getCell(`A${lastRow + 1}`).value =
+        `Activity: ${activityTab.activityName}`;
+      worksheet.getCell(`A${lastRow + 2}`).value =
+        `Attendees: ${activityTab.attendeeCount} (Excluding ${activityTab.excludedCount} excluded users)`;
 
       // Style metadata
-      [lastRow, lastRow + 1, lastRow + 2].forEach(row => {
+      [lastRow, lastRow + 1, lastRow + 2].forEach((row) => {
         const cell = worksheet.getCell(`A${row}`);
         cell.font = { italic: true, size: 10 };
         cell.fill = {
           type: 'pattern',
           pattern: 'solid',
-          fgColor: { argb: 'FFF0F0F0' }
+          fgColor: { argb: 'FFF0F0F0' },
         };
       });
     });
@@ -2484,18 +2869,24 @@ export class ReportsService {
       summarySheet.getCell('A1').fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: 'FF9C27B0' } // Purple
+        fgColor: { argb: 'FF9C27B0' }, // Purple
       };
       summarySheet.getCell('A1').alignment = { horizontal: 'center' };
 
       // Summary table headers
-      const summaryHeaders = ['Activity Name', 'Date & Time', 'Attendees', 'Excluded', 'Total Assigned'];
+      const summaryHeaders = [
+        'Activity Name',
+        'Date & Time',
+        'Attendees',
+        'Excluded',
+        'Total Assigned',
+      ];
       const summaryHeaderRow = summarySheet.insertRow(3, summaryHeaders);
       summaryHeaderRow.font = { bold: true };
       summaryHeaderRow.fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: 'FFE6E6FA' }
+        fgColor: { argb: 'FFE6E6FA' },
       };
 
       // Add summary data
@@ -2505,7 +2896,7 @@ export class ReportsService {
           new Date(tab.startDateTime).toLocaleString('en-GB'),
           tab.attendeeCount,
           tab.excludedCount,
-          tab.attendeeCount + tab.excludedCount
+          tab.attendeeCount + tab.excludedCount,
         ];
         summarySheet.insertRow(4 + index, summaryRow);
       });
@@ -2520,7 +2911,7 @@ export class ReportsService {
       workbook.insertWorksheet(summarySheet, 0);
     }
 
-    return await workbook.xlsx.writeBuffer() as Buffer;
+    return (await workbook.xlsx.writeBuffer()) as Buffer;
   }
 
   /**
@@ -2529,39 +2920,55 @@ export class ReportsService {
   private static async generateRoomMatrix(reportData: ReportData): Promise<{
     roomTypes: string[];
     dates: string[];
-    allocations: { [roomType: string]: { [date: string]: { allocated: number; capacity: number } } };
+    allocations: {
+      [roomType: string]: {
+        [date: string]: { allocated: number; capacity: number };
+      };
+    };
   }> {
     // Extract date columns from rooming list headers (they start after basic info columns)
-    const dateHeaders = reportData.headers.filter(header =>
-      header.includes('/') && (header.includes('Monday') || header.includes('Tuesday') ||
-        header.includes('Wednesday') || header.includes('Thursday') || header.includes('Friday') ||
-        header.includes('Saturday') || header.includes('Sunday'))
+    const dateHeaders = reportData.headers.filter(
+      (header) =>
+        header.includes('/') &&
+        (header.includes('Monday') ||
+          header.includes('Tuesday') ||
+          header.includes('Wednesday') ||
+          header.includes('Thursday') ||
+          header.includes('Friday') ||
+          header.includes('Saturday') ||
+          header.includes('Sunday'))
     );
 
     // Extract dates in DD/MM/YYYY format from headers like "Monday\n29/09/2025"
-    const dates = dateHeaders.map(header => {
+    const dates = dateHeaders.map((header) => {
       const parts = header.split('\n');
       return parts[1] || parts[0]; // Get the date part
     });
 
     // Get unique room types from the data
     const roomTypeIndex = reportData.headers.indexOf('Room Category');
-    const roomTypes = Array.from(new Set(
-      reportData.rows
-        .map(row => row[roomTypeIndex])
-        .filter(Boolean)
-        .filter(rt => rt !== 'undefined' && rt !== '')
-    )).sort();
+    const roomTypes = Array.from(
+      new Set(
+        reportData.rows
+          .map((row) => row[roomTypeIndex])
+          .filter(Boolean)
+          .filter((rt) => rt !== 'undefined' && rt !== '')
+      )
+    ).sort();
 
     // Calculate allocations for each room type and date
-    const allocations: { [roomType: string]: { [date: string]: { allocated: number; capacity: number } } } = {};
+    const allocations: {
+      [roomType: string]: {
+        [date: string]: { allocated: number; capacity: number };
+      };
+    } = {};
 
     // Get event configuration for capacity data
     const eventId = reportData.metadata?.eventId;
     if (eventId) {
       const event = await prisma.event.findUnique({
         where: { id: eventId },
-        select: { hotelConfig: true }
+        select: { hotelConfig: true },
       });
 
       const hotelConfig = event?.hotelConfig as any;
@@ -2582,7 +2989,9 @@ export class ReportsService {
             const userRoomType = row[roomTypeIndex];
             if (userRoomType === roomType) {
               // Check if user has "1" in this date column
-              const dateColumnIndex = reportData.headers.indexOf(dateHeaders.find(h => h.includes(date)) || '');
+              const dateColumnIndex = reportData.headers.indexOf(
+                dateHeaders.find((h) => h.includes(date)) || ''
+              );
               if (dateColumnIndex >= 0 && row[dateColumnIndex] === '1') {
                 allocated++;
               }
@@ -2591,7 +3000,7 @@ export class ReportsService {
 
           allocations[roomType][date] = {
             allocated,
-            capacity: contractedRoom?.quantity || 0
+            capacity: contractedRoom?.quantity || 0,
           };
         }
       }
@@ -2611,8 +3020,11 @@ export class ReportsService {
     const { roomTypes, dates, allocations } = matrixData;
 
     // Add matrix title
-    worksheet.mergeCells(`A${startRow}:${String.fromCharCode(65 + dates.length)}${startRow}`);
-    worksheet.getCell(`A${startRow}`).value = 'ROOM ALLOCATION MATRIX - CAPACITY TRACKING';
+    worksheet.mergeCells(
+      `A${startRow}:${String.fromCharCode(65 + dates.length)}${startRow}`
+    );
+    worksheet.getCell(`A${startRow}`).value =
+      'ROOM ALLOCATION MATRIX - CAPACITY TRACKING';
     worksheet.getCell(`A${startRow}`).font = { bold: true, size: 12 };
     worksheet.getCell(`A${startRow}`).alignment = { horizontal: 'center' };
 
@@ -2623,18 +3035,21 @@ export class ReportsService {
     worksheet.getCell(`A${headerRow}`).fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FF4F46E5' } // Indigo header
+      fgColor: { argb: 'FF4F46E5' }, // Indigo header
     };
 
     dates.forEach((date, index) => {
       const col = String.fromCharCode(66 + index); // B, C, D, etc.
       worksheet.getCell(`${col}${headerRow}`).value = date;
       worksheet.getCell(`${col}${headerRow}`).font = { bold: true, size: 9 };
-      worksheet.getCell(`${col}${headerRow}`).alignment = { horizontal: 'center', wrapText: true };
+      worksheet.getCell(`${col}${headerRow}`).alignment = {
+        horizontal: 'center',
+        wrapText: true,
+      };
       worksheet.getCell(`${col}${headerRow}`).fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: 'FF4F46E5' } // Indigo header
+        fgColor: { argb: 'FF4F46E5' }, // Indigo header
       };
     });
 
@@ -2663,15 +3078,18 @@ export class ReportsService {
             cell.fill = {
               type: 'pattern',
               pattern: 'solid',
-              fgColor: { argb: 'FFEF4444' } // Red background
+              fgColor: { argb: 'FFEF4444' }, // Red background
             };
             cell.font = { color: { argb: 'FFFFFF' }, bold: true }; // White text
-          } else if (allocation.allocated === allocation.capacity && allocation.capacity > 0) {
+          } else if (
+            allocation.allocated === allocation.capacity &&
+            allocation.capacity > 0
+          ) {
             // Fully booked - YELLOW
             cell.fill = {
               type: 'pattern',
               pattern: 'solid',
-              fgColor: { argb: 'FFFBBF24' } // Yellow background
+              fgColor: { argb: 'FFFBBF24' }, // Yellow background
             };
             cell.font = { color: { argb: 'FF000000' }, bold: true }; // Black text
           } else if (allocation.capacity > 0) {
@@ -2679,7 +3097,7 @@ export class ReportsService {
             cell.fill = {
               type: 'pattern',
               pattern: 'solid',
-              fgColor: { argb: 'FF10B981' } // Green background
+              fgColor: { argb: 'FF10B981' }, // Green background
             };
             cell.font = { color: { argb: 'FFFFFF' } }; // White text
           } else {
@@ -2687,7 +3105,7 @@ export class ReportsService {
             cell.fill = {
               type: 'pattern',
               pattern: 'solid',
-              fgColor: { argb: 'FF6B7280' } // Gray background
+              fgColor: { argb: 'FF6B7280' }, // Gray background
             };
             cell.font = { color: { argb: 'FFFFFF' } }; // White text
           }
@@ -2705,7 +3123,7 @@ export class ReportsService {
       { label: 'Over-allocated', color: 'FFEF4444', col: 'B' },
       { label: 'Fully booked', color: 'FFFBBF24', col: 'C' },
       { label: 'Available', color: 'FF10B981', col: 'D' },
-      { label: 'No capacity', color: 'FF6B7280', col: 'E' }
+      { label: 'No capacity', color: 'FF6B7280', col: 'E' },
     ];
 
     legendItems.forEach(({ label, color, col }) => {
@@ -2715,7 +3133,7 @@ export class ReportsService {
       cell.fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: color }
+        fgColor: { argb: color },
       };
     });
 
@@ -2727,26 +3145,90 @@ export class ReportsService {
    */
   static getAvailableReports() {
     return [
-      { id: 'arrival-list', name: 'Arrival List', category: 'Flight Coordination' },
-      { id: 'departure-list', name: 'Departure List', category: 'Flight Coordination' },
+      {
+        id: 'arrival-list',
+        name: 'Arrival List',
+        category: 'Flight Coordination',
+      },
+      {
+        id: 'departure-list',
+        name: 'Departure List',
+        category: 'Flight Coordination',
+      },
       { id: 'medical-list', name: 'Medical List', category: 'Requirements' },
       { id: 'dietary-list', name: 'Dietary List', category: 'Requirements' },
-      { id: 'dietary-requirements', name: 'Dietary Requirements Export', category: 'Requirements' },
-      { id: 'emergency-report', name: 'Emergency Report', category: 'Requirements' },
+      {
+        id: 'dietary-requirements',
+        name: 'Dietary Requirements Export',
+        category: 'Requirements',
+      },
+      {
+        id: 'emergency-report',
+        name: 'Emergency Report',
+        category: 'Requirements',
+      },
       { id: 'rooming-list', name: 'Rooming List', category: 'Accommodation' },
-      { id: 'guest-list-alpha', name: 'Guest List by Alpha', category: 'Guest Lists' },
-      { id: 'activity-attendance', name: 'Activity Attendance', category: 'Activities' },
-      { id: 'guest-list-type', name: 'Guest List by Type', category: 'Guest Lists' },
-      { id: 'guest-list-group', name: 'Guest List by Group', category: 'Guest Lists' },
-      { id: 'master-guest', name: 'Master Guest Report', category: 'Complete Data' },
-      { id: 'change-report-user', name: 'User Change Report', category: 'Audit Trail' },
-      { id: 'change-report-activity', name: 'Activity Change Report (WIP)', category: 'Audit Trail' },
-      { id: 'change-report-group', name: 'Group Change Report (WIP)', category: 'Audit Trail' },
-      { id: 'change-report-event', name: 'Event Change Report (WIP)', category: 'Audit Trail' },
-      { id: 'change-report-operations', name: 'Operations Change Report (WIP)', category: 'Audit Trail' },
-      { id: 'merchandise-report', name: 'Merchandise Report', category: 'Operations' },
+      {
+        id: 'guest-list-alpha',
+        name: 'Guest List by Alpha',
+        category: 'Guest Lists',
+      },
+      {
+        id: 'activity-attendance',
+        name: 'Activity Attendance',
+        category: 'Activities',
+      },
+      {
+        id: 'guest-list-type',
+        name: 'Guest List by Type',
+        category: 'Guest Lists',
+      },
+      {
+        id: 'guest-list-group',
+        name: 'Guest List by Group',
+        category: 'Guest Lists',
+      },
+      {
+        id: 'master-guest',
+        name: 'Master Guest Report',
+        category: 'Complete Data',
+      },
+      {
+        id: 'change-report-user',
+        name: 'User Change Report',
+        category: 'Audit Trail',
+      },
+      {
+        id: 'change-report-activity',
+        name: 'Activity Change Report (WIP)',
+        category: 'Audit Trail',
+      },
+      {
+        id: 'change-report-group',
+        name: 'Group Change Report (WIP)',
+        category: 'Audit Trail',
+      },
+      {
+        id: 'change-report-event',
+        name: 'Event Change Report (WIP)',
+        category: 'Audit Trail',
+      },
+      {
+        id: 'change-report-operations',
+        name: 'Operations Change Report (WIP)',
+        category: 'Audit Trail',
+      },
+      {
+        id: 'merchandise-report',
+        name: 'Merchandise Report',
+        category: 'Operations',
+      },
       { id: 'room-drops', name: 'Room Drops Report', category: 'Operations' },
-      { id: 'car-assignment', name: 'Car Assignment Report', category: 'Operations' },
+      {
+        id: 'car-assignment',
+        name: 'Car Assignment Report',
+        category: 'Operations',
+      },
     ];
   }
 }

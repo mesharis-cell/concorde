@@ -2,8 +2,23 @@ import { prisma } from '../config/database.js';
 import type { Pagination, PaginatedResponse } from '../types/index.js';
 import { ObjectId } from 'mongodb';
 
-export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'IMPORT' | 'EXPORT' | 'ASSIGN' | 'UNASSIGN';
-export type ResourceType = 'User' | 'Activity' | 'Group' | 'Event' | 'EmailTemplate' | 'Admin' | 'BulkOperation' | 'RoomAssignment';
+export type AuditAction =
+  | 'CREATE'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'IMPORT'
+  | 'EXPORT'
+  | 'ASSIGN'
+  | 'UNASSIGN';
+export type ResourceType =
+  | 'User'
+  | 'Activity'
+  | 'Group'
+  | 'Event'
+  | 'EmailTemplate'
+  | 'Admin'
+  | 'BulkOperation'
+  | 'RoomAssignment';
 export type PerformedByType = 'ADMIN' | 'SYSTEM';
 
 export interface AuditLogRequest {
@@ -375,7 +390,13 @@ export class AuditTrailService {
     const where: any = {};
     if (eventId) where.eventId = eventId;
 
-    const [totalActions, actionStats, resourceStats, adminStats, recentActivity] = await Promise.all([
+    const [
+      totalActions,
+      actionStats,
+      resourceStats,
+      adminStats,
+      recentActivity,
+    ] = await Promise.all([
       // Total actions
       prisma.auditTrail.count({ where }),
 
@@ -386,7 +407,7 @@ export class AuditTrailService {
         _count: true,
       }),
 
-      // Resource breakdown  
+      // Resource breakdown
       prisma.auditTrail.groupBy({
         by: ['resourceType'],
         where,
@@ -415,27 +436,29 @@ export class AuditTrailService {
     ]);
 
     // Get admin details for the breakdown
-    const adminIds = adminStats.map(stat => stat.performedBy);
+    const adminIds = adminStats.map((stat) => stat.performedBy);
     const admins = await prisma.admin.findMany({
       where: { id: { in: adminIds } },
       select: { id: true, firstName: true, lastName: true },
     });
 
-    const adminLookup = new Map(admins.map(admin => [admin.id, admin]));
+    const adminLookup = new Map(admins.map((admin) => [admin.id, admin]));
 
     return {
       totalActions,
       actionBreakdown: Object.fromEntries(
-        actionStats.map(stat => [stat.action, stat._count])
+        actionStats.map((stat) => [stat.action, stat._count])
       ) as Record<AuditAction, number>,
       resourceBreakdown: Object.fromEntries(
-        resourceStats.map(stat => [stat.resourceType, stat._count])
+        resourceStats.map((stat) => [stat.resourceType, stat._count])
       ) as Record<ResourceType, number>,
-      adminBreakdown: adminStats.map(stat => {
+      adminBreakdown: adminStats.map((stat) => {
         const admin = adminLookup.get(stat.performedBy);
         return {
           adminId: stat.performedBy,
-          adminName: admin ? `${admin.firstName} ${admin.lastName}` : 'Unknown Admin',
+          adminName: admin
+            ? `${admin.firstName} ${admin.lastName}`
+            : 'Unknown Admin',
           actionCount: stat._count,
         };
       }),
@@ -488,13 +511,27 @@ export class AuditTrailService {
       const beforeValue = before?.[key];
       const afterValue = after?.[key];
 
-      // Handle null/undefined differences
+      // Handle null/undefined differences with better logic
       if (beforeValue == null && afterValue == null) {
         continue; // Both null/undefined, no change
       }
 
+      // 🚨 FIX: Don't report changes for undefined vs null (they're equivalent for our purposes)
+      if (
+        (beforeValue == null || beforeValue === '') &&
+        (afterValue == null || afterValue === '')
+      ) {
+        continue; // Treat null, undefined, and empty string as equivalent
+      }
+
       if (beforeValue == null || afterValue == null) {
-        changes.push(currentPath); // One is null, the other isn't
+        // Only report as changed if one has a meaningful value and the other doesn't
+        const beforeHasValue = beforeValue != null && beforeValue !== '';
+        const afterHasValue = afterValue != null && afterValue !== '';
+
+        if (beforeHasValue !== afterHasValue) {
+          changes.push(currentPath);
+        }
         continue;
       }
 
@@ -518,8 +555,21 @@ export class AuditTrailService {
         continue;
       }
 
-      // Handle primitive values
+      // Handle primitive values with better comparison
       if (beforeValue !== afterValue) {
+        // 🚨 FIX: Additional check for equivalent empty values
+        const beforeIsEmpty =
+          beforeValue === '' ||
+          beforeValue === null ||
+          beforeValue === undefined;
+        const afterIsEmpty =
+          afterValue === '' || afterValue === null || afterValue === undefined;
+
+        // Don't report changes between different types of "empty" values
+        if (beforeIsEmpty && afterIsEmpty) {
+          continue;
+        }
+
         changes.push(currentPath);
       }
     }
@@ -531,7 +581,7 @@ export class AuditTrailService {
   static async logBulk(requests: AuditLogRequest[]): Promise<void> {
     try {
       await prisma.auditTrail.createMany({
-        data: requests.map(request => ({
+        data: requests.map((request) => ({
           action: request.action,
           resourceType: request.resourceType,
           resourceId: request.resourceId,
@@ -553,7 +603,9 @@ export class AuditTrailService {
    * Keeps audit trails for 2 years by default
    */
   static async cleanup(retentionDays: number = 730): Promise<number> {
-    const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+    const cutoffDate = new Date(
+      Date.now() - retentionDays * 24 * 60 * 60 * 1000
+    );
 
     const result = await prisma.auditTrail.deleteMany({
       where: {
