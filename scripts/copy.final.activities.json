@@ -14,8 +14,8 @@
     },
     "category": "EXPERIENCE",
     "location": {
-      "name": "TBD",
-      "address": "TBD"
+      "name": "",
+      "address": ""
     },
     "content": {
       "html": "<p><strong>EXCLUSIVE FIRST TASTING</strong></p><p>Witness the spirit of grandmastery behind Chivas Regal Crystalgold. Expect an evening of world-class mixology, grandmaster-level play and culinary artistry.</p><p></p><hr class=\"my-6 border-gray-300\"><p><strong><em>Dress Code: Playful &amp; Elevated</em></strong></p><p></p>"
@@ -641,8 +641,8 @@
     "thumbnail": "",
     "category": "OTHER",
     "location": {
-      "name": "TBD",
-      "address": "TBD",
+      "name": "",
+      "address": "",
       "mapLink": "Elevated Sports Luxury:https://maps.app.goo.gl/ufQe5Yqazxbfd4ST6"
     },
     "content": {

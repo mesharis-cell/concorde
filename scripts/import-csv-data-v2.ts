@@ -551,7 +551,7 @@ const activityDefinitions: ActivityDefinition[] = [
   {
     title: 'Evening Bar - Nutmeg & Clove',
     date: '03/10/2025',
-    time: '20:00',
+    time: '23:00',
     endTime: '00:00',
     description: '',
     category: 'HOSPITALITY',
@@ -563,12 +563,14 @@ const activityDefinitions: ActivityDefinition[] = [
   {
     title: 'Evening Bar - Somma Bar',
     date: '03/10/2025',
-    time: '20:00',
+    time: '23:00',
+    endTime: '00:00',
     description: '',
     category: 'HOSPITALITY',
     csvField: 'eveningBar',
     isEveningBar: true,
     importKey: 'precision-pour-somma-bar',
+    timingTable: [],
   },
   {
     title: 'Evening Bar - Lobby',
@@ -586,7 +588,7 @@ const activityDefinitions: ActivityDefinition[] = [
     title: 'Evening Bar - Atlas',
     date: '03/10/2025',
     time: '23:00',
-    endTime: '02:00',
+    endTime: '00:00',
     description: '',
     category: 'HOSPITALITY',
     csvField: 'eveningBar',
