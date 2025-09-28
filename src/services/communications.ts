@@ -275,8 +275,11 @@ export class CommunicationsService {
       },
     });
 
-    // Send emails to eligible recipients
+    // Send emails to eligible recipients with rate limiting
     const deliveries = [];
+    let emailCount = 0;
+    const CHUNK_SIZE = 50; // Resend-safe batch size
+
     for (const recipient of eligibleRecipients) {
       // Build variables for template substitution (combine base + recipient-specific)
       const variables: Record<string, any> = {
@@ -427,6 +430,19 @@ export class CommunicationsService {
           status: 'failed',
           error: error.message,
         });
+      }
+
+      emailCount++;
+
+      // Add small delay between each email (Resend-safe: ~100ms)
+      if (emailCount < eligibleRecipients.length) {
+        await new Promise(resolve => setTimeout(resolve, 100)); // 100ms between emails
+      }
+
+      // Additional pause every CHUNK_SIZE emails for extra safety
+      if (emailCount % CHUNK_SIZE === 0 && emailCount < eligibleRecipients.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second chunk pause
+        console.log(`📧 Processed ${emailCount}/${eligibleRecipients.length} emails - chunk pause for rate limiting`);
       }
     }
 
