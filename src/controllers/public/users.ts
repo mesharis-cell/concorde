@@ -420,7 +420,7 @@ const getUserItineraryRoute = createRoute({
 
 app.openapi(getUserItineraryRoute, async (c) => {
   // Apply authentication middleware manually
-  const authResult = await authenticateUserByEmail(c, async () => {});
+  const authResult = await authenticateUserByEmail(c, async () => { });
   if (authResult) {
     return authResult; // Return auth error response
   }
@@ -554,7 +554,7 @@ const getUserProfileRoute = createRoute({
 
 app.openapi(getUserProfileRoute, async (c) => {
   // Apply authentication middleware manually
-  const authResult = await authenticateUserByEmail(c, async () => {});
+  const authResult = await authenticateUserByEmail(c, async () => { });
   if (authResult) {
     return authResult; // Return auth error response
   }
@@ -667,7 +667,7 @@ const updateCommunicationPreferencesRoute = createRoute({
 
 app.openapi(updateCommunicationPreferencesRoute, async (c) => {
   // Manually run authentication middleware
-  const authResult = await authenticateUserByEmail(c, async () => {});
+  const authResult = await authenticateUserByEmail(c, async () => { });
   if (authResult) {
     return authResult; // Return auth error response
   }
@@ -812,18 +812,19 @@ app.openapi(getActivityInfoRoute, async (c) => {
         location: activity.location,
         content: activity.content,
         thumbnail: activity.thumbnail,
+        timingTable: activity.timingTable, // Add timingTable for frontend display
         group: activity.group
           ? {
-              id: activity.group.id,
-              name: activity.group.name,
-            }
+            id: activity.group.id,
+            name: activity.group.name,
+          }
           : null,
         event: activity.event
           ? {
-              id: activity.event.id,
-              name: activity.event.name,
-              shortName: activity.event.shortName,
-            }
+            id: activity.event.id,
+            name: activity.event.name,
+            shortName: activity.event.shortName,
+          }
           : null,
       },
     });
