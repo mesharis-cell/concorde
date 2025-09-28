@@ -168,6 +168,9 @@ model Activity {
   // Timing details for structured scheduling
   timingTable Json[] // [{ enabled: Boolean, time: String, description: String, location?: String }]
 
+  // Import/content management
+  importKey      String? // Stable key for content updates after nightly imports
+
   active         Boolean   @default(true)
   deleted        Boolean   @default(false)
   createdBy      String    @db.ObjectId
@@ -191,6 +194,7 @@ model Activity {
   @@index([createdBy])
   @@index([lastModifiedBy])
   @@index([capacity, currentAttendees]) // For capacity monitoring
+  @@index([importKey]) // For content update lookups
   @@map("activities")
 }
 
