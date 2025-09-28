@@ -804,38 +804,192 @@ const activityDefinitions: ActivityDefinition[] = [
   {
     title: 'PRS Paddock Club - Sunday',
     date: '05/10/2025',
-    time: '14:00',
+    time: '15:45',
+    endTime: '23:30',
     description: '',
     category: 'HOSPITALITY',
     csvField: 'prsPaddockClubSun',
     importKey: 'paddock-club-sunday',
+    timingTable: [
+      {
+        enabled: true,
+        time: '15:45',
+        description: 'Meet in the Hotel Lobby'
+      },
+      {
+        enabled: true,
+        time: '16:00',
+        description: 'Depart for the Track'
+      },
+      {
+        enabled: true,
+        time: '16:40',
+        description: 'Arrive at the Track'
+      },
+      {
+        enabled: true,
+        time: '17:00',
+        description: 'Welcomed to the Hospitality Suite'
+      },
+      {
+        enabled: true,
+        time: '23:30',
+        description: 'Depart for the Mandarin Oriental Hotel'
+      },
+      {
+        enabled: true,
+        time: '23:45',
+        description: 'Arrive at the Mandarin Oriental Hotel'
+      },
+      {
+        enabled: true,
+        time: '00:00',
+        description: 'Depart for the Mondrian Hotel'
+      },
+      {
+        enabled: true,
+        time: '00:40',
+        description: 'Arrive back at the Mondrian Hotel'
+      }
+    ],
   },
   {
     title: 'Regal Club - Sunday',
     date: '05/10/2025',
-    time: '16:00',
+    time: '15:45',
+    endTime: '23:30',
     description: '',
     category: 'HOSPITALITY',
     csvField: 'regalClubSun',
     importKey: 'regal-club-sunday',
+    timingTable: [
+      {
+        enabled: true,
+        time: '15:45',
+        description: 'Meet in the Hotel Lobby'
+      },
+      {
+        enabled: true,
+        time: '16:00',
+        description: 'Depart for the Track'
+      }, ,
+      {
+        enabled: true,
+        time: '16:40',
+        description: 'Arrive at the Track'
+      },
+      {
+        enabled: true,
+        time: '17:00',
+        description: 'Welcomed to the Hospitality Suite'
+      },
+      {
+        enabled: true,
+        time: '23:30',
+        description: 'Depart for the Mandarin Oriental Hotel'
+      },
+      {
+        enabled: true,
+        time: '23:45',
+        description: 'Arrive at the Mandarin Oriental Hotel'
+      },
+      {
+        enabled: true,
+        time: '00:00',
+        description: 'Depart for the Mondrian Hotel'
+      },
+      {
+        enabled: true,
+        time: '00:40',
+        description: 'Arrive back at the Mondrian Hotel'
+      }
+    ],
   },
+
   {
     title: 'Crystal Gold Lounge - Sunday',
     date: '05/10/2025',
     time: '18:00',
+    endTime: '23:00',
     description: '',
     category: 'HOSPITALITY',
     csvField: 'crystalGoldLoungeSun',
     importKey: 'crystal-gold-lounge-sunday',
+    timingTable: [
+      {
+        enabled: true,
+        time: '16:05',
+        description: 'Meet in the Hotel Lobby'
+      },
+      {
+        enabled: true,
+        time: '16:20',
+        description: 'Depart for the Chivas Regal Crystalgold Lounge'
+      },
+      {
+        enabled: true,
+        time: '17:00',
+        description: 'Arrive at the Chivas Regal Crystalgold Lounge'
+      },
+      {
+        enabled: true,
+        time: '23:30',
+        description: 'Depart for the Mandarin Oriental Hotel'
+      },
+      {
+        enabled: true,
+        time: '23:45',
+        description: 'Arrive at the Mandarin Oriental Hotel'
+      },
+      {
+        enabled: true,
+        time: '00:00',
+        description: 'Depart for the Mondrian Hotel'
+      },
+      {
+        enabled: true,
+        time: '00:40',
+        description: 'Arrive back at the Mondrian Hotel'
+      }
+    ],
   },
+
   {
     title: 'LAVO After Party',
-    date: '05/10/2025',
-    time: '22:00',
+    date: '06/10/2025',
+    time: '00:40',
+    endTime: '03:30',
     description: '',
     category: 'EXPERIENCE',
     csvField: 'lavoAfterParty',
     importKey: 'lavo-after-party',
+    timingTable: [
+      {
+        enabled: true,
+        time: '01:00',
+        description: 'Meet in the Hotel Lobby'
+      },
+      {
+        enabled: true,
+        time: '01:10',
+        description: 'Depart for the LAVO After Party'
+      },
+      {
+        enabled: true,
+        time: '01:30',
+        description: 'Arrive at the LAVO After Party'
+      },
+      {
+        enabled: true,
+        time: '03:30',
+        description: 'Depart for the Mondrian Hotel'
+      },
+      {
+        enabled: true,
+        time: '03:50',
+        description: 'Arrive back at the Mondrian Hotel'
+      }
+    ],
   },
 ];
 
@@ -1023,12 +1177,12 @@ async function getOrCreateActivity(
     // Create date string for logging
     const startTimeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
     const endTimeString = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
-    const dateTimeString = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')} ${startTimeString}-${endTimeString}`;
+    const dateTimeString = `${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')} ${startTimeString}-${endTimeString}`;
 
     // 🎯 FIXED: Create date components as UTC first, then convert to Singapore timezone
     // This ensures the time components (year, month, day, hour, minute) are interpreted as Singapore time
-    const utcStartDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
-    const utcEndDate = new Date(Date.UTC(year, month - 1, day, endHours, endMinutes, 0));
+    const utcStartDate = new Date(Date.UTC(year, month, day, hours, minutes, 0));
+    const utcEndDate = new Date(Date.UTC(year, month, day, endHours, endMinutes, 0));
 
     // Subtract Singapore offset to get the correct UTC time
     // Singapore is UTC+8, so Singapore 20:00 = UTC 12:00

@@ -5,6 +5,7 @@ import { readFileSync } from 'fs';
  * Activity Content Updater - Updates CONTENT ONLY, preserves timing
  * 
  * ✅ UPDATES THESE FIELDS:
+ * - title (activity title/name)
  * - description (activity description text)
  * - content (rich HTML content from TipTap editor) 
  * - thumbnail (S3 image URL)
@@ -68,6 +69,7 @@ async function updateActivityContent() {
             };
 
             // CONTENT FIELDS ONLY - No timing updates
+            if (updateData.title !== undefined) updatePayload.title = updateData.title;
             if (updateData.description !== undefined) updatePayload.description = updateData.description;
             if (updateData.content) updatePayload.content = updateData.content;
             if (updateData.thumbnail !== undefined) updatePayload.thumbnail = updateData.thumbnail;
@@ -88,7 +90,7 @@ async function updateActivityContent() {
 
             // Log what was updated (content fields only)
             const updateTypes = [];
-            if (updateData.description !== undefined || updateData.content || updateData.thumbnail !== undefined || updateData.location !== undefined) {
+            if (updateData.title !== undefined || updateData.description !== undefined || updateData.content || updateData.thumbnail !== undefined || updateData.location !== undefined) {
                 updateTypes.push('content');
             }
             if (updateData.category || updateData.capacity !== undefined || updateData.active !== undefined) {

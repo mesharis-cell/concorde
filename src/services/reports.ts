@@ -466,9 +466,9 @@ export class ReportsService {
       const checkOutDate = this.parseAccommodationDate(accommodation?.checkOut);
       const hotelDepartureTime = checkOutDate
         ? checkOutDate.toLocaleTimeString('en-GB', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })
+          hour: '2-digit',
+          minute: '2-digit',
+        })
         : '12:00'; // Default checkout time
 
       rows.push([
@@ -1961,8 +1961,8 @@ export class ReportsService {
       const nights =
         checkIn && checkOut
           ? Math.ceil(
-              (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)
-            )
+            (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)
+          )
           : '';
 
       // Base row data
@@ -2003,9 +2003,9 @@ export class ReportsService {
         roomAssignment?.billingNotes || 'All charges to Master Account',
         // Enhanced ticket information
         (user.tickets as any)?.map((t: any) => t.name).join(', ') ||
-          'No tickets',
+        'No tickets',
         (user.tickets as any)?.map((t: any) => t.number).join(', ') ||
-          'No numbers',
+        'No numbers',
         (user.tickets as any)
           ?.filter((t: any) => t.valid)
           .map((t: any) => t.name)
@@ -2335,11 +2335,10 @@ export class ReportsService {
     const headers = [
       'First Name',
       'Surname',
-      'Email',
       'Guest Category',
+      'Market',
       'Gender',
       'Size',
-      'Group Assignment',
     ];
 
     const rows = [];
@@ -2348,6 +2347,16 @@ export class ReportsService {
     users.forEach((user) => {
       const profile = user.profile as any;
       const merchandise = user.merchandiseSize as any;
+
+      // Only include users who have either gender or size data
+      const hasGender = merchandise?.gender && merchandise.gender.trim() !== '';
+      const hasSize = (merchandise?.size && merchandise.size.trim() !== '') ||
+        (merchandise?.shirt && merchandise.shirt.trim() !== '');
+
+      if (!hasGender && !hasSize) {
+        return; // Skip this user - no merchandise data
+      }
+
       const roomAssignment = user.roomAssignments[0];
       const groupNames = user.groupIds
         .map((id) => groupMap.get(id))
@@ -2357,11 +2366,10 @@ export class ReportsService {
       rows.push([
         profile?.firstName || '',
         profile?.lastName || '',
-        profile?.email || '',
         user.guestCategory || 'Standard',
+        groupNames, // Market (group names represent markets)
         merchandise?.gender || '',
         merchandise?.size || merchandise?.shirt || '',
-        groupNames,
       ]);
 
       rowMetadata.push({
@@ -2705,14 +2713,16 @@ export class ReportsService {
     if (reportData.metadata) {
       const lastRow = worksheet.rowCount + 2;
       worksheet.getCell(`A${lastRow}`).value =
-        `Generated: ${reportData.metadata.generatedAt.toLocaleString('en-GB')}`;
+        `Report: ${reportData.metadata.title}`;
       worksheet.getCell(`A${lastRow + 1}`).value =
-        `Total Records: ${reportData.metadata.totalCount}`;
+        `Generated: ${reportData.metadata.generatedAt.toLocaleString('en-GB')}`;
       worksheet.getCell(`A${lastRow + 2}`).value =
+        `Total Records: ${reportData.metadata.totalCount}`;
+      worksheet.getCell(`A${lastRow + 3}`).value =
         `Description: ${reportData.metadata.description}`;
 
       // Style metadata
-      [lastRow, lastRow + 1, lastRow + 2].forEach((row) => {
+      [lastRow, lastRow + 1, lastRow + 2, lastRow + 3].forEach((row) => {
         const cell = worksheet.getCell(`A${row}`);
         cell.font = { italic: true, size: 10 };
         cell.fill = {
