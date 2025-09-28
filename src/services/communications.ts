@@ -83,8 +83,8 @@ export class CommunicationsService {
 
         // Replace variables in template
         const variables = {
-          firstName: recipient.firstName,
-          lastName: recipient.lastName,
+          firstName: recipient.firstName || '',
+          lastName: recipient.lastName || '',
           unsubscribeLink: `${env.APP_URL || 'http://localhost:3001'}/api/unsubscribe/${recipient.userId}/${request.eventId}`,
           ...request.variables,
         };
@@ -100,19 +100,16 @@ export class CommunicationsService {
           await CommunicationLogService.create({
             userId: recipient.userId,
             eventId: request.eventId,
-            groupId: recipient.groupId,
+            groupId: recipient.groupId || null,
             adminId: request.adminId,
             type: 'email',
             channel: 'email',
-            purpose: this.getPurposeFromTemplateType(request.templateType),
-            subject: this.replaceVariables(request.subject, variables),
+            purpose: 'custom',
+            subject: this.replaceVariables(request.subject || '', variables),
             content: {
-              html: this.replaceVariables(request.content, variables),
+              html: this.replaceVariables(request.content || '', variables),
             },
-            recipientType:
-              request.recipientType === 'individual'
-                ? 'single'
-                : request.recipientType,
+            recipientType: this.convertRecipientType(request.recipientType),
             recipientIds: request.recipientIds,
             status: 'sent',
             metadata: { messageId: emailResult.messageId },
@@ -130,19 +127,16 @@ export class CommunicationsService {
           await CommunicationLogService.create({
             userId: recipient.userId,
             eventId: request.eventId,
-            groupId: recipient.groupId,
+            groupId: recipient.groupId || null,
             adminId: request.adminId,
             type: 'email',
             channel: 'email',
-            purpose: this.getPurposeFromTemplateType(request.templateType),
-            subject: request.subject,
+            purpose: 'custom',
+            subject: request.subject || '',
             content: {
-              html: request.content,
+              html: request.content || '',
             },
-            recipientType:
-              request.recipientType === 'individual'
-                ? 'single'
-                : request.recipientType,
+            recipientType: this.convertRecipientType(request.recipientType),
             recipientIds: request.recipientIds,
             status: 'failed',
             metadata: { error: emailResult.error },
@@ -271,7 +265,7 @@ export class CommunicationsService {
         templateId: template.id,
         type: this.getMessageTypeFromCategory(template.category),
         emailSubject: processedSubject, // Store the processed subject
-        recipientType: this.convertRecipientType(request.recipientType),
+        recipientType: this.convertMessageRecipientType(request.recipientType),
         recipientIds: request.recipientIds || [],
         templateVariables: baseVariables,
         sentBy: request.adminId,
@@ -284,6 +278,15 @@ export class CommunicationsService {
     // Send emails to eligible recipients
     const deliveries = [];
     for (const recipient of eligibleRecipients) {
+      // Build variables for template substitution (combine base + recipient-specific)
+      const variables: Record<string, any> = {
+        ...baseVariables,
+        firstName: recipient.firstName || '',
+        lastName: recipient.lastName || '',
+        email: recipient.email,
+        unsubscribeLink: `${env.APP_URL || 'http://localhost:3001'}/api/unsubscribe/${recipient.userId}/${template.eventId}`,
+      };
+
       try {
         let trackingUrl: string | null = null;
 
@@ -294,15 +297,6 @@ export class CommunicationsService {
             recipient.userId
           );
         }
-
-        // Build variables for template substitution (combine base + recipient-specific)
-        const variables: Record<string, any> = {
-          ...baseVariables,
-          firstName: recipient.firstName,
-          lastName: recipient.lastName,
-          email: recipient.email,
-          unsubscribeLink: `${env.APP_URL || 'http://localhost:3001'}/api/unsubscribe/${recipient.userId}/${template.eventId}`,
-        };
 
         // For assignment templates, automatically generate itineraryLink
         if (template.category === 'ASSIGNMENT') {
@@ -336,24 +330,18 @@ export class CommunicationsService {
           await CommunicationLogService.create({
             userId: recipient.userId,
             eventId: template.eventId,
-            groupId: recipient.groupId,
+            groupId: recipient.groupId || null,
             adminId: request.adminId,
             type: 'email',
             channel: 'email',
-            purpose:
-              template.type === 'AUTHENTICATION'
-                ? 'authentication'
-                : 'communication',
+            purpose: this.getPurposeFromCategory(template.category),
             subject: this.replaceVariables(template.subject, variables),
             content: {
-              html: this.replaceVariables(template.html, variables),
+              html: this.replaceVariables(finalHtml, variables),
               templateId: template.id,
               variables,
             },
-            recipientType:
-              request.recipientType === 'individual'
-                ? 'single'
-                : request.recipientType,
+            recipientType: this.convertRecipientType(request.recipientType),
             recipientIds: request.recipientIds || [],
             status: 'sent',
             metadata: {
@@ -364,19 +352,6 @@ export class CommunicationsService {
           });
 
           result.sentCount++;
-          deliveries.push({
-            user: recipient.userId,
-            email: {
-              sent: true,
-              sentAt: new Date(),
-              opened: false,
-              openedAt: null,
-              delivered: false,
-              deliveredAt: null,
-              error: null,
-            },
-          });
-
           result.deliveries.push({
             userId: recipient.userId,
             email: recipient.email,
@@ -388,24 +363,18 @@ export class CommunicationsService {
           await CommunicationLogService.create({
             userId: recipient.userId,
             eventId: template.eventId,
-            groupId: recipient.groupId,
+            groupId: recipient.groupId || null,
             adminId: request.adminId,
             type: 'email',
             channel: 'email',
-            purpose:
-              template.type === 'AUTHENTICATION'
-                ? 'authentication'
-                : 'communication',
+            purpose: this.getPurposeFromCategory(template.category),
             subject: this.replaceVariables(template.subject, variables),
             content: {
-              html: this.replaceVariables(template.html, variables),
+              html: this.replaceVariables(finalHtml, variables),
               templateId: template.id,
               variables,
             },
-            recipientType:
-              request.recipientType === 'individual'
-                ? 'single'
-                : request.recipientType,
+            recipientType: this.convertRecipientType(request.recipientType),
             recipientIds: request.recipientIds || [],
             status: 'failed',
             metadata: {
@@ -415,19 +384,6 @@ export class CommunicationsService {
           });
 
           result.failedCount++;
-          deliveries.push({
-            user: recipient.userId,
-            email: {
-              sent: false,
-              sentAt: null,
-              opened: false,
-              openedAt: null,
-              delivered: false,
-              deliveredAt: null,
-              error: emailResult.error,
-            },
-          });
-
           result.deliveries.push({
             userId: recipient.userId,
             email: recipient.email,
@@ -441,24 +397,18 @@ export class CommunicationsService {
           await CommunicationLogService.create({
             userId: recipient.userId,
             eventId: template.eventId,
-            groupId: recipient.groupId,
+            groupId: recipient.groupId || null,
             adminId: request.adminId,
             type: 'email',
             channel: 'email',
-            purpose:
-              template.type === 'AUTHENTICATION'
-                ? 'authentication'
-                : 'communication',
-            subject: template.subject,
+            purpose: this.getPurposeFromCategory(template.category),
+            subject: this.replaceVariables(template.subject, variables),
             content: {
-              html: template.html,
+              html: this.replaceVariables(template.html, variables),
               templateId: template.id,
               variables,
             },
-            recipientType:
-              request.recipientType === 'individual'
-                ? 'single'
-                : request.recipientType,
+            recipientType: this.convertRecipientType(request.recipientType),
             recipientIds: request.recipientIds || [],
             status: 'failed',
             metadata: {
@@ -471,19 +421,6 @@ export class CommunicationsService {
         }
 
         result.failedCount++;
-        deliveries.push({
-          user: recipient.userId,
-          email: {
-            sent: false,
-            sentAt: null,
-            opened: false,
-            openedAt: null,
-            delivered: false,
-            deliveredAt: null,
-            error: error.message,
-          },
-        });
-
         result.deliveries.push({
           userId: recipient.userId,
           email: recipient.email,
@@ -563,7 +500,22 @@ export class CommunicationsService {
     }
   }
 
-  private static convertRecipientType(type: string): any {
+  // For CommunicationLog (lowercase strings)
+  private static convertRecipientType(type: string): 'single' | 'group' | 'event' | 'custom' {
+    switch (type) {
+      case 'individual':
+        return 'single';
+      case 'group':
+        return 'group';
+      case 'all':
+        return 'event';
+      default:
+        return 'single';
+    }
+  }
+
+  // For Message model (uppercase enum)
+  private static convertMessageRecipientType(type: string): 'INDIVIDUAL' | 'GROUP' | 'ALL' {
     switch (type) {
       case 'individual':
         return 'INDIVIDUAL';
@@ -573,6 +525,26 @@ export class CommunicationsService {
         return 'ALL';
       default:
         return 'INDIVIDUAL';
+    }
+  }
+
+  // Map template category to communication log purpose
+  private static getPurposeFromCategory(category: string): 'group_assignment' | 'event_reminder' | 'custom' | 'announcement' {
+    switch (category) {
+      case 'WELCOME':
+        return 'event_reminder';
+      case 'ASSIGNMENT':
+        return 'group_assignment';
+      case 'ACTIVITY_UPDATE':
+        return 'event_reminder';
+      case 'ANNOUNCEMENT':
+        return 'announcement';
+      case 'OTP_VERIFICATION':
+        return 'custom';
+      case 'CUSTOM':
+        return 'custom';
+      default:
+        return 'custom';
     }
   }
 
@@ -618,10 +590,10 @@ export class CommunicationsService {
       .map((user) => ({
         userId: user.id,
         email: (user.profile as any)?.email,
-        firstName: (user.profile as any)?.firstName,
-        lastName: (user.profile as any)?.lastName,
+        firstName: (user.profile as any)?.firstName || '',
+        lastName: (user.profile as any)?.lastName || '',
         emailOptIn: (user.communication as any)?.emailOptIn || false,
-        groupId: user.groupId,
+        groupId: user.groupIds?.[0] || null,
       }))
       .filter((r) => r.email); // Filter out users without email
   }
@@ -708,27 +680,11 @@ export class CommunicationsService {
         !(u.communication as any)?.whatsappOptIn
     ).length;
 
-    // Calculate opened messages from message tracking
-    const messages = await prisma.message.findMany({
-      where: { eventId },
-      include: {
-        emailTracking: true,
-      },
-    });
-
-    const openedMessages = messages.reduce((count, message) => {
-      return (
-        count +
-        message.emailTracking.filter((tracking) => tracking.opened).length
-      );
-    }, 0);
-
     return {
       totalMessages,
       emailMessages,
       deliveredMessages,
       failedMessages,
-      openedMessages,
       optInStats: {
         emailOnly,
         whatsappOnly,

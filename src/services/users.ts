@@ -65,7 +65,7 @@ export class UserService {
   }
 
   static async findById(id: string): Promise<User | null> {
-    return prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id, active: true },
       include: {
         event: {
@@ -82,6 +82,23 @@ export class UserService {
         },
       },
     });
+
+    if (!user) return null;
+
+    // Populate groups data
+    const groups = await prisma.group.findMany({
+      where: {
+        id: { in: user.groupIds },
+        active: true,
+        deleted: false
+      },
+      select: { id: true, name: true, description: true, memberCount: true },
+    });
+
+    return {
+      ...user,
+      groups,
+    } as any;
   }
 
   static async findByEmail(
@@ -117,17 +134,17 @@ export class UserService {
       search?: string;
       hasRequirements?: boolean;
       requirementType?:
-        | 'dietary'
-        | 'medical'
-        | 'accessibility'
-        | 'accommodation'
-        | 'any';
+      | 'dietary'
+      | 'medical'
+      | 'accessibility'
+      | 'accommodation'
+      | 'any';
       communicationType?:
-        | 'email-only'
-        | 'whatsapp-only'
-        | 'both'
-        | 'none'
-        | 'any';
+      | 'email-only'
+      | 'whatsapp-only'
+      | 'both'
+      | 'none'
+      | 'any';
     } = {}
   ): Promise<PaginatedResponse<User>> {
     const { page, limit } = pagination;
@@ -246,10 +263,23 @@ export class UserService {
     // Apply pagination
     filteredCount = filtered.length;
     const startIndex = (page - 1) * limit;
-    users = filtered.slice(startIndex, startIndex + limit);
+    const paginatedUsers = filtered.slice(startIndex, startIndex + limit);
+
+    // Populate groups data for paginated users
+    const allGroups = await prisma.group.findMany({
+      where: { eventId, active: true, deleted: false },
+      select: { id: true, name: true, description: true, memberCount: true },
+    });
+
+    const groupMap = new Map(allGroups.map(g => [g.id, g]));
+
+    const usersWithGroups = paginatedUsers.map(user => ({
+      ...user,
+      groups: user.groupIds.map(groupId => groupMap.get(groupId)).filter(Boolean),
+    }));
 
     return {
-      items: users,
+      items: usersWithGroups,
       pagination: {
         page,
         limit,
@@ -489,10 +519,12 @@ export class UserService {
         performedByType: 'ADMIN',
         summary,
         metadata: {
-          userEmail,
-          adminEmail,
-          groupName: group?.name || groupId,
-          ...(conflictAnalysis.hasIssues ? { conflictsDetected: true } : {}),
+          additionalContext: {
+            userEmail,
+            adminEmail,
+            groupName: group?.name || groupId,
+            ...(conflictAnalysis.hasIssues ? { conflictsDetected: true } : {}),
+          },
         },
       });
     }
@@ -528,9 +560,11 @@ export class UserService {
         performedByType: 'ADMIN',
         summary,
         metadata: {
-          userEmail,
-          adminEmail,
-          groupName: group?.name || groupId,
+          additionalContext: {
+            userEmail,
+            adminEmail,
+            groupName: group?.name || groupId,
+          },
         },
       });
     }
@@ -565,7 +599,7 @@ export class UserService {
   }> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { groupIds: true, assigned: true, eventId: true },
+      select: { groupIds: true, assigned: true, eventId: true, assignedAt: true },
     });
 
     if (!user || !user.assigned || user.groupIds.length === 0) {
@@ -679,7 +713,7 @@ export class UserService {
   ): Promise<User> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { groupId: true, assigned: true, eventId: true },
+      select: { groupIds: true, assigned: true, eventId: true },
     });
 
     if (!user) {
@@ -700,21 +734,21 @@ export class UserService {
       throw new Error('Group and user must belong to the same event');
     }
 
-    const oldGroupId = user.groupId;
+    const oldGroupIds = user.groupIds;
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
-        groupId: newGroupId,
+        groupIds: [newGroupId],
         assigned: true,
         assignedAt: new Date(),
         assignedBy: adminId,
       },
     });
 
-    // Update both group member counts
-    if (oldGroupId) {
-      await GroupService.updateMemberCount(oldGroupId);
+    // Update group member counts (legacy method for compatibility)
+    if (oldGroupIds && oldGroupIds.length > 0) {
+      await Promise.all(oldGroupIds.map(groupId => GroupService.updateMemberCount(groupId)));
     }
     await GroupService.updateMemberCount(newGroupId);
 
@@ -841,9 +875,9 @@ export class UserService {
 
     const usersWithStatus = users.map((user) => ({
       ...user,
-      notificationStatus: user.groupAssignmentNotified
+      notificationStatus: (user.groupAssignmentNotified
         ? 'notified'
-        : ('pending' as const),
+        : 'pending') as 'notified' | 'pending',
     }));
 
     return {
@@ -957,12 +991,14 @@ export class UserService {
         performedByType: 'ADMIN',
         summary,
         metadata: {
-          userEmail,
-          adminEmail,
-          deletedUserProfile: {
-            email: (user.profile as any)?.email,
-            firstName: (user.profile as any)?.firstName,
-            lastName: (user.profile as any)?.lastName,
+          additionalContext: {
+            userEmail,
+            adminEmail,
+            deletedUserProfile: {
+              email: (user.profile as any)?.email,
+              firstName: (user.profile as any)?.firstName,
+              lastName: (user.profile as any)?.lastName,
+            },
           },
         },
       });
@@ -1139,8 +1175,8 @@ export class UserService {
         averageFlightDuration:
           durations.length > 0
             ? Math.round(
-                durations.reduce((sum, d) => sum + d, 0) / durations.length
-              )
+              durations.reduce((sum, d) => sum + d, 0) / durations.length
+            )
             : 0,
         earliestDeparture:
           departureDates.length > 0
