@@ -53,9 +53,10 @@ export class ActivityService {
       );
     }
 
-    if (activityStart >= activityEnd) {
-      throw new Error('Activity start date must be before end date');
-    }
+    // DISABLED: Allow any date combination
+    // if (activityStart >= activityEnd) {
+    //   throw new Error('Activity start date must be before end date');
+    // }
 
     // Check for conflicts if activity is assigned to groups and has capacity limit, and conflicts are not allowed
     if (
@@ -604,9 +605,10 @@ export class ActivityService {
         );
       }
 
-      if (activityStart >= activityEnd) {
-        throw new Error('Activity start date must be before end date');
-      }
+      // DISABLED: Allow any date combination  
+      // if (activityStart >= activityEnd) {
+      //   throw new Error('Activity start date must be before end date');
+      // }
     }
 
     // Check for capacity conflicts if updating capacity or group assignments
