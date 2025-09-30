@@ -354,7 +354,9 @@ app.openapi(exportUsersRoute, async (c) => {
           profile.lastName || '',
           profile.email || '',
           profile.phone || '',
-          user.groupId ? groupLookup.get(user.groupId) || user.groupId : '',
+          user.groupIds.length > 0
+            ? user.groupIds.map((id) => groupLookup.get(id) || id).join(', ')
+            : '',
           requirements.dietary || '',
           requirements.medical || '',
           requirements.accessibility || '',
@@ -2062,7 +2064,9 @@ app.openapi(exportGroupsRoute, async (c) => {
 
       const rows = groups.items.map((group) => {
         // Find users assigned to this group
-        const assignedUsers = users.items.filter((u) => u.groupId === group.id);
+        const assignedUsers = users.items.filter((u) =>
+          u.groupIds.includes(group.id)
+        );
         const memberEmails = assignedUsers
           .map((u) => (u.profile as any)?.email)
           .filter(Boolean)
@@ -3248,7 +3252,11 @@ app.openapi(exportActivitiesRoute, async (c) => {
 
         return [
           activity.title,
-          groupLookup.get(activity.groupId) || activity.groupId,
+          activity.groupIds.length > 0
+            ? activity.groupIds
+                .map((id) => groupLookup.get(id) || id)
+                .join(', ')
+            : '',
           activity.startDateTime.toISOString().slice(0, 16).replace('T', ' '),
           activity.endDateTime.toISOString().slice(0, 16).replace('T', ' '),
           location.name || '',
@@ -4651,10 +4659,7 @@ app.openapi(getMessageDetailRoute, async (c) => {
               select: {
                 id: true,
                 profile: true,
-                groupId: true,
-                group: {
-                  select: { name: true },
-                },
+                groupIds: true,
               },
             },
           },
@@ -4680,29 +4685,76 @@ app.openapi(getMessageDetailRoute, async (c) => {
 
     // Extract recipients from deliveries JSON
     const deliveries = (message.deliveries as any[]) || [];
-    const recipients = deliveries.map((delivery: any) => {
-      const tracking = message.emailTracking.find(
-        (t) => t.userId === delivery.user
-      );
-      const userProfile = tracking?.user.profile as any;
 
-      return {
-        userId: delivery.user,
-        email: delivery.userEmail || userProfile?.email || '',
-        firstName:
-          delivery.userName?.split(' ')[0] || userProfile?.firstName || '',
-        lastName:
-          delivery.userName?.split(' ').slice(1).join(' ') ||
-          userProfile?.lastName ||
-          '',
-        groupName: tracking?.user.group?.name || null,
-        status: delivery.email?.sent ? 'sent' : 'failed',
-        sentAt: delivery.email?.sentAt || null,
-        openedAt: tracking?.opened ? tracking.openedAt : null,
-        error: delivery.email?.error || null,
-        trackingEnabled: !!tracking,
-      };
-    });
+    // If deliveries is empty, try to get recipient data from CommunicationLog
+    let recipients = [];
+
+    if (deliveries.length > 0) {
+      // Use deliveries data (preferred method)
+      recipients = deliveries.map((delivery: any) => {
+        const tracking = message.emailTracking.find(
+          (t) => t.userId === delivery.user
+        );
+        const userProfile = tracking?.user.profile as any;
+
+        return {
+          userId: delivery.user,
+          email: delivery.userEmail || userProfile?.email || '',
+          firstName:
+            delivery.userName?.split(' ')[0] || userProfile?.firstName || '',
+          lastName:
+            delivery.userName?.split(' ').slice(1).join(' ') ||
+            userProfile?.lastName ||
+            '',
+          groupName: null, // TODO: Implement multi-group name resolution if needed
+          status: delivery.email?.sent ? 'sent' : 'failed',
+          sentAt: delivery.email?.sentAt || null,
+          openedAt: tracking?.opened ? tracking.openedAt : null,
+          error: delivery.email?.error || null,
+          trackingEnabled: !!tracking,
+        };
+      });
+    } else {
+      // Fallback: Get recipient data from CommunicationLog
+      const communicationLogs = await prisma.communicationLog.findMany({
+        where: {
+          eventId: message.eventId,
+          sentAt: {
+            gte: new Date(message.createdAt.getTime() - 60000), // Within 1 minute of message creation
+            lte: new Date(message.createdAt.getTime() + 60000),
+          },
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              profile: true,
+              groupIds: true,
+            },
+          },
+        },
+      });
+
+      recipients = communicationLogs.map((log) => {
+        const userProfile = log.user.profile as any;
+        const tracking = message.emailTracking.find(
+          (t) => t.userId === log.userId
+        );
+
+        return {
+          userId: log.userId,
+          email: userProfile?.email || '',
+          firstName: userProfile?.firstName || '',
+          lastName: userProfile?.lastName || '',
+          groupName: null, // TODO: Implement multi-group name resolution if needed
+          status: log.status as 'sent' | 'failed' | 'pending',
+          sentAt: log.sentAt.toISOString(),
+          openedAt: tracking?.opened ? tracking.openedAt : null,
+          error: log.error || null,
+          trackingEnabled: !!tracking,
+        };
+      });
+    }
 
     // Calculate summary stats
     const sentCount = recipients.filter((r) => r.status === 'sent').length;
