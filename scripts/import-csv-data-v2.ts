@@ -214,7 +214,6 @@ interface ActivityDefinition {
   }>; // Optional structured timing schedule
 }
 
-
 const activityDefinitions: ActivityDefinition[] = [
   // TUESDAY 30th September 2025
   {
@@ -230,28 +229,28 @@ const activityDefinitions: ActivityDefinition[] = [
       {
         enabled: true,
         time: '17:30',
-        description: 'Meet in the Hotel Lobby'
+        description: 'Meet in the Hotel Lobby',
       },
       {
         enabled: true,
         time: '17:45',
-        description: 'Depart for the Edition Hotel'
+        description: 'Depart for the Edition Hotel',
       },
       {
         enabled: true,
         time: '18:20',
-        description: 'Arrive at the Edition Hotel'
+        description: 'Arrive at the Edition Hotel',
       },
       {
         enabled: true,
         time: '21:00',
-        description: 'Depart for the Mondrian Hotel'
+        description: 'Depart for the Mondrian Hotel',
       },
       {
         enabled: true,
         time: '21:45',
-        description: 'Arrive back at the Mondrian Hotel'
-      }
+        description: 'Arrive back at the Mondrian Hotel',
+      },
     ],
   },
 
@@ -291,33 +290,34 @@ const activityDefinitions: ActivityDefinition[] = [
       {
         enabled: true,
         time: '15:15',
-        description: 'Meet in the Hotel Lobby'
+        description: 'Meet in the Hotel Lobby',
       },
       {
         enabled: true,
         time: '15:30',
-        description: 'Depart for Air CCCC'
+        description: 'Depart for Air CCCC',
       },
       {
         enabled: true,
         time: '16:10',
-        description: 'Arrive at Air CCCC'
+        description: 'Arrive at Air CCCC',
       },
       {
         enabled: true,
         time: '22:15',
-        description: 'Depart for the Mondrian Hotel'
+        description: 'Depart for the Mondrian Hotel',
       },
       {
         enabled: true,
         time: '23:00',
-        description: 'Arrive back at the Mondrian Hotel'
-      }
+        description: 'Arrive back at the Mondrian Hotel',
+      },
     ],
   },
 
   // FRIDAY 3rd October 2025
-  { // On track
+  {
+    // On track
     title: 'Casa Ferrari',
     date: '03/10/2025',
     time: '14:40',
@@ -330,37 +330,38 @@ const activityDefinitions: ActivityDefinition[] = [
       {
         enabled: true,
         time: '14:40',
-        description: 'Meet in the Hotel Lobby'
+        description: 'Meet in the Hotel Lobby',
       },
       {
         enabled: true,
         time: '14:55',
-        description: 'Depart for the Track'
+        description: 'Depart for the Track',
       },
       {
         enabled: true,
         time: '15:40',
-        description: 'Arrive at the Track'
+        description: 'Arrive at the Track',
       },
       {
         enabled: true,
         time: '22:15',
-        description: 'Depart for the Mandarin Oriental Hotel'
+        description: 'Depart for the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '22:45',
-        description: 'Arrive at the Mandarin Oriental Hotel'
+        description: 'Arrive at the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '23:00',
-        description: 'Depart for the evening bars'
-      }
+        description: 'Depart for the evening bars',
+      },
     ],
   },
 
-  { // Paddock
+  {
+    // Paddock
     title: 'PRS Paddock Club - Friday',
     date: '03/10/2025',
     time: '14:40',
@@ -373,37 +374,38 @@ const activityDefinitions: ActivityDefinition[] = [
       {
         enabled: true,
         time: '14:40',
-        description: 'Meet in the Hotel Lobby'
+        description: 'Meet in the Hotel Lobby',
       },
       {
         enabled: true,
         time: '14:55',
-        description: 'Depart for the Track'
+        description: 'Depart for the Track',
       },
       {
         enabled: true,
         time: '15:40',
-        description: 'Arrive at the Track'
+        description: 'Arrive at the Track',
       },
       {
         enabled: true,
         time: '22:15',
-        description: 'Depart for the Mandarin Oriental Hotel'
+        description: 'Depart for the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '22:45',
-        description: 'Arrive at the Mandarin Oriental Hotel'
+        description: 'Arrive at the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '23:00',
-        description: 'Depart for the evening bars'
-      }
+        description: 'Depart for the evening bars',
+      },
     ],
   },
 
-  { // On track
+  {
+    // On track
     title: 'Regal Club - Friday',
     date: '03/10/2025',
     time: '14:40',
@@ -416,37 +418,38 @@ const activityDefinitions: ActivityDefinition[] = [
       {
         enabled: true,
         time: '14:40',
-        description: 'Meet in the Hotel Lobby'
+        description: 'Meet in the Hotel Lobby',
       },
       {
         enabled: true,
         time: '14:55',
-        description: 'Depart for the Track'
+        description: 'Depart for the Track',
       },
       {
         enabled: true,
         time: '15:40',
-        description: 'Arrive at the Track'
+        description: 'Arrive at the Track',
       },
       {
         enabled: true,
         time: '22:15',
-        description: 'Depart for the Mandarin Oriental Hotel'
+        description: 'Depart for the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '22:45',
-        description: 'Arrive at the Mandarin Oriental Hotel'
+        description: 'Arrive at the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '23:00',
-        description: 'Depart for the evening bars'
-      }
+        description: 'Depart for the evening bars',
+      },
     ],
   },
 
-  { // Off track
+  {
+    // Off track
     title: 'Crystal Gold Lounge - Friday',
     date: '03/10/2025',
     time: '15:05',
@@ -459,33 +462,33 @@ const activityDefinitions: ActivityDefinition[] = [
       {
         enabled: true,
         time: '15:05',
-        description: 'Meet in the Hotel Lobby'
+        description: 'Meet in the Hotel Lobby',
       },
       {
         enabled: true,
         time: '15:20',
-        description: 'Depart for the Chivas Regal Crystalgold Lounge'
+        description: 'Depart for the Chivas Regal Crystalgold Lounge',
       },
       {
         enabled: true,
         time: '16:00',
-        description: 'Arrive at the Chivas Regal Crystalgold Lounge'
+        description: 'Arrive at the Chivas Regal Crystalgold Lounge',
       },
       {
         enabled: true,
         time: '22:30',
-        description: 'Depart for the Mandarin Oriental Hotel'
+        description: 'Depart for the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '22:45',
-        description: 'Arrive at the Mandarin Oriental Hotel'
+        description: 'Arrive at the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '23:00',
-        description: 'Depart for the evening bars'
-      }
+        description: 'Depart for the evening bars',
+      },
     ],
   },
 
@@ -502,9 +505,9 @@ const activityDefinitions: ActivityDefinition[] = [
     eveningBarOptions: [
       'Manhattan Bar',
       'Origin Bar',
-      'Republic Bar Singapore',
+      'Republic Bar',
       'Stay Gold',
-      'Nutmeg & Clove',
+      'Nutmeg Clove',
       'Somma Bar',
       'Lobby',
       'Atlas',
@@ -525,7 +528,7 @@ const activityDefinitions: ActivityDefinition[] = [
     timingTable: [],
   },
   {
-    title: 'Evening Bar - Republic Bar Singapore',
+    title: 'Evening Bar - Republic Bar',
     date: '03/10/2025',
     time: '23:00',
     endTime: '00:00',
@@ -549,7 +552,7 @@ const activityDefinitions: ActivityDefinition[] = [
     timingTable: [],
   },
   {
-    title: 'Evening Bar - Nutmeg & Clove',
+    title: 'Evening Bar - Nutmeg Clove',
     date: '03/10/2025',
     time: '23:00',
     endTime: '00:00',
@@ -608,7 +611,8 @@ const activityDefinitions: ActivityDefinition[] = [
     importKey: 'fred-vasseur-interview',
   },
 
-  { // On track
+  {
+    // On track
     title: 'PRS Paddock Club - Saturday',
     date: '04/10/2025',
     time: '14:40',
@@ -621,47 +625,48 @@ const activityDefinitions: ActivityDefinition[] = [
       {
         enabled: true,
         time: '14:40',
-        description: 'Meet in the Hotel Lobby'
+        description: 'Meet in the Hotel Lobby',
       },
       {
         enabled: true,
         time: '14:55',
-        description: 'Depart for the Track'
+        description: 'Depart for the Track',
       },
       {
         enabled: true,
         time: '15:40',
-        description: 'Arrive at the Track'
+        description: 'Arrive at the Track',
       },
       {
         enabled: true,
         time: '16:00',
-        description: 'Welcomed to the Hospitality Suite'
+        description: 'Welcomed to the Hospitality Suite',
       },
       {
         enabled: true,
         time: '22:30',
-        description: 'Depart for the Mandarin Oriental Hotel'
+        description: 'Depart for the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '22:45',
-        description: 'Arrive at the Mandarin Oriental Hotel'
+        description: 'Arrive at the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '23:00',
-        description: 'Depart for the Mondrian Hotel'
+        description: 'Depart for the Mondrian Hotel',
       },
       {
         enabled: true,
         time: '23:40',
-        description: 'Arrive back at the Mondrian Hotel'
-      }
+        description: 'Arrive back at the Mondrian Hotel',
+      },
     ],
   },
 
-  { // On track
+  {
+    // On track
     title: 'Regal Club - Saturday',
     date: '04/10/2025',
     time: '14:20',
@@ -674,47 +679,48 @@ const activityDefinitions: ActivityDefinition[] = [
       {
         enabled: true,
         time: '14:20',
-        description: 'Meet in the Hotel Lobby'
+        description: 'Meet in the Hotel Lobby',
       },
       {
         enabled: true,
         time: '14:40',
-        description: 'Depart for the Track'
+        description: 'Depart for the Track',
       },
       {
         enabled: true,
         time: '15:20',
-        description: 'Arrive at the Track'
+        description: 'Arrive at the Track',
       },
       {
         enabled: true,
         time: '15:40',
-        description: 'Welcomed to the Hospitality Suite'
+        description: 'Welcomed to the Hospitality Suite',
       },
       {
         enabled: true,
         time: '22:30',
-        description: 'Depart for the Mandarin Oriental Hotel'
+        description: 'Depart for the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '22:45',
-        description: 'Arrive at the Mandarin Oriental Hotel'
+        description: 'Arrive at the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '23:00',
-        description: 'Depart for the Mondrian Hotel'
+        description: 'Depart for the Mondrian Hotel',
       },
       {
         enabled: true,
         time: '23:40',
-        description: 'Arrive back at the Mondrian Hotel'
-      }
+        description: 'Arrive back at the Mondrian Hotel',
+      },
     ],
   },
 
-  { // Off track
+  {
+    // Off track
     title: 'Crystal Gold Lounge - Saturday',
     date: '04/10/2025',
     time: '15:05',
@@ -727,38 +733,38 @@ const activityDefinitions: ActivityDefinition[] = [
       {
         enabled: true,
         time: '15:05',
-        description: 'Meet in the Hotel Lobby'
+        description: 'Meet in the Hotel Lobby',
       },
       {
         enabled: true,
         time: '15:20',
-        description: 'Depart for the Chivas Regal Crystalgold Lounge'
+        description: 'Depart for the Chivas Regal Crystalgold Lounge',
       },
       {
         enabled: true,
         time: '16:00',
-        description: 'Arrive at the Chivas Regal Crystalgold Lounge'
+        description: 'Arrive at the Chivas Regal Crystalgold Lounge',
       },
       {
         enabled: true,
         time: '22:30',
-        description: 'Depart for the Mandarin Oriental Hotel'
+        description: 'Depart for the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '22:45',
-        description: 'Arrive at the Mandarin Oriental Hotel'
+        description: 'Arrive at the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '23:00',
-        description: 'Depart for the Mondrian Hotel'
+        description: 'Depart for the Mondrian Hotel',
       },
       {
         enabled: true,
         time: '23:40',
-        description: 'Arrive back at the Mondrian Hotel'
-      }
+        description: 'Arrive back at the Mondrian Hotel',
+      },
     ],
   },
 
@@ -775,28 +781,28 @@ const activityDefinitions: ActivityDefinition[] = [
       {
         enabled: true,
         time: '00:00',
-        description: 'Meet in the Hotel Lobby'
+        description: 'Meet in the Hotel Lobby',
       },
       {
         enabled: true,
         time: '00:10',
-        description: 'Depart for the Sushi Samba After Party'
+        description: 'Depart for the Sushi Samba After Party',
       },
       {
         enabled: true,
         time: '00:20',
-        description: 'Arrive at the Sushi Samba After Party'
+        description: 'Arrive at the Sushi Samba After Party',
       },
       {
         enabled: true,
         time: '02:00',
-        description: 'Depart for the Mondrian Hotel'
+        description: 'Depart for the Mondrian Hotel',
       },
       {
         enabled: true,
         time: '02:15',
-        description: 'Arrive back at the Mondrian Hotel'
-      }
+        description: 'Arrive back at the Mondrian Hotel',
+      },
     ],
   },
 
@@ -814,43 +820,43 @@ const activityDefinitions: ActivityDefinition[] = [
       {
         enabled: true,
         time: '15:45',
-        description: 'Meet in the Hotel Lobby'
+        description: 'Meet in the Hotel Lobby',
       },
       {
         enabled: true,
         time: '16:00',
-        description: 'Depart for the Track'
+        description: 'Depart for the Track',
       },
       {
         enabled: true,
         time: '16:40',
-        description: 'Arrive at the Track'
+        description: 'Arrive at the Track',
       },
       {
         enabled: true,
         time: '17:00',
-        description: 'Welcomed to the Hospitality Suite'
+        description: 'Welcomed to the Hospitality Suite',
       },
       {
         enabled: true,
         time: '23:30',
-        description: 'Depart for the Mandarin Oriental Hotel'
+        description: 'Depart for the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '23:45',
-        description: 'Arrive at the Mandarin Oriental Hotel'
+        description: 'Arrive at the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '00:00',
-        description: 'Depart for the Mondrian Hotel'
+        description: 'Depart for the Mondrian Hotel',
       },
       {
         enabled: true,
         time: '00:40',
-        description: 'Arrive back at the Mondrian Hotel'
-      }
+        description: 'Arrive back at the Mondrian Hotel',
+      },
     ],
   },
   {
@@ -866,43 +872,44 @@ const activityDefinitions: ActivityDefinition[] = [
       {
         enabled: true,
         time: '15:45',
-        description: 'Meet in the Hotel Lobby'
+        description: 'Meet in the Hotel Lobby',
       },
       {
         enabled: true,
         time: '16:00',
-        description: 'Depart for the Track'
-      }, ,
+        description: 'Depart for the Track',
+      },
+      ,
       {
         enabled: true,
         time: '16:40',
-        description: 'Arrive at the Track'
+        description: 'Arrive at the Track',
       },
       {
         enabled: true,
         time: '17:00',
-        description: 'Welcomed to the Hospitality Suite'
+        description: 'Welcomed to the Hospitality Suite',
       },
       {
         enabled: true,
         time: '23:30',
-        description: 'Depart for the Mandarin Oriental Hotel'
+        description: 'Depart for the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '23:45',
-        description: 'Arrive at the Mandarin Oriental Hotel'
+        description: 'Arrive at the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '00:00',
-        description: 'Depart for the Mondrian Hotel'
+        description: 'Depart for the Mondrian Hotel',
       },
       {
         enabled: true,
         time: '00:40',
-        description: 'Arrive back at the Mondrian Hotel'
-      }
+        description: 'Arrive back at the Mondrian Hotel',
+      },
     ],
   },
 
@@ -919,38 +926,38 @@ const activityDefinitions: ActivityDefinition[] = [
       {
         enabled: true,
         time: '16:05',
-        description: 'Meet in the Hotel Lobby'
+        description: 'Meet in the Hotel Lobby',
       },
       {
         enabled: true,
         time: '16:20',
-        description: 'Depart for the Chivas Regal Crystalgold Lounge'
+        description: 'Depart for the Chivas Regal Crystalgold Lounge',
       },
       {
         enabled: true,
         time: '17:00',
-        description: 'Arrive at the Chivas Regal Crystalgold Lounge'
+        description: 'Arrive at the Chivas Regal Crystalgold Lounge',
       },
       {
         enabled: true,
         time: '23:30',
-        description: 'Depart for the Mandarin Oriental Hotel'
+        description: 'Depart for the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '23:45',
-        description: 'Arrive at the Mandarin Oriental Hotel'
+        description: 'Arrive at the Mandarin Oriental Hotel',
       },
       {
         enabled: true,
         time: '00:00',
-        description: 'Depart for the Mondrian Hotel'
+        description: 'Depart for the Mondrian Hotel',
       },
       {
         enabled: true,
         time: '00:40',
-        description: 'Arrive back at the Mondrian Hotel'
-      }
+        description: 'Arrive back at the Mondrian Hotel',
+      },
     ],
   },
 
@@ -967,28 +974,28 @@ const activityDefinitions: ActivityDefinition[] = [
       {
         enabled: true,
         time: '01:00',
-        description: 'Meet in the Hotel Lobby'
+        description: 'Meet in the Hotel Lobby',
       },
       {
         enabled: true,
         time: '01:10',
-        description: 'Depart for the LAVO After Party'
+        description: 'Depart for the LAVO After Party',
       },
       {
         enabled: true,
         time: '01:30',
-        description: 'Arrive at the LAVO After Party'
+        description: 'Arrive at the LAVO After Party',
       },
       {
         enabled: true,
         time: '03:30',
-        description: 'Depart for the Mondrian Hotel'
+        description: 'Depart for the Mondrian Hotel',
       },
       {
         enabled: true,
         time: '03:50',
-        description: 'Arrive back at the Mondrian Hotel'
-      }
+        description: 'Arrive back at the Mondrian Hotel',
+      },
     ],
   },
 ];
@@ -1163,7 +1170,9 @@ async function getOrCreateActivity(
     let endMinutes = minutes;
 
     if (activityDef.endTime) {
-      const [endH, endM] = activityDef.endTime.split(':').map((n) => parseInt(n));
+      const [endH, endM] = activityDef.endTime
+        .split(':')
+        .map((n) => parseInt(n));
       endHours = endH;
       endMinutes = endM;
     }
@@ -1181,13 +1190,19 @@ async function getOrCreateActivity(
 
     // 🎯 FIXED: Create date components as UTC first, then convert to Singapore timezone
     // This ensures the time components (year, month, day, hour, minute) are interpreted as Singapore time
-    const utcStartDate = new Date(Date.UTC(year, month, day, hours, minutes, 0));
-    const utcEndDate = new Date(Date.UTC(year, month, day, endHours, endMinutes, 0));
+    const utcStartDate = new Date(
+      Date.UTC(year, month, day, hours, minutes, 0)
+    );
+    const utcEndDate = new Date(
+      Date.UTC(year, month, day, endHours, endMinutes, 0)
+    );
 
     // Subtract Singapore offset to get the correct UTC time
     // Singapore is UTC+8, so Singapore 20:00 = UTC 12:00
     const singaporeOffsetMs = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
-    const utcStartDateTime = new Date(utcStartDate.getTime() - singaporeOffsetMs);
+    const utcStartDateTime = new Date(
+      utcStartDate.getTime() - singaporeOffsetMs
+    );
     const utcEndDateTime = new Date(utcEndDate.getTime() - singaporeOffsetMs);
 
     // Check if activity already exists with same title and date
@@ -1211,9 +1226,7 @@ async function getOrCreateActivity(
     console.log(
       `✨ Creating new activity: "${activityDef.title}" on ${activityDef.date} at ${startTimeString}-${endTimeString}`
     );
-    console.log(
-      `   🎯 Converting: ${dateTimeString} (Singapore)`
-    );
+    console.log(`   🎯 Converting: ${dateTimeString} (Singapore)`);
     console.log(`   🌍 UTC start: ${utcStartDateTime.toISOString()}`);
     console.log(`   🌍 UTC end: ${utcEndDateTime.toISOString()}`);
     console.log(
@@ -2215,8 +2228,8 @@ async function main() {
                     : record.occupancy === 'Room Sharer'
                       ? 'room_sharer'
                       : record.occupancy === 'N/A' ||
-                        !record.occupancy ||
-                        record.occupancy.trim() === ''
+                          !record.occupancy ||
+                          record.occupancy.trim() === ''
                         ? 'N/A'
                         : undefined,
             doubleOccupancy: {
