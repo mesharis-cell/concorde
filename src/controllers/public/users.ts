@@ -302,6 +302,12 @@ app.openapi(eventInfoRoute, async (c) => {
       );
     }
 
+    // Import default form config helper
+    const { getFormConfigOrDefault } = await import('../../config/default-form-config.js');
+
+    // Get form config with fallback to default
+    const formConfig = getFormConfigOrDefault(event.registrationFormConfig);
+
     return c.json({
       success: true,
       data: {
@@ -319,6 +325,8 @@ app.openapi(eventInfoRoute, async (c) => {
         privacyPolicy: event.privacyPolicy || null,
         // Groups for registration binding assignment
         groups: (event as any).groups || [],
+        // Dynamic registration form configuration
+        registrationFormConfig: formConfig,
       },
     });
   } catch (error: any) {

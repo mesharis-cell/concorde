@@ -365,25 +365,25 @@ app.openapi(exportUsersRoute, async (c) => {
           accommodation.hotel || '',
           accommodation.checkIn
             ? parseAccommodationDate(accommodation.checkIn)
-                ?.toISOString()
-                .split('T')[0] || ''
+              ?.toISOString()
+              .split('T')[0] || ''
             : '',
           accommodation.checkOut
             ? parseAccommodationDate(accommodation.checkOut)
-                ?.toISOString()
-                .split('T')[0] || ''
+              ?.toISOString()
+              .split('T')[0] || ''
             : '',
           flight.arrival
             ? new Date(flight.arrival)
-                .toISOString()
-                .slice(0, 16)
-                .replace('T', ' ')
+              .toISOString()
+              .slice(0, 16)
+              .replace('T', ' ')
             : '',
           flight.departure
             ? new Date(flight.departure)
-                .toISOString()
-                .slice(0, 16)
-                .replace('T', ' ')
+              .toISOString()
+              .slice(0, 16)
+              .replace('T', ' ')
             : '',
           flight.arrivalAirport || '',
           flight.departureAirport || '',
@@ -411,8 +411,7 @@ app.openapi(exportUsersRoute, async (c) => {
       c.header('Content-Type', 'text/csv');
       c.header(
         'Content-Disposition',
-        `attachment; filename="users-${eventId}-${
-          new Date().toISOString().split('T')[0]
+        `attachment; filename="users-${eventId}-${new Date().toISOString().split('T')[0]
         }.csv"`
       );
 
@@ -2088,8 +2087,7 @@ app.openapi(exportGroupsRoute, async (c) => {
       c.header('Content-Type', 'text/csv');
       c.header(
         'Content-Disposition',
-        `attachment; filename="groups-${eventId}-${
-          new Date().toISOString().split('T')[0]
+        `attachment; filename="groups-${eventId}-${new Date().toISOString().split('T')[0]
         }.csv"`
       );
       return c.text(csvContent);
@@ -2811,6 +2809,14 @@ app.openapi(updateEventRoute, async (c) => {
       }
     }
     const data = c.req.valid('json');
+
+    console.log('🔵 PATCH /events/{eventId} received data:', {
+      eventId,
+      hasRegistrationFormConfig: data.registrationFormConfig !== undefined,
+      registrationFormConfigKeys: data.registrationFormConfig ? Object.keys(data.registrationFormConfig) : null,
+      fullPayload: JSON.stringify(data, null, 2),
+    });
+
     const event = await EventService.update(eventId, data);
 
     return c.json({
@@ -3008,6 +3014,8 @@ app.openapi(getEventByIdRoute, async (c) => {
     const { eventId } = c.req.valid('param');
     const authUser = c.get('user');
 
+    console.log('🔵 GET /events/{eventId} called:', { eventId });
+
     // Check if admin has access to this event
     if (authUser.adminData?.role !== 'SUPER') {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
@@ -3023,6 +3031,12 @@ app.openapi(getEventByIdRoute, async (c) => {
     }
 
     const event = await EventService.findById(eventId);
+
+    console.log('📤 GET /events/{eventId} response:', {
+      eventId,
+      hasRegistrationFormConfig: event?.registrationFormConfig !== null,
+      registrationFormConfigKeys: event?.registrationFormConfig ? Object.keys(event.registrationFormConfig) : null,
+    });
 
     if (!event) {
       return c.json(
@@ -3254,8 +3268,8 @@ app.openapi(exportActivitiesRoute, async (c) => {
           activity.title,
           activity.groupIds.length > 0
             ? activity.groupIds
-                .map((id) => groupLookup.get(id) || id)
-                .join(', ')
+              .map((id) => groupLookup.get(id) || id)
+              .join(', ')
             : '',
           activity.startDateTime.toISOString().slice(0, 16).replace('T', ' '),
           activity.endDateTime.toISOString().slice(0, 16).replace('T', ' '),
@@ -3275,8 +3289,7 @@ app.openapi(exportActivitiesRoute, async (c) => {
       c.header('Content-Type', 'text/csv');
       c.header(
         'Content-Disposition',
-        `attachment; filename="activities-${eventId}-${
-          new Date().toISOString().split('T')[0]
+        `attachment; filename="activities-${eventId}-${new Date().toISOString().split('T')[0]
         }.csv"`
       );
       return c.text(csvContent);
@@ -4894,9 +4907,8 @@ app.openapi(sendAuthenticationRoute, async (c) => {
       recipientIds: [userId],
       variables: {
         ...variables,
-        magicLink: `${
-          process.env.FRONTEND_URL || 'https://chivasregalmonza.com'
-        }/auth/magic?token=${magicLink.token}&event=${user.eventId}`,
+        magicLink: `${process.env.FRONTEND_URL || 'https://chivasregalmonza.com'
+          }/auth/magic?token=${magicLink.token}&event=${user.eventId}`,
       },
       adminId,
     });
@@ -4985,9 +4997,8 @@ app.openapi(generateUploadUrlRoute, async (c) => {
     let folderPath: string;
     switch (folder) {
       case 'activities':
-        folderPath = `events/${eventId}/activities${
-          activityId ? `/${activityId}` : ''
-        }`;
+        folderPath = `events/${eventId}/activities${activityId ? `/${activityId}` : ''
+          }`;
         break;
       case 'events':
         folderPath = `events/${eventId}/assets`;
@@ -5583,8 +5594,7 @@ app.openapi(importActivitiesRoute, async (c) => {
           !activityData.endDateTime
         ) {
           errors.push(
-            `Row ${
-              i + 2
+            `Row ${i + 2
             }: Missing required fields (title, group, startDateTime, endDateTime)`
           );
           continue;
@@ -6133,10 +6143,10 @@ app.openapi(getCommunicationHistoryRoute, async (c) => {
       templateId: message.templateId,
       template: message.template
         ? {
-            name: message.template.name,
-            type: message.template.type,
-            subject: message.template.subject,
-          }
+          name: message.template.name,
+          type: message.template.type,
+          subject: message.template.subject,
+        }
         : null,
       subject: message.emailSubject || 'Untitled', // emailSubject now contains processed subject
       recipientType: message.recipientType,

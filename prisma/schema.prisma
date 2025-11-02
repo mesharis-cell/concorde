@@ -90,6 +90,9 @@ model Event {
   termsConditions String? // HTML from TipTap editor  
   privacyPolicy   String? // HTML from TipTap editor
 
+  // Dynamic Registration Form Configuration
+  registrationFormConfig Json? // Dynamic multi-step form configuration with validation rules
+
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

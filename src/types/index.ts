@@ -143,6 +143,8 @@ export const CreateEventSchema = z.object({
     .optional(),
   termsConditions: z.string().nullable().optional(),
   privacyPolicy: z.string().nullable().optional(),
+  // Dynamic Registration Form Configuration
+  registrationFormConfig: z.any().optional(),
 });
 export type CreateEvent = z.infer<typeof CreateEventSchema>;
 
@@ -884,3 +886,99 @@ export const BulkExportRequestSchema = z.object({
   format: z.enum(['excel', 'csv']).default('excel'),
 });
 export type BulkExportRequest = z.infer<typeof BulkExportRequestSchema>;
+
+// ============================================================================
+// Dynamic Registration Form Configuration Types
+// ============================================================================
+
+// Field Types - All supported form field types
+export const FormFieldTypeEnum = z.enum([
+  'text',
+  'email',
+  'tel',
+  'url',
+  'password',
+  'textarea',
+  'select',
+  'radio',
+  'checkbox',
+  'switch',
+  'date',
+  'time',
+  'datetime',
+  'file',
+  'number',
+  'dynamic-hotel-select',
+  'dynamic-groups-select',
+]);
+export type FormFieldType = z.infer<typeof FormFieldTypeEnum>;
+
+// Validation Rules Schema
+export const ValidationRulesSchema = z.object({
+  required: z.boolean().default(false),
+  min: z.number().optional(), // For numbers, min value
+  max: z.number().optional(), // For numbers, max value
+  minLength: z.number().optional(), // For strings, min length
+  maxLength: z.number().optional(), // For strings, max length
+  pattern: z.string().optional(), // Regex pattern as string
+  email: z.boolean().optional(), // Email format validation
+  url: z.boolean().optional(), // URL format validation
+  phone: z.boolean().optional(), // Phone format validation
+  custom: z.string().optional(), // Custom validation expression
+  message: z.string().optional(), // Custom error message
+}).optional();
+export type ValidationRules = z.infer<typeof ValidationRulesSchema>;
+
+// Conditional Expression Schema
+export const ConditionalExpressionSchema = z.string().optional();
+export type ConditionalExpression = z.infer<typeof ConditionalExpressionSchema>;
+
+// Select/Radio Option Schema
+export const FieldOptionSchema = z.object({
+  value: z.string(),
+  label: z.string(),
+  disabled: z.boolean().optional().default(false),
+});
+export type FieldOption = z.infer<typeof FieldOptionSchema>;
+
+// Form Field Configuration Schema
+export const FormFieldConfigSchema = z.object({
+  name: z.string().min(1), // Field name (used as key in form data)
+  type: FormFieldTypeEnum,
+  label: z.string().min(1), // Display label
+  placeholder: z.string().optional(), // Placeholder text
+  helperText: z.string().optional(), // Helper text below field
+  required: z.boolean().default(false), // Is field required
+  validation: ValidationRulesSchema, // Validation rules
+  conditional: ConditionalExpressionSchema, // Show/hide based on condition
+  options: z.array(FieldOptionSchema).optional(), // For select/radio fields
+  defaultValue: z.any().optional(), // Default value
+  order: z.number().default(0), // Display order within step
+  rows: z.number().optional(), // For textarea - number of rows
+  multiple: z.boolean().optional(), // For select - allow multiple
+  accept: z.string().optional(), // For file - accepted file types
+  metadata: z.record(z.any()).optional(), // Additional custom metadata
+});
+export type FormFieldConfig = z.infer<typeof FormFieldConfigSchema>;
+
+// Form Step Configuration Schema
+export const FormStepConfigSchema = z.object({
+  label: z.string().min(1), // Step title
+  subLabel: z.string().optional(), // Step subtitle/description
+  order: z.number().default(0), // Step order
+  fields: z.array(FormFieldConfigSchema), // Array of field configurations
+});
+export type FormStepConfig = z.infer<typeof FormStepConfigSchema>;
+
+// Complete Registration Form Configuration Schema
+export const RegistrationFormConfigSchema = z.record(
+  z.string(), // Step key (step1, step2, etc.)
+  FormStepConfigSchema
+);
+export type RegistrationFormConfig = z.infer<typeof RegistrationFormConfigSchema>;
+
+// Update Event Schema to include form config (for API updates)
+export const UpdateEventFormConfigSchema = z.object({
+  registrationFormConfig: RegistrationFormConfigSchema.optional(),
+});
+export type UpdateEventFormConfig = z.infer<typeof UpdateEventFormConfigSchema>;
