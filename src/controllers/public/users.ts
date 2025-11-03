@@ -27,33 +27,17 @@ const eventRegisterRoute = createRoute({
         'application/json': {
           schema: PublicRegistrationSchema.omit({ eventId: true }),
           example: {
-            profile: {
-              email: 'john.doe@example.com',
-              firstName: 'John',
-              lastName: 'Doe',
-              phone: '+1-555-0123',
-            },
+            email: 'john.doe@example.com',
+            formResponses: [
+              { fieldName: 'firstName', fieldLabel: 'First Name', fieldType: 'text', value: 'John', step: 'step1', order: 1 },
+              { fieldName: 'lastName', fieldLabel: 'Last Name', fieldType: 'text', value: 'Doe', step: 'step1', order: 2 },
+              { fieldName: 'phone', fieldLabel: 'Phone Number', fieldType: 'tel', value: '+971501234567', step: 'step1', order: 3 },
+              { fieldName: 'dateOfBirth', fieldLabel: 'Date of Birth', fieldType: 'date', value: '1990-01-01', step: 'step1', order: 5 },
+              { fieldName: 'dietaryRequirements', fieldLabel: 'Dietary Requirements', fieldType: 'textarea', value: 'Vegetarian', step: 'step2', order: 1 },
+            ],
             communication: {
               emailOptIn: true,
               whatsappOptIn: false,
-            },
-            transferRequirements: 'Need wheelchair accessible vehicle',
-            requirements: {
-              dietary: 'Vegetarian, nut allergy',
-              medical: 'Diabetic, requires refrigeration for insulin',
-              accessibility: 'Wheelchair user, requires ramp access',
-              specialRequests: 'High floor, quiet room, early check-in',
-            },
-            merchandiseSize: {
-              shirt: 'L',
-              jacket: 'XL',
-              hat: 'M',
-            },
-            emergencyContact: {
-              name: 'Jane Doe',
-              relationship: 'Spouse',
-              phone: '+1-555-0124',
-              email: 'jane.doe@example.com',
             },
           },
         },
@@ -140,7 +124,8 @@ app.openapi(eventRegisterRoute, async (c) => {
       );
     }
 
-    if (!event.config?.registrationOpen) {
+    const eventConfig = event.config as any;
+    if (!eventConfig?.registrationOpen) {
       return c.json(
         {
           success: false,
@@ -152,7 +137,7 @@ app.openapi(eventRegisterRoute, async (c) => {
 
     // Check if user already exists
     const existingUser = await UserService.findByEmail(
-      data.profile.email,
+      data.email,
       eventId
     );
     if (existingUser) {
@@ -196,10 +181,9 @@ app.openapi(eventRegisterRoute, async (c) => {
         success: true,
         data: {
           id: finalUser.id,
-          profile: finalUser.profile,
+          email: finalUser.email,
           assigned: finalUser.assigned,
           eventId: finalUser.eventId,
-          groupId: finalUser.groupId,
         },
         message: 'Registration completed successfully',
       },
@@ -302,6 +286,12 @@ app.openapi(eventInfoRoute, async (c) => {
       );
     }
 
+    // Import default form config helper
+    const { getFormConfigOrDefault } = await import('../../config/default-form-config.js');
+
+    // Get form config with fallback to default
+    const formConfig = getFormConfigOrDefault(event.registrationFormConfig);
+
     return c.json({
       success: true,
       data: {
@@ -311,7 +301,7 @@ app.openapi(eventInfoRoute, async (c) => {
         location: event.location,
         dateRange: event.dateRange,
         config: {
-          registrationOpen: event.config?.registrationOpen || false,
+          registrationOpen: (event.config as any)?.registrationOpen || false,
         },
         // Singapore Phase 2 additions
         hotelConfig: event.hotelConfig || null,
@@ -319,6 +309,8 @@ app.openapi(eventInfoRoute, async (c) => {
         privacyPolicy: event.privacyPolicy || null,
         // Groups for registration binding assignment
         groups: (event as any).groups || [],
+        // Dynamic registration form configuration
+        registrationFormConfig: formConfig,
       },
     });
   } catch (error: any) {
@@ -812,20 +804,9 @@ app.openapi(getActivityInfoRoute, async (c) => {
         location: activity.location,
         content: activity.content,
         thumbnail: activity.thumbnail,
-        timingTable: activity.timingTable, // Add timingTable for frontend display
-        group: activity.group
-          ? {
-            id: activity.group.id,
-            name: activity.group.name,
-          }
-          : null,
-        event: activity.event
-          ? {
-            id: activity.event.id,
-            name: activity.event.name,
-            shortName: activity.event.shortName,
-          }
-          : null,
+        timingTable: activity.timingTable,
+        // Note: group and event relations not included by ActivityService.findById
+        // TODO: Update ActivityService to include relations if needed
       },
     });
   } catch (error: any) {
@@ -903,10 +884,10 @@ app.openapi(unsubscribeRoute, async (c) => {
     }
 
     // Get user details for personalized confirmation
-    const profile = result.user?.profile as any;
-    const event = result.user?.event as any;
-    const firstName = profile?.firstName || '';
-    const eventName = event?.name || 'the event';
+    const formResponses = result.user?.formResponses as any[];
+    const firstName = formResponses?.find(r => r.fieldName === 'firstName')?.value || '';
+    // Note: event relation not included, using generic message
+    const eventName = 'the event';
 
     return c.json({
       success: true,

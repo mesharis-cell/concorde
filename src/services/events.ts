@@ -103,36 +103,58 @@ export class EventService {
     };
   }
 
-  static async update(id: string, data: Partial<CreateEvent>): Promise<Event> {
-    return prisma.event.update({
-      where: { id },
-      data: {
-        ...(data.name && { name: data.name }),
-        ...(data.shortName && { shortName: data.shortName }),
-        ...(data.location && { location: data.location }),
-        ...(data.dateRange && { dateRange: data.dateRange }),
-        ...(data.config && { config: data.config }),
-        // ✅ Phase 2 additions
-        ...(data.hotelConfig !== undefined && {
-          hotelConfig: data.hotelConfig,
-        }),
-        ...(data.roomDrops !== undefined && {
-          roomDrops: data.roomDrops,
-        }),
-        ...(data.guestCategories !== undefined && {
-          guestCategories: data.guestCategories,
-        }),
-        ...(data.termsConditions !== undefined && {
-          termsConditions: data.termsConditions,
-        }),
-        ...(data.privacyPolicy !== undefined && {
-          privacyPolicy: data.privacyPolicy,
-        }),
-        ...(data.carConfig !== undefined && {
-          carConfig: data.carConfig,
-        }),
-      },
+  static async update(id: string, data: Partial<CreateEvent> & { registrationFormConfig?: any }): Promise<Event> {
+    console.log('📝 EventService.update called with:', {
+      id,
+      hasRegistrationFormConfig: data.registrationFormConfig !== undefined,
+      registrationFormConfig: data.registrationFormConfig,
     });
+
+    const updateData = {
+      ...(data.name && { name: data.name }),
+      ...(data.shortName && { shortName: data.shortName }),
+      ...(data.location && { location: data.location }),
+      ...(data.dateRange && { dateRange: data.dateRange }),
+      ...(data.config && { config: data.config }),
+      // ✅ Phase 2 additions
+      ...(data.hotelConfig !== undefined && {
+        hotelConfig: data.hotelConfig,
+      }),
+      ...(data.roomDrops !== undefined && {
+        roomDrops: data.roomDrops,
+      }),
+      ...(data.guestCategories !== undefined && {
+        guestCategories: data.guestCategories,
+      }),
+      ...(data.termsConditions !== undefined && {
+        termsConditions: data.termsConditions,
+      }),
+      ...(data.privacyPolicy !== undefined && {
+        privacyPolicy: data.privacyPolicy,
+      }),
+      ...(data.carConfig !== undefined && {
+        carConfig: data.carConfig,
+      }),
+      // Dynamic Registration Form Configuration
+      ...(data.registrationFormConfig !== undefined && {
+        registrationFormConfig: data.registrationFormConfig,
+      }),
+    };
+
+    console.log('🔄 Prisma update data:', updateData);
+
+    const result = await prisma.event.update({
+      where: { id },
+      data: updateData,
+    });
+
+    console.log('✅ Event updated successfully. Result:', {
+      id: result.id,
+      hasRegistrationFormConfig: result.registrationFormConfig !== null,
+      registrationFormConfig: result.registrationFormConfig,
+    });
+
+    return result;
   }
 
   static async deactivate(id: string): Promise<Event> {

@@ -46,8 +46,7 @@ const migration: MigrationAction = {
     });
 
     console.log(
-      `✅ Migration completed: Added mock flight data to ${
-        result.modifiedCount || result.nModified || 'some'
+      `✅ Migration completed: Added mock flight data to ${result.modifiedCount || result.nModified || 'some'
       } users`
     );
   },
@@ -73,8 +72,7 @@ const migration: MigrationAction = {
     });
 
     console.log(
-      `✅ Migration rolled back: Removed mock flight data from ${
-        result.modifiedCount || result.nModified || 'some'
+      `✅ Migration rolled back: Removed mock flight data from ${result.modifiedCount || result.nModified || 'some'
       } users`
     );
   },

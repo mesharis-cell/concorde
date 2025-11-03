@@ -24,8 +24,7 @@ const migration: MigrationAction = {
     });
 
     console.log(
-      `✅ Migration completed: Added descriptions to ${
-        result.modifiedCount || result.nModified || 'some'
+      `✅ Migration completed: Added descriptions to ${result.modifiedCount || result.nModified || 'some'
       } activities`
     );
   },

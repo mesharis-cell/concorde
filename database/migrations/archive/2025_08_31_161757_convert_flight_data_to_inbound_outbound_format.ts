@@ -93,8 +93,7 @@ const migration: MigrationAction = {
     });
 
     console.log(
-      `✅ Migration completed: Converted ${
-        result.modifiedCount || result.nModified || 'some'
+      `✅ Migration completed: Converted ${result.modifiedCount || result.nModified || 'some'
       } users to inbound/outbound flight format`
     );
   },
@@ -154,8 +153,7 @@ const migration: MigrationAction = {
     });
 
     console.log(
-      `✅ Migration rolled back: Converted ${
-        result.modifiedCount || result.nModified || 'some'
+      `✅ Migration rolled back: Converted ${result.modifiedCount || result.nModified || 'some'
       } users back to old flight format`
     );
   },

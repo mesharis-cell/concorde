@@ -6,7 +6,7 @@ export const prisma = new PrismaClient({
       url: env.DATABASE_URL,
     },
   },
-  log: env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  log: ['error'],
   // Prisma v6 optimizations
   omit: {
     // Global omit for sensitive fields - can be overridden per query
