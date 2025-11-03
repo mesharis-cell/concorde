@@ -629,18 +629,6 @@ export class CommunicationsService {
     }
   }
 
-  private static replaceVariables(
-    template: string,
-    variables: Record<string, any>
-  ): string {
-    let result = template;
-    Object.entries(variables).forEach(([key, value]) => {
-      const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-      result = result.replace(regex, String(value));
-    });
-    return result;
-  }
-
   static async getCommunicationStats(eventId: string): Promise<{
     totalMessages: number;
     emailMessages: number;
@@ -748,5 +736,138 @@ export class CommunicationsService {
         type: 'custom',
       },
     ];
+  }
+
+  /**
+   * Send template emails to arbitrary recipients from CSV
+   * Does NOT require users to exist in database
+   */
+  static async sendTemplateEmailFromCsv(request: {
+    templateId: string;
+    csvRecipients: Array<{
+      email: string;
+      [key: string]: any; // All CSV columns as variables
+    }>;
+    adminId: string;
+    enableTracking?: boolean;
+  }): Promise<{
+    totalRecipients: number;
+    sentCount: number;
+    failedCount: number;
+    deliveries: Array<{
+      email: string;
+      status: 'sent' | 'failed';
+      error?: string;
+      messageId?: string;
+    }>;
+  }> {
+    // Get template
+    const template = await TemplateService.findById(request.templateId);
+    if (!template) {
+      throw new Error('Template not found');
+    }
+
+    // Get event for from email configuration
+    const event = await EventService.findById(template.eventId);
+    if (!event) {
+      throw new Error('Event not found');
+    }
+
+    // Create message record for tracking
+    const message = await prisma.message.create({
+      data: {
+        eventId: template.eventId,
+        templateId: request.templateId,
+        type: this.getMessageTypeFromCategory(template.category),
+        emailSubject: template.subject,
+        emailContent: template.html,
+        recipientType: 'INDIVIDUAL',
+        recipientIds: [],
+        sentBy: request.adminId,
+        status: 'sent',
+        deliveries: [],
+        monitoringEmailSent: false,
+      },
+    });
+
+    const result = {
+      totalRecipients: request.csvRecipients.length,
+      sentCount: 0,
+      failedCount: 0,
+      deliveries: [] as Array<{
+        email: string;
+        status: 'sent' | 'failed';
+        error?: string;
+        messageId?: string;
+      }>,
+    };
+
+    // Send emails to all CSV recipients
+    for (const csvRow of request.csvRecipients) {
+      try {
+        // All CSV columns become template variables
+        const variables: Record<string, any> = {
+          ...csvRow, // email, code, firstName, etc. - all columns
+          unsubscribeLink: `${env.APP_URL || 'http://localhost:3001'}/unsubscribe-external`,
+        };
+
+        const emailTemplate: EmailTemplate = {
+          subject: this.replaceVariables(template.subject, variables),
+          html: this.replaceVariables(template.html, variables),
+        };
+
+        const emailResult = await EmailService.sendEmail(
+          csvRow.email,
+          emailTemplate,
+          {},
+          {
+            fromEmail: event.fromEmail || undefined,
+            fromName: event.fromName || undefined,
+          }
+        );
+
+        if (emailResult.success) {
+          result.sentCount++;
+          result.deliveries.push({
+            email: csvRow.email,
+            status: 'sent',
+            messageId: emailResult.messageId,
+          });
+
+          // Skip logging for CSV external recipients (no userId in DB)
+          // Communication is already tracked in Message.deliveries
+        } else {
+          result.failedCount++;
+          result.deliveries.push({
+            email: csvRow.email,
+            status: 'failed',
+            error: emailResult.error,
+          });
+        }
+      } catch (error: any) {
+        result.failedCount++;
+        result.deliveries.push({
+          email: csvRow.email,
+          status: 'failed',
+          error: error.message,
+        });
+      }
+    }
+
+    return result;
+  }
+
+  private static replaceVariables(
+    template: string,
+    variables: Record<string, any>
+  ): string {
+    let result = template;
+
+    Object.entries(variables).forEach(([key, value]) => {
+      const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+      result = result.replace(regex, String(value));
+    });
+
+    return result;
   }
 }

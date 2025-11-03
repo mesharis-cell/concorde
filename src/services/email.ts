@@ -22,7 +22,11 @@ export class EmailService {
   static async sendEmail(
     to: string | string[],
     template: EmailTemplate,
-    variables: Record<string, any> = {}
+    variables: Record<string, any> = {},
+    options?: {
+      fromEmail?: string;
+      fromName?: string;
+    }
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
       const recipients = Array.isArray(to) ? to : [to];
@@ -34,10 +38,15 @@ export class EmailService {
         ? this.replaceVariables(template.text, variables)
         : undefined;
 
+      // Use event-specific from address or fallback to env
+      const fromEmail = options?.fromEmail || env.SES_FROM_EMAIL;
+      const fromName = options?.fromName || env.SES_FROM_NAME;
+      const fromAddress = `${fromName} <${fromEmail}>`;
+
       if (env.EMAIL_PROVIDER === 'resend') {
         // Use Resend (new and improved!)
         const { data, error } = await resend.emails.send({
-          from: `${env.SES_FROM_NAME} <${env.SES_FROM_EMAIL}>`,
+          from: fromAddress,
           to: recipients,
           subject,
           html: htmlBody,
@@ -59,7 +68,7 @@ export class EmailService {
       } else {
         // Fallback to AWS SES
         const command = new SendEmailCommand({
-          Source: `${env.SES_FROM_NAME} <${env.SES_FROM_EMAIL}>`,
+          Source: fromAddress,
           Destination: {
             ToAddresses: recipients,
           },

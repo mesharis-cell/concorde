@@ -135,6 +135,13 @@ export class EventService {
       ...(data.carConfig !== undefined && {
         carConfig: data.carConfig,
       }),
+      // Email configuration
+      ...(data.fromEmail !== undefined && {
+        fromEmail: data.fromEmail,
+      }),
+      ...(data.fromName !== undefined && {
+        fromName: data.fromName,
+      }),
       // Dynamic Registration Form Configuration
       ...(data.registrationFormConfig !== undefined && {
         registrationFormConfig: data.registrationFormConfig,
