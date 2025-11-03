@@ -217,7 +217,7 @@ app.openapi(adminRegisterUserRoute, async (c) => {
 
     // Check if user already exists
     const existingUser = await UserService.findByEmail(
-      data.profile.email,
+      data.email,
       data.eventId
     );
     if (existingUser) {
@@ -237,7 +237,8 @@ app.openapi(adminRegisterUserRoute, async (c) => {
         success: true,
         data: {
           id: user.id,
-          profile: user.profile,
+          email: user.email,
+          formResponses: user.formResponses,
           communication: user.communication,
           registeredAt: user.registeredAt,
         },
@@ -340,20 +341,18 @@ app.openapi(exportUsersRoute, async (c) => {
 
       // Convert users to CSV rows
       const rows = users.items.map((user) => {
-        const profile = (user.profile as any) || {};
-        const requirements = (user.requirements as any) || {};
+        const formResponses = (user.formResponses as any[]) || [];
+        const getFieldValue = (fieldName: string) => formResponses.find(r => r.fieldName === fieldName)?.value || '';
+        
         const accommodation = (user.accommodation as any) || {};
         const flight = (user.flight as any) || {};
-        const emergency = (user.emergencyContact as any) || {};
-
         const communication = (user.communication as any) || {};
-        const merchandiseSize = (user.merchandiseSize as any) || {};
 
         return [
-          profile.firstName || '',
-          profile.lastName || '',
-          profile.email || '',
-          profile.phone || '',
+          getFieldValue('firstName'),
+          getFieldValue('lastName'),
+          user.email || '',
+          getFieldValue('phone') || getFieldValue('phoneNumber'),
           user.groupIds.length > 0
             ? user.groupIds.map((id) => groupLookup.get(id) || id).join(', ')
             : '',
