@@ -14,46 +14,45 @@ import { ConflictDetectionService } from './conflict-detection.js';
 export class UserService {
   static async create(data: CreateUser, performedBy?: string): Promise<User> {
     // Normalize email and check if user with same email already exists in this event
-    if (data.profile?.email) {
-      data.profile.email = data.profile.email.toLowerCase();
+    const email = data.email.toLowerCase();
 
-      const existingUser = await this.findByEmailAndEvent(
-        data.profile.email,
-        data.eventId
+    const existingUser = await this.findByEmailAndEvent(email, data.eventId);
+    if (existingUser) {
+      throw new Error(
+        `User with email ${email} already exists in this event`
       );
-      if (existingUser) {
-        throw new Error(
-          `User with email ${data.profile.email} already exists in this event`
-        );
-      }
     }
 
     const user = await prisma.user.create({
       data: {
         eventId: data.eventId,
-        groupIds: [], // Initialize with empty array
-        profile: data.profile,
+        email: email,
+        formResponses: data.formResponses,
+        groupIds: [],
         communication: data.communication,
         flight: data.flight,
         accommodation: data.accommodation,
-        transferRequirements: data.transferRequirements,
-        requirements: data.requirements,
-        merchandiseSize: data.merchandiseSize,
-        emergencyContact: data.emergencyContact,
+        transferRequirements: data.transferRequirements || false,
+        gpTransfersRequired: data.gpTransfersRequired || false,
+        eventTransfersRequired: data.eventTransfersRequired || false,
         tickets: data.tickets || [],
-        carNumbers: data.carNumbers || [], // Transport assignments
+        carNumbers: data.carNumbers || [],
       },
     });
 
     // Log audit trail
     if (performedBy) {
+      // Extract firstName/lastName from formResponses for audit
+      const firstName = (data.formResponses as any[])?.find((r: any) => r.fieldName === 'firstName')?.value;
+      const lastName = (data.formResponses as any[])?.find((r: any) => r.fieldName === 'lastName')?.value;
+
       await AuditTrailService.logCreate(
         'User',
         user.id,
         {
-          email: data.profile?.email,
-          firstName: data.profile?.firstName,
-          lastName: data.profile?.lastName,
+          email: email,
+          firstName: firstName,
+          lastName: lastName,
           eventId: data.eventId,
         },
         performedBy,
@@ -116,13 +115,14 @@ export class UserService {
       },
     });
 
-    // Filter by email in JavaScript since JSON field querying is limited
-    return (
-      users.find((user) => {
-        const profile = user.profile as any;
-        return profile?.email?.toLowerCase() === normalizedEmail;
-      }) || null
-    );
+    // With new schema, email is top-level field - use direct query instead
+    return await prisma.user.findFirst({
+      where: {
+        eventId,
+        email: normalizedEmail,
+        active: true,
+      },
+    });
   }
 
   static async findByEventId(
@@ -187,10 +187,10 @@ export class UserService {
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       filtered = filtered.filter((user) => {
-        const profile = user.profile as any;
-        const firstName = profile?.firstName || '';
-        const lastName = profile?.lastName || '';
-        const email = profile?.email || '';
+        const formResponses = user.formResponses as any[];
+        const firstName = formResponses?.find(r => r.fieldName === 'firstName')?.value || '';
+        const lastName = formResponses?.find(r => r.fieldName === 'lastName')?.value || '';
+        const email = user.email || '';
         return (
           firstName.toLowerCase().includes(searchLower) ||
           lastName.toLowerCase().includes(searchLower) ||
@@ -199,17 +199,19 @@ export class UserService {
       });
     }
 
+    // Note: Requirement filtering now uses formResponses instead of dedicated fields
+    // TODO: Update filter logic to search formResponses for requirement fields
     if (filters.requirementType && filters.requirementType !== 'any') {
       filtered = filtered.filter((user) => {
-        const requirements = user.requirements as any;
+        const formResponses = user.formResponses as any[];
         const accommodation = user.accommodation as any;
 
         if (filters.requirementType === 'dietary') {
-          return requirements?.dietary;
+          return formResponses?.some(r => r.fieldName === 'dietaryRequirements' && r.value);
         } else if (filters.requirementType === 'medical') {
-          return requirements?.medical;
+          return formResponses?.some(r => r.fieldName === 'medicalRequirements' && r.value);
         } else if (filters.requirementType === 'accessibility') {
-          return requirements?.accessibility;
+          return formResponses?.some(r => r.fieldName === 'accessibilityRequirements' && r.value);
         } else if (filters.requirementType === 'accommodation') {
           return accommodation?.required;
         }
@@ -217,12 +219,12 @@ export class UserService {
       });
     } else if (filters.requirementType === 'any') {
       filtered = filtered.filter((user) => {
-        const requirements = user.requirements as any;
+        const formResponses = user.formResponses as any[];
         const accommodation = user.accommodation as any;
         return (
-          requirements?.dietary ||
-          requirements?.medical ||
-          requirements?.accessibility ||
+          formResponses?.some(r => r.fieldName === 'dietaryRequirements' && r.value) ||
+          formResponses?.some(r => r.fieldName === 'medicalRequirements' && r.value) ||
+          formResponses?.some(r => r.fieldName === 'accessibilityRequirements' && r.value) ||
           accommodation?.required
         );
       });
@@ -249,12 +251,12 @@ export class UserService {
 
     if (filters.hasRequirements) {
       filtered = filtered.filter((user) => {
-        const requirements = user.requirements as any;
+        const formResponses = user.formResponses as any[];
         const accommodation = user.accommodation as any;
         return (
-          requirements?.dietary ||
-          requirements?.medical ||
-          requirements?.accessibility ||
+          formResponses?.some(r => r.fieldName === 'dietaryRequirements' && r.value) ||
+          formResponses?.some(r => r.fieldName === 'medicalRequirements' && r.value) ||
+          formResponses?.some(r => r.fieldName === 'accessibilityRequirements' && r.value) ||
           accommodation?.required
         );
       });
@@ -295,53 +297,41 @@ export class UserService {
     performedBy?: string
   ): Promise<User> {
     // If email is being updated, normalize and check for duplicates within the same event
-    if (data.profile?.email) {
-      data.profile.email = data.profile.email.toLowerCase();
+    if (data.email) {
+      const normalizedEmail = data.email.toLowerCase();
 
       const currentUser = await prisma.user.findUnique({
         where: { id },
-        select: { eventId: true, profile: true },
+        select: { eventId: true, email: true },
       });
 
-      if (currentUser) {
-        const currentEmail = (currentUser.profile as any)?.email?.toLowerCase();
-        if (currentEmail !== data.profile.email) {
-          const existingUser = await this.findByEmailAndEvent(
-            data.profile.email,
-            currentUser.eventId
+      if (currentUser && currentUser.email !== normalizedEmail) {
+        const existingUser = await this.findByEmailAndEvent(
+          normalizedEmail,
+          currentUser.eventId
+        );
+        if (existingUser) {
+          throw new Error(
+            `User with email ${normalizedEmail} already exists in this event`
           );
-          if (existingUser) {
-            throw new Error(
-              `User with email ${data.profile.email} already exists in this event`
-            );
-          }
         }
       }
     }
 
     const updateData: any = {};
 
-    if (data.profile) updateData.profile = data.profile;
+    if (data.email) updateData.email = data.email.toLowerCase();
+    if (data.formResponses) updateData.formResponses = data.formResponses;
     if (data.communication) updateData.communication = data.communication;
     if (data.flight !== undefined) updateData.flight = data.flight;
     if (data.accommodation !== undefined)
       updateData.accommodation = data.accommodation;
     if (data.transferRequirements !== undefined)
       updateData.transferRequirements = data.transferRequirements;
-    if (data.requirements !== undefined)
-      updateData.requirements = data.requirements;
-    if (data.merchandiseSize !== undefined)
-      updateData.merchandiseSize = data.merchandiseSize;
-    if (data.emergencyContact !== undefined)
-      updateData.emergencyContact = data.emergencyContact;
-
-    // 🚨 CRITICAL FIX: Add ALL missing fields that were being ignored
-    if (data.masterGuestNotes !== undefined)
-      updateData.masterGuestNotes = data.masterGuestNotes;
-    if (data.arrivalNotes !== undefined)
-      updateData.arrivalNotes = data.arrivalNotes;
-    if (data.departureNotes !== undefined)
-      updateData.departureNotes = data.departureNotes;
+    if (data.gpTransfersRequired !== undefined)
+      updateData.gpTransfersRequired = data.gpTransfersRequired;
+    if (data.eventTransfersRequired !== undefined)
+      updateData.eventTransfersRequired = data.eventTransfersRequired;
     if (data.tickets !== undefined) updateData.tickets = data.tickets;
     if (data.guestCategory !== undefined)
       updateData.guestCategory = data.guestCategory;
@@ -502,11 +492,11 @@ export class UserService {
         }),
         prisma.user.findUnique({
           where: { id: userId },
-          select: { profile: true },
+          select: { email: true },
         }),
       ]);
 
-      const userEmail = (userProfile?.profile as any)?.email || 'Unknown User';
+      const userEmail = userProfile?.email || 'Unknown User';
       const adminEmail = admin?.email || 'Unknown Admin';
       const summary = `Assigned user ${userEmail} to group "${group?.name || groupId}" (by ${adminEmail})`;
 
@@ -543,11 +533,11 @@ export class UserService {
         }),
         prisma.user.findUnique({
           where: { id: userId },
-          select: { profile: true },
+          select: { email: true },
         }),
       ]);
 
-      const userEmail = (userProfile?.profile as any)?.email || 'Unknown User';
+      const userEmail = userProfile?.email || 'Unknown User';
       const adminEmail = admin?.email || 'Unknown Admin';
       const summary = `Removed user ${userEmail} from group "${group?.name || groupId}" (by ${adminEmail})`;
 
@@ -769,7 +759,7 @@ export class UserService {
     const users = await prisma.user.findMany({
       where: { eventId, active: true, assigned: true },
       select: {
-        requirements: true,
+        formResponses: true,
         accommodation: true,
         flight: true,
       },
@@ -784,19 +774,19 @@ export class UserService {
     };
 
     users.forEach((user: any) => {
-      const requirements = user.requirements as any;
+      const formResponses = user.formResponses as any[];
       const accommodation = user.accommodation as any;
       const flight = user.flight as any;
 
-      if (requirements?.dietary) {
-        summary.dietary.add(requirements.dietary);
-      }
-      if (requirements?.medical) {
-        summary.medical.add(requirements.medical);
-      }
-      if (requirements?.accessibility) {
-        summary.accessibility.add(requirements.accessibility);
-      }
+      const dietary = formResponses?.find(r => r.fieldName === 'dietaryRequirements')?.value;
+      if (dietary) summary.dietary.add(dietary);
+
+      const medical = formResponses?.find(r => r.fieldName === 'medicalRequirements')?.value;
+      if (medical) summary.medical.add(medical);
+
+      const accessibility = formResponses?.find(r => r.fieldName === 'accessibilityRequirements')?.value;
+      if (accessibility) summary.accessibility.add(accessibility);
+
       if (accommodation?.required) {
         summary.accommodationRequired++;
       }
@@ -910,20 +900,14 @@ export class UserService {
     // Normalize email for case-insensitive comparison
     const normalizedEmail = email.toLowerCase();
 
-    // Use raw query since Prisma doesn't support JSON field queries well with MongoDB
-    const users = await prisma.user.findMany({
+    // Query email directly (now it's a top-level field)
+    const user = await prisma.user.findFirst({
       where: {
         eventId,
+        email: normalizedEmail,
         active: true,
       },
     });
-
-    // Filter by email in JavaScript since JSON field querying is limited
-    const user =
-      users.find((user) => {
-        const profile = user.profile as any;
-        return profile?.email?.toLowerCase() === normalizedEmail;
-      }) || null;
 
     return user;
   }
@@ -978,7 +962,10 @@ export class UserService {
         select: { email: true, firstName: true, lastName: true },
       });
 
-      const userEmail = (user.profile as any)?.email || 'Unknown User';
+      const formResponses = user.formResponses as any[];
+      const firstName = formResponses?.find(r => r.fieldName === 'firstName')?.value;
+      const lastName = formResponses?.find(r => r.fieldName === 'lastName')?.value;
+      const userEmail = user.email || 'Unknown User';
       const adminEmail = admin?.email || 'Unknown Admin';
       const summary = `Deleted user ${userEmail} (by ${adminEmail})`;
 
@@ -995,9 +982,9 @@ export class UserService {
             userEmail,
             adminEmail,
             deletedUserProfile: {
-              email: (user.profile as any)?.email,
-              firstName: (user.profile as any)?.firstName,
-              lastName: (user.profile as any)?.lastName,
+              email: user.email,
+              firstName: firstName,
+              lastName: lastName,
             },
           },
         },
@@ -1114,14 +1101,14 @@ export class UserService {
       },
       select: {
         id: true,
-        profile: true,
+        email: true,
         flight: true,
       },
     });
 
     const userFlightData = users.map((user) => {
       const flight = user.flight as any;
-      const email = (user.profile as any)?.email;
+      const email = user.email;
 
       const inboundDeparture = flight?.inbound?.departureDate
         ? new Date(flight.inbound.departureDate)

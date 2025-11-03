@@ -503,18 +503,27 @@ export type UserEmergencyContact = z.infer<typeof UserEmergencyContactSchema>;
 
 // Session and magic link schemas removed - replaced with JWT + OTP authentication
 
+// Individual field response with metadata (must be defined before CreateUserSchema)
+export const FormFieldResponseSchema = z.object({
+  fieldName: z.string(),
+  fieldLabel: z.string(),
+  fieldType: z.string(),
+  value: z.any(), // Can be string, boolean, number, etc.
+  step: z.string(),
+  order: z.number(),
+});
+export type FormFieldResponse = z.infer<typeof FormFieldResponseSchema>;
+
 export const CreateUserSchema = z.object({
   eventId: z.string(),
-  profile: UserProfileSchema,
+  email: z.string().email(),
+  formResponses: z.array(FormFieldResponseSchema),
   communication: UserCommunicationSchema,
   flight: UserFlightSchema.optional(),
   accommodation: UserAccommodationSchema.optional(),
   transferRequirements: z.boolean().optional().default(false),
-  gpTransfersRequired: z.boolean().optional().default(false), // NEW: Grand Prix transfers
-  eventTransfersRequired: z.boolean().optional().default(false), // NEW: General event transfers
-  requirements: UserRequirementsSchema.optional(),
-  merchandiseSize: UserMerchandiseSizeSchema.optional(),
-  emergencyContact: UserEmergencyContactSchema.optional(),
+  gpTransfersRequired: z.boolean().optional().default(false),
+  eventTransfersRequired: z.boolean().optional().default(false),
   guestCategory: z
     .string()
     .nullable()
@@ -564,25 +573,15 @@ export const CreateUserSchema = z.object({
 });
 export type CreateUser = z.infer<typeof CreateUserSchema>;
 
-// Public Registration Schema - Enhanced for Singapore Phase 2
+// Public Registration Schema - Dynamic Form Based
 export const PublicRegistrationSchema = z.object({
   eventId: z.string(),
-  profile: UserProfileSchema, // Required: email, firstName, lastName, phone
+  email: z.string().email(),
+  formResponses: z.array(FormFieldResponseSchema), // Array of all form field responses
   communication: UserCommunicationSchema.default({
     emailOptIn: true,
     whatsappOptIn: false,
   }),
-  transferRequirements: z.boolean().optional().default(false),
-  gpTransfersRequired: z.boolean().optional().default(false), // NEW: Grand Prix transfers
-  eventTransfersRequired: z.boolean().optional().default(false), // NEW: General event transfers
-  requirements: UserRequirementsSchema.optional(), // Optional: dietary, medical, accessibility
-  merchandiseSize: UserMerchandiseSizeSchema.optional(), // Enhanced: gender + size
-  emergencyContact: UserEmergencyContactSchema.optional(), // Optional: name, relationship, phone, email
-
-  // Singapore Phase 2: Users can now provide flight and accommodation details during registration
-  flight: UserFlightSchema.optional(),
-  accommodation: UserAccommodationSchema.optional(),
-
   // Group binding assignment during registration
   groupId: z.string().optional(),
 });
@@ -924,6 +923,10 @@ export const ValidationRulesSchema = z.object({
   email: z.boolean().optional(), // Email format validation
   url: z.boolean().optional(), // URL format validation
   phone: z.boolean().optional(), // Phone format validation
+  minDate: z.string().optional(), // For date fields - minimum allowed date (ISO string)
+  maxDate: z.string().optional(), // For date fields - maximum allowed date (ISO string)
+  minAge: z.number().optional(), // For date fields - minimum age in years (e.g., 21 for age gating)
+  maxAge: z.number().optional(), // For date fields - maximum age in years
   custom: z.string().optional(), // Custom validation expression
   message: z.string().optional(), // Custom error message
 }).optional();
@@ -957,6 +960,10 @@ export const FormFieldConfigSchema = z.object({
   rows: z.number().optional(), // For textarea - number of rows
   multiple: z.boolean().optional(), // For select - allow multiple
   accept: z.string().optional(), // For file - accepted file types
+  // Phone field specific
+  defaultCountry: z.string().optional(), // For tel fields - default country code (e.g., "AE", "US")
+  // Date field specific
+  dateFormat: z.enum(['MM/dd/yyyy', 'dd/MM/yyyy', 'yyyy-MM-dd', 'dd-MM-yyyy']).optional(), // For date fields - display format
   metadata: z.record(z.any()).optional(), // Additional custom metadata
 });
 export type FormFieldConfig = z.infer<typeof FormFieldConfigSchema>;

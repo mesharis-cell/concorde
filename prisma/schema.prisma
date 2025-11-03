@@ -206,34 +206,27 @@ model User {
   eventId  String   @db.ObjectId
   groupIds String[] @db.ObjectId // Multiple group assignments
 
-  // Profile
-  profile Json // { email, firstName, lastName, phone, preferredFirstName, preferredLastName }
+  // CORE IDENTITY - Email only (unique identifier)
+  email String
+  
+  // FORM RESPONSES - Array of field responses with metadata
+  // Structure: [{ fieldName, fieldLabel, fieldType, value, step, order }]
+  formResponses Json // Array of all form field responses with metadata
   
   // Admin-managed structured tickets  
   tickets Json[] @default([]) // Array of structured tickets: [{ name: string, number: string, valid: boolean }]
 
   // Authentication - 7-day JWT sessions only (OTPs are handled separately)
 
-  // Communication preferences
+  // COMMUNICATION PREFERENCES - Separate from form data
   communication Json // { emailOptIn, whatsappOptIn }
 
-  // Travel & accommodation details
-  flight               Json? // { inbound: { departureFrom, departureDate, departureTime, departureTerminal, flightNumber, airline, arrivalDate, arrivalTime, arrivalToAirport, arrivalToTerminal }, outbound: { departureFrom, departureDate, departureTime, departureTerminal, flightNumber, airline, arrivalDate, arrivalTime, arrivalToAirport, arrivalToTerminal } }
-  accommodation        Json? // { required, hotel, checkIn, checkOut, hotelNotes, doubleOccupancy: { enabled, guestType, guestName, guestRelation }, twinOccupancy: { enabled, guestType }, earlyCheckIn, lateCheckOut, visaBookingRequired }
+  // Travel & accommodation details (admin-managed, separate from registration)
+  flight               Json? // Flight details managed by admin
+  accommodation        Json? // Accommodation managed by admin
   transferRequirements Boolean @default(false)
-  
-  // Enhanced transfer requirements - separate fields for compatibility
-  gpTransfersRequired Boolean @default(false)      // Grand Prix transfers from Mondrian
-  eventTransfersRequired Boolean @default(false)   // General event transfers
-
-  // Requirements - Enhanced YES/NO pattern
-  requirements Json? // { medical: { enabled, details }, dietary: { enabled, details }, allergiesIntolerances: { enabled, details }, accessibility: { enabled, details }, otherComments }
-
-  // Merchandise
-  merchandiseSize Json? // { shirt, jacket, hat }
-
-  // Emergency contact
-  emergencyContact Json? // { name, relationship, phone, email }
+  gpTransfersRequired Boolean @default(false)
+  eventTransfersRequired Boolean @default(false)
 
   // Assignment status (now supports multiple groups)
   assigned   Boolean   @default(false) // true if assigned to any group

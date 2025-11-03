@@ -235,6 +235,43 @@ export class DynamicFormValidator {
             }
         }
 
+        // Age validation for date fields
+        if ((field.type === 'date' || field.type === 'datetime') && stringValue) {
+            try {
+                const birthDate = new Date(stringValue);
+                const today = new Date();
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+
+                // Adjust age if birthday hasn't occurred this year
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                }
+
+                // Check minimum age (e.g., 21 for age gating)
+                if (rules.minAge !== undefined && age < rules.minAge) {
+                    errors.push({
+                        field: field.name,
+                        message:
+                            rules.message || `You must be at least ${rules.minAge} years old`,
+                        rule: 'minAge',
+                    });
+                }
+
+                // Check maximum age
+                if (rules.maxAge !== undefined && age > rules.maxAge) {
+                    errors.push({
+                        field: field.name,
+                        message:
+                            rules.message || `You must be no more than ${rules.maxAge} years old`,
+                        rule: 'maxAge',
+                    });
+                }
+            } catch (error) {
+                console.error(`Age validation error for field ${field.name}:`, error);
+            }
+        }
+
         // Custom validation expression
         if (rules.custom) {
             try {
@@ -485,6 +522,7 @@ export class DynamicFormValidator {
         });
 
         // Check for duplicate field names
+        const allFields = this.getAllFieldsFromConfig(config);
         const fieldNames = allFields.map((f: any) => f.name);
         const duplicates = fieldNames.filter(
             (name, index) => fieldNames.indexOf(name) !== index
@@ -499,19 +537,6 @@ export class DynamicFormValidator {
             isValid: errors.length === 0,
             errors,
         };
-    }
-
-    /**
-     * Helper to get all fields from config
-     */
-    private static getAllFieldsFromConfig(config: RegistrationFormConfig): any[] {
-        const fields: any[] = [];
-        Object.values(config).forEach((step) => {
-            if (step && step.fields) {
-                fields.push(...step.fields);
-            }
-        });
-        return fields;
     }
 
     /**
