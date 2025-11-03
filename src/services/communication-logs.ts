@@ -64,7 +64,8 @@ export class CommunicationLogService {
         user: {
           select: {
             id: true,
-            profile: true,
+            email: true,
+            formResponses: true,
           },
         },
         event: {
@@ -191,7 +192,8 @@ export class CommunicationLogService {
           user: {
             select: {
               id: true,
-              profile: true,
+              email: true,
+              formResponses: true,
             },
           },
           group: {
@@ -378,7 +380,8 @@ export class CommunicationLogService {
           where: { id: { in: log.recipientIds } },
           select: {
             id: true,
-            profile: true,
+            email: true,
+            formResponses: true,
             groupId: true,
             group: {
               select: { name: true },
@@ -395,7 +398,8 @@ export class CommunicationLogService {
             users: {
               select: {
                 id: true,
-                profile: true,
+                email: true,
+                formResponses: true,
                 groupId: true,
                 group: {
                   select: { name: true },
@@ -443,9 +447,12 @@ export class CommunicationLogService {
     let sentCount = 0, deliveredCount = 0, failedCount = 0, openedCount = 0;
 
     for (const recipient of recipients) {
-      if (!recipient.profile?.email) continue;
+      if (!recipient.email) continue;
 
-      const profile = recipient.profile as any;
+      const formResponses = (recipient.formResponses as any[]) || [];
+      const firstName = formResponses.find(r => r.fieldName === 'firstName')?.value || '';
+      const lastName = formResponses.find(r => r.fieldName === 'lastName')?.value || '';
+
       const groupName = recipient.group?.name;
       if (groupName) groups.add(groupName);
 
@@ -485,9 +492,9 @@ export class CommunicationLogService {
 
       recipientDetails.push({
         userId: recipient.id,
-        email: profile.email,
-        firstName: profile.firstName || '',
-        lastName: profile.lastName || '',
+        email: recipient.email,
+        firstName: firstName,
+        lastName: lastName,
         groupName,
         status,
         sentAt,

@@ -82,6 +82,9 @@ export const CreateEventSchema = z.object({
   location: EventLocationSchema,
   dateRange: EventDateRangeSchema,
   config: EventConfigSchema,
+  // Email configuration
+  fromEmail: z.string().email().optional(),
+  fromName: z.string().optional(),
   // ✅ Phase 2 additions
   hotelConfig: z
     .object({

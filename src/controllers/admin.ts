@@ -343,7 +343,7 @@ app.openapi(exportUsersRoute, async (c) => {
       const rows = users.items.map((user) => {
         const formResponses = (user.formResponses as any[]) || [];
         const getFieldValue = (fieldName: string) => formResponses.find(r => r.fieldName === fieldName)?.value || '';
-        
+
         const accommodation = (user.accommodation as any) || {};
         const flight = (user.flight as any) || {};
         const communication = (user.communication as any) || {};
@@ -4556,6 +4556,79 @@ app.openapi(sendTemplateCommunicationRoute, async (c) => {
       {
         success: false,
         error: 'Failed to send message',
+        details: error.message,
+      },
+      400
+    );
+  }
+});
+
+// Send Template Email from CSV (Admin)
+const sendCsvTemplateCommunicationRoute = createRoute({
+  method: 'post',
+  path: '/communications/send-csv',
+  tags: ['Admin - Communications'],
+  summary: 'Send template emails to CSV recipients (no DB required)',
+  description: 'Send template-based emails to arbitrary recipients from CSV. All CSV columns become template variables.',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            templateId: z.string(),
+            csvRecipients: z.array(z.record(z.any())),
+            adminId: z.string(),
+            enableTracking: z.boolean().optional().default(false),
+          }),
+          example: {
+            templateId: '123abc',
+            csvRecipients: [
+              { email: 'user1@test.com', firstName: 'John', code: 'ABC123' },
+              { email: 'user2@test.com', firstName: 'Jane', code: 'XYZ789' },
+            ],
+            adminId: 'admin123',
+            enableTracking: false,
+          },
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Emails sent successfully',
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Failed to send emails',
+    },
+  },
+});
+
+app.openapi(sendCsvTemplateCommunicationRoute, async (c) => {
+  try {
+    const data = c.req.valid('json');
+
+    const result = await CommunicationsService.sendTemplateEmailFromCsv(data);
+
+    return c.json({
+      success: true,
+      data: result,
+      message: `Sent ${result.sentCount}/${result.totalRecipients} emails successfully`,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to send CSV emails',
         details: error.message,
       },
       400

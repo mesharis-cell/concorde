@@ -82,6 +82,10 @@ model Event {
   dateRange Json // { start: DateTime, end: DateTime }
   config    Json // { micrositeUrl, registrationOpen }
 
+  // Email configuration
+  fromEmail String? // Sender email address for communications
+  fromName  String? // Sender name for communications
+
   // Singapore Phase 2 additions
   hotelConfig     Json? // Hotel inventory and configuration
   roomDrops       Json? // Room drop packages configuration
