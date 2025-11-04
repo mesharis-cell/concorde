@@ -276,6 +276,7 @@ export class CommunicationsService {
     });
 
     // Send emails to eligible recipients with rate limiting
+    // RESEND RATE LIMIT: 2 requests/second (500ms delay) - Fixed from previous 100ms which caused 429 errors
     const deliveries = [];
     let emailCount = 0;
     const CHUNK_SIZE = 50; // Resend-safe batch size
@@ -350,7 +351,7 @@ export class CommunicationsService {
             metadata: {
               messageId: emailResult.messageId,
               ...(trackingUrl && { trackingUrl }),
-              trackingEnabled: request.enableTracking === true
+              trackingEnabled: request.enableTracking === true,
             },
           });
 
@@ -382,7 +383,7 @@ export class CommunicationsService {
             status: 'failed',
             metadata: {
               error: emailResult.error,
-              trackingEnabled: request.enableTracking === true
+              trackingEnabled: request.enableTracking === true,
             },
           });
 
@@ -416,7 +417,7 @@ export class CommunicationsService {
             status: 'failed',
             metadata: {
               error: error.message,
-              trackingEnabled: request.enableTracking === true
+              trackingEnabled: request.enableTracking === true,
             },
           });
         } catch (logError) {
@@ -434,15 +435,20 @@ export class CommunicationsService {
 
       emailCount++;
 
-      // Add small delay between each email (Resend-safe: ~100ms)
+      // Resend rate limiting: 2 requests per second (500ms between emails)
       if (emailCount < eligibleRecipients.length) {
-        await new Promise(resolve => setTimeout(resolve, 100)); // 100ms between emails
+        await new Promise((resolve) => setTimeout(resolve, 500)); // 500ms = 2 emails/second max
       }
 
       // Additional pause every CHUNK_SIZE emails for extra safety
-      if (emailCount % CHUNK_SIZE === 0 && emailCount < eligibleRecipients.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second chunk pause
-        console.log(`📧 Processed ${emailCount}/${eligibleRecipients.length} emails - chunk pause for rate limiting`);
+      if (
+        emailCount % CHUNK_SIZE === 0 &&
+        emailCount < eligibleRecipients.length
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 2000)); // 2 second chunk pause
+        console.log(
+          `📧 Processed ${emailCount}/${eligibleRecipients.length} emails - Resend rate limit compliance pause`
+        );
       }
     }
 
@@ -517,7 +523,9 @@ export class CommunicationsService {
   }
 
   // For CommunicationLog (lowercase strings)
-  private static convertRecipientType(type: string): 'single' | 'group' | 'event' | 'custom' {
+  private static convertRecipientType(
+    type: string
+  ): 'single' | 'group' | 'event' | 'custom' {
     switch (type) {
       case 'individual':
         return 'single';
@@ -531,7 +539,9 @@ export class CommunicationsService {
   }
 
   // For Message model (uppercase enum)
-  private static convertMessageRecipientType(type: string): 'INDIVIDUAL' | 'GROUP' | 'ALL' {
+  private static convertMessageRecipientType(
+    type: string
+  ): 'INDIVIDUAL' | 'GROUP' | 'ALL' {
     switch (type) {
       case 'individual':
         return 'INDIVIDUAL';
@@ -545,7 +555,9 @@ export class CommunicationsService {
   }
 
   // Map template category to communication log purpose
-  private static getPurposeFromCategory(category: string): 'group_assignment' | 'event_reminder' | 'custom' | 'announcement' {
+  private static getPurposeFromCategory(
+    category: string
+  ): 'group_assignment' | 'event_reminder' | 'custom' | 'announcement' {
     switch (category) {
       case 'WELCOME':
         return 'event_reminder';
@@ -802,7 +814,11 @@ export class CommunicationsService {
       }>,
     };
 
-    // Send emails to all CSV recipients
+    // Send emails to all CSV recipients with rate limiting
+    // RESEND RATE LIMIT: 2 requests/second (500ms delay) - Fixed from no rate limiting which caused 429 errors
+    let emailCount = 0;
+    const CHUNK_SIZE = 50; // Resend-safe batch size
+
     for (const csvRow of request.csvRecipients) {
       try {
         // All CSV columns become template variables
@@ -851,6 +867,24 @@ export class CommunicationsService {
           status: 'failed',
           error: error.message,
         });
+      }
+
+      emailCount++;
+
+      // Resend rate limiting: 2 requests per second (500ms between emails)
+      if (emailCount < request.csvRecipients.length) {
+        await new Promise((resolve) => setTimeout(resolve, 500)); // 500ms = 2 emails/second max
+      }
+
+      // Additional pause every CHUNK_SIZE emails for extra safety
+      if (
+        emailCount % CHUNK_SIZE === 0 &&
+        emailCount < request.csvRecipients.length
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 2000)); // 2 second chunk pause
+        console.log(
+          `📧 CSV: Processed ${emailCount}/${request.csvRecipients.length} emails - Resend rate limit compliance pause`
+        );
       }
     }
 
