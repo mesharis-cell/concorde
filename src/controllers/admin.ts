@@ -342,7 +342,8 @@ app.openapi(exportUsersRoute, async (c) => {
       // Convert users to CSV rows
       const rows = users.items.map((user) => {
         const formResponses = (user.formResponses as any[]) || [];
-        const getFieldValue = (fieldName: string) => formResponses.find(r => r.fieldName === fieldName)?.value || '';
+        const getFieldValue = (fieldName: string) =>
+          formResponses.find((r) => r.fieldName === fieldName)?.value || '';
 
         const accommodation = (user.accommodation as any) || {};
         const flight = (user.flight as any) || {};
@@ -364,25 +365,25 @@ app.openapi(exportUsersRoute, async (c) => {
           accommodation.hotel || '',
           accommodation.checkIn
             ? parseAccommodationDate(accommodation.checkIn)
-              ?.toISOString()
-              .split('T')[0] || ''
+                ?.toISOString()
+                .split('T')[0] || ''
             : '',
           accommodation.checkOut
             ? parseAccommodationDate(accommodation.checkOut)
-              ?.toISOString()
-              .split('T')[0] || ''
+                ?.toISOString()
+                .split('T')[0] || ''
             : '',
           flight.arrival
             ? new Date(flight.arrival)
-              .toISOString()
-              .slice(0, 16)
-              .replace('T', ' ')
+                .toISOString()
+                .slice(0, 16)
+                .replace('T', ' ')
             : '',
           flight.departure
             ? new Date(flight.departure)
-              .toISOString()
-              .slice(0, 16)
-              .replace('T', ' ')
+                .toISOString()
+                .slice(0, 16)
+                .replace('T', ' ')
             : '',
           flight.arrivalAirport || '',
           flight.departureAirport || '',
@@ -410,7 +411,8 @@ app.openapi(exportUsersRoute, async (c) => {
       c.header('Content-Type', 'text/csv');
       c.header(
         'Content-Disposition',
-        `attachment; filename="users-${eventId}-${new Date().toISOString().split('T')[0]
+        `attachment; filename="users-${eventId}-${
+          new Date().toISOString().split('T')[0]
         }.csv"`
       );
 
@@ -2086,7 +2088,8 @@ app.openapi(exportGroupsRoute, async (c) => {
       c.header('Content-Type', 'text/csv');
       c.header(
         'Content-Disposition',
-        `attachment; filename="groups-${eventId}-${new Date().toISOString().split('T')[0]
+        `attachment; filename="groups-${eventId}-${
+          new Date().toISOString().split('T')[0]
         }.csv"`
       );
       return c.text(csvContent);
@@ -2812,7 +2815,9 @@ app.openapi(updateEventRoute, async (c) => {
     console.log('🔵 PATCH /events/{eventId} received data:', {
       eventId,
       hasRegistrationFormConfig: data.registrationFormConfig !== undefined,
-      registrationFormConfigKeys: data.registrationFormConfig ? Object.keys(data.registrationFormConfig) : null,
+      registrationFormConfigKeys: data.registrationFormConfig
+        ? Object.keys(data.registrationFormConfig)
+        : null,
       fullPayload: JSON.stringify(data, null, 2),
     });
 
@@ -3034,7 +3039,9 @@ app.openapi(getEventByIdRoute, async (c) => {
     console.log('📤 GET /events/{eventId} response:', {
       eventId,
       hasRegistrationFormConfig: event?.registrationFormConfig !== null,
-      registrationFormConfigKeys: event?.registrationFormConfig ? Object.keys(event.registrationFormConfig) : null,
+      registrationFormConfigKeys: event?.registrationFormConfig
+        ? Object.keys(event.registrationFormConfig)
+        : null,
     });
 
     if (!event) {
@@ -3267,8 +3274,8 @@ app.openapi(exportActivitiesRoute, async (c) => {
           activity.title,
           activity.groupIds.length > 0
             ? activity.groupIds
-              .map((id) => groupLookup.get(id) || id)
-              .join(', ')
+                .map((id) => groupLookup.get(id) || id)
+                .join(', ')
             : '',
           activity.startDateTime.toISOString().slice(0, 16).replace('T', ' '),
           activity.endDateTime.toISOString().slice(0, 16).replace('T', ' '),
@@ -3288,7 +3295,8 @@ app.openapi(exportActivitiesRoute, async (c) => {
       c.header('Content-Type', 'text/csv');
       c.header(
         'Content-Disposition',
-        `attachment; filename="activities-${eventId}-${new Date().toISOString().split('T')[0]
+        `attachment; filename="activities-${eventId}-${
+          new Date().toISOString().split('T')[0]
         }.csv"`
       );
       return c.text(csvContent);
@@ -4569,7 +4577,8 @@ const sendCsvTemplateCommunicationRoute = createRoute({
   path: '/communications/send-csv',
   tags: ['Admin - Communications'],
   summary: 'Send template emails to CSV recipients (no DB required)',
-  description: 'Send template-based emails to arbitrary recipients from CSV. All CSV columns become template variables.',
+  description:
+    'Send template-based emails to arbitrary recipients from CSV. All CSV columns become template variables.',
   request: {
     body: {
       content: {
@@ -4617,18 +4626,25 @@ app.openapi(sendCsvTemplateCommunicationRoute, async (c) => {
   try {
     const data = c.req.valid('json');
 
-    const result = await CommunicationsService.sendTemplateEmailFromCsv(data);
+    // Start the CSV sending process in the background (fire and forget)
+    CommunicationsService.sendTemplateEmailFromCsv(data).catch((error) => {
+      console.error('CSV email sending failed:', error);
+    });
 
+    // Return immediate success response
     return c.json({
       success: true,
-      data: result,
-      message: `Sent ${result.sentCount}/${result.totalRecipients} emails successfully`,
+      message: `CSV email job started for ${data.csvRecipients.length} recipients. Refresh the communications page later to see results.`,
+      data: {
+        totalRecipients: data.csvRecipients.length,
+        status: 'processing',
+      },
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to send CSV emails',
+        error: 'Failed to start CSV email job',
         details: error.message,
       },
       400
@@ -4979,8 +4995,9 @@ app.openapi(sendAuthenticationRoute, async (c) => {
       recipientIds: [userId],
       variables: {
         ...variables,
-        magicLink: `${process.env.FRONTEND_URL || 'https://chivasregalmonza.com'
-          }/auth/magic?token=${magicLink.token}&event=${user.eventId}`,
+        magicLink: `${
+          process.env.FRONTEND_URL || 'https://chivasregalmonza.com'
+        }/auth/magic?token=${magicLink.token}&event=${user.eventId}`,
       },
       adminId,
     });
@@ -5069,8 +5086,9 @@ app.openapi(generateUploadUrlRoute, async (c) => {
     let folderPath: string;
     switch (folder) {
       case 'activities':
-        folderPath = `events/${eventId}/activities${activityId ? `/${activityId}` : ''
-          }`;
+        folderPath = `events/${eventId}/activities${
+          activityId ? `/${activityId}` : ''
+        }`;
         break;
       case 'events':
         folderPath = `events/${eventId}/assets`;
@@ -5666,7 +5684,8 @@ app.openapi(importActivitiesRoute, async (c) => {
           !activityData.endDateTime
         ) {
           errors.push(
-            `Row ${i + 2
+            `Row ${
+              i + 2
             }: Missing required fields (title, group, startDateTime, endDateTime)`
           );
           continue;
@@ -6215,10 +6234,10 @@ app.openapi(getCommunicationHistoryRoute, async (c) => {
       templateId: message.templateId,
       template: message.template
         ? {
-          name: message.template.name,
-          type: message.template.type,
-          subject: message.template.subject,
-        }
+            name: message.template.name,
+            type: message.template.type,
+            subject: message.template.subject,
+          }
         : null,
       subject: message.emailSubject || 'Untitled', // emailSubject now contains processed subject
       recipientType: message.recipientType,
