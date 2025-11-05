@@ -51,6 +51,10 @@ export class EmailService {
           subject,
           html: htmlBody,
           ...(textBody && { text: textBody }),
+          headers: {
+            'List-Unsubscribe': '<https://www.notifications.borntomixuntold.com/api/unsubscribe>',
+            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+          },
         });
 
         if (error) {
