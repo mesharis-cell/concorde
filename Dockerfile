@@ -1,10 +1,15 @@
-FROM oven/bun:1 as dependencies
-RUN apt-get update -y && apt-get install -y openssl
+FROM public.ecr.aws/docker/library/node:20-slim as dependencies
+RUN apt-get update -y && apt-get install -y openssl curl unzip
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:$PATH"
 WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
-FROM oven/bun:1 as build
+FROM public.ecr.aws/docker/library/node:20-slim as build
+RUN apt-get update -y && apt-get install -y openssl curl unzip
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:$PATH"
 WORKDIR /app
 COPY . .
 COPY --from=dependencies /app/node_modules ./node_modules
