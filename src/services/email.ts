@@ -52,7 +52,7 @@ export class EmailService {
           html: htmlBody,
           ...(textBody && { text: textBody }),
           headers: {
-            'List-Unsubscribe': '<mailto:unsubscribe@notifications.borntomixuntold.com>, <https://www.notifications.borntomixuntold.com/api/unsubscribe>',
+            'List-Unsubscribe': '<mailto:unsubscribe@notifications.chivasregalcrystalgoldrsvp.com>, <https://notifications.chivasregalcrystalgoldrsvp.com/api/unsubscribe>',
             'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
           },
         });
