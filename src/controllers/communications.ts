@@ -2,8 +2,9 @@ import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { prisma } from '../config/database.js';
 import { ApiSuccessSchema, ApiErrorSchema } from '../types/index.js';
 import { CommunicationLogService } from '../services/communication-logs.js';
+import type { AuthContext } from '../middleware/auth.js';
 
-const app = new OpenAPIHono();
+const app = new OpenAPIHono<{ Variables: AuthContext }>();
 
 // Get Communication Statistics for Event
 const getCommunicationStatsRoute = createRoute({
@@ -40,8 +41,10 @@ app.openapi(getCommunicationStatsRoute, async (c) => {
     ] = await prisma.$transaction([
       prisma.message.count({ where: { eventId } }),
       prisma.message.count({ where: { eventId, emailContent: { not: null } } }),
-      prisma.message.count({ where: { eventId, whatsappContent: { not: null } } }),
-      prisma.message.count({ where: { eventId, deliveredAt: { not: null } } }),
+      prisma.message.count({
+        where: { eventId, whatsappTemplate: { not: null } },
+      }),
+      prisma.message.count({ where: { eventId, status: 'sent' } }),
     ]);
 
     const stats = {

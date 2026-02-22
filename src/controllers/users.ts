@@ -1,6 +1,8 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { UserService } from '../services/users.js';
 import { JwtService } from '../utils/jwt.js';
+import { prisma } from '../config/database.js';
+import type { AuthContext } from '../middleware/auth.js';
 import {
   CreateUserSchema,
   PaginationSchema,
@@ -10,7 +12,42 @@ import {
 import { EmailService } from '../services/email';
 import { EventService } from '../services/events';
 
-const app = new OpenAPIHono();
+const app = new OpenAPIHono<{ Variables: AuthContext }>();
+
+const getFormResponseValue = (formResponses: unknown, fieldName: string): string => {
+  if (!Array.isArray(formResponses)) {
+    return '';
+  }
+
+  const entry = formResponses.find((item) => {
+    if (!item || typeof item !== 'object') {
+      return false;
+    }
+
+    const candidate = item as { fieldName?: unknown };
+    return candidate.fieldName === fieldName;
+  }) as { value?: unknown } | undefined;
+
+  return typeof entry?.value === 'string' ? entry.value : '';
+};
+
+const asRecord = (value: unknown): Record<string, unknown> => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+
+  return {};
+};
+
+const getStringField = (record: Record<string, unknown>, key: string): string => {
+  const value = record[key];
+  return typeof value === 'string' ? value : '';
+};
+
+const getBooleanField = (
+  record: Record<string, unknown>,
+  key: string
+): boolean => record[key] === true;
 
 // Admin user registration moved to /controllers/admin.ts for proper security
 
@@ -79,7 +116,9 @@ app.openapi(requestMagicLinkRoute, async (c) => {
       );
     }
 
-    const magicToken = await UserService.createMagicLink(user.id);
+    const { token: magicToken } = await UserService.generateMagicLink(user.id);
+    const firstName = getFormResponseValue(user.formResponses, 'firstName');
+    const lastName = getFormResponseValue(user.formResponses, 'lastName');
 
     if (event.config['micrositeUrl'] === 'undefined') {
       return c.json(
@@ -94,8 +133,8 @@ app.openapi(requestMagicLinkRoute, async (c) => {
     // TODO: Send email with magic link
     await EmailService.sendMagicLinkEmail(email, {
       eventName: event.name,
-      firstName: (user.profile['firstName'] as string) || '',
-      lastName: (user.profile['lastName'] as string) || '',
+      firstName,
+      lastName,
       magicLink: `https://${event.config['micrositeUrl'] ?? 'undefined'}/auth/magic?token=${magicToken}`,
       unsubscribeLink: `${process.env.APP_URL || 'http://localhost:3001'}/api/unsubscribe/${user.id}/${eventId}`,
     });
@@ -182,9 +221,10 @@ app.openapi(authenticateMagicLinkRoute, async (c) => {
       data: {
         user: {
           id: user.id,
-          profile: user.profile,
+          email: user.email,
+          formResponses: user.formResponses,
           assigned: user.assigned,
-          groupId: user.groupId,
+          groupIds: user.groupIds,
         },
         accessToken,
       },
@@ -590,13 +630,35 @@ app.openapi(exportUsersRoute, async (c) => {
 
     const users = await prisma.user.findMany({
       where: { eventId, active: true },
-      include: {
-        group: {
-          select: { name: true },
-        },
+      select: {
+        id: true,
+        email: true,
+        groupIds: true,
+        assigned: true,
+        registeredAt: true,
+        communication: true,
+        flight: true,
+        accommodation: true,
+        transferRequirements: true,
+        formResponses: true,
       },
       orderBy: { registeredAt: 'desc' },
     });
+
+    const uniqueGroupIds = Array.from(
+      new Set(users.flatMap((user) => user.groupIds || []))
+    );
+    const groups = uniqueGroupIds.length
+      ? await prisma.group.findMany({
+          where: {
+            id: { in: uniqueGroupIds },
+            active: true,
+            deleted: false,
+          },
+          select: { id: true, name: true },
+        })
+      : [];
+    const groupNameById = new Map(groups.map((group) => [group.id, group.name]));
 
     if (format === 'csv') {
       // Generate CSV format
@@ -631,42 +693,74 @@ app.openapi(exportUsersRoute, async (c) => {
       ];
 
       const csvData = users.map((user) => {
-        const profile = (user.profile as any) || {};
-        const communication = (user.communication as any) || {};
-        const flight = (user.flight as any) || {};
-        const accommodation = (user.accommodation as any) || {};
-        const requirements = (user.requirements as any) || {};
-        const merchandiseSize = (user.merchandiseSize as any) || {};
-        const emergencyContact = (user.emergencyContact as any) || {};
+        const communication = asRecord(user.communication);
+        const flight = asRecord(user.flight);
+        const accommodation = asRecord(user.accommodation);
+        const firstName = getFormResponseValue(user.formResponses, 'firstName');
+        const lastName = getFormResponseValue(user.formResponses, 'lastName');
+        const phone =
+          getFormResponseValue(user.formResponses, 'phone') ||
+          getFormResponseValue(user.formResponses, 'phoneNumber');
+        const dietary = getFormResponseValue(
+          user.formResponses,
+          'dietaryRequirements'
+        );
+        const medical = getFormResponseValue(
+          user.formResponses,
+          'medicalRequirements'
+        );
+        const accessibility = getFormResponseValue(
+          user.formResponses,
+          'accessibilityRequirements'
+        );
+        const shirtSize = getFormResponseValue(user.formResponses, 'shirtSize');
+        const jacketSize = getFormResponseValue(user.formResponses, 'jacketSize');
+        const hatSize = getFormResponseValue(user.formResponses, 'hatSize');
+        const emergencyContactName = getFormResponseValue(
+          user.formResponses,
+          'emergencyContactName'
+        );
+        const emergencyContactPhone = getFormResponseValue(
+          user.formResponses,
+          'emergencyContactPhone'
+        );
+        const emergencyContactEmail = getFormResponseValue(
+          user.formResponses,
+          'emergencyContactEmail'
+        );
+        const groupName =
+          user.groupIds
+            .map((groupId) => groupNameById.get(groupId))
+            .find((name) => Boolean(name)) || 'Unassigned';
 
         return [
-          profile.email || '',
-          profile.firstName || '',
-          profile.lastName || '',
-          profile.phone || '',
-          user.group?.name || 'Unassigned',
+          user.email || '',
+          firstName,
+          lastName,
+          phone,
+          groupName,
           user.assigned ? 'Yes' : 'No',
           user.registeredAt?.toISOString() || '',
-          communication.emailOptIn ? 'Yes' : 'No',
-          communication.whatsappOptIn ? 'Yes' : 'No',
-          flight.airline || '',
-          flight.number || '',
-          flight.arrival || '',
-          flight.departure || '',
-          accommodation.required ? 'Yes' : 'No',
-          accommodation.hotel || '',
-          accommodation.checkIn || '',
-          accommodation.checkOut || '',
+          getBooleanField(communication, 'emailOptIn') ? 'Yes' : 'No',
+          getBooleanField(communication, 'whatsappOptIn') ? 'Yes' : 'No',
+          getStringField(flight, 'airline'),
+          getStringField(flight, 'number'),
+          getStringField(flight, 'arrival'),
+          getStringField(flight, 'departure'),
+          getBooleanField(accommodation, 'required') ? 'Yes' : 'No',
+          getStringField(accommodation, 'hotel'),
+          getStringField(accommodation, 'checkIn'),
+          getStringField(accommodation, 'checkOut'),
           user.transferRequirements || '',
-          requirements.dietary || '',
-          requirements.medical || '',
-          requirements.accessibility || '',
-          merchandiseSize.shirt || '',
-          merchandiseSize.jacket || '',
-          merchandiseSize.hat || '',
-          emergencyContact.name || '',
-          emergencyContact.phone || '',
-          emergencyContact.email || '',
+          dietary,
+          medical,
+          accessibility,
+          shirtSize,
+          jacketSize,
+          hatSize,
+          emergencyContactName,
+          emergencyContactPhone,
+          emergencyContactEmail,
         ];
       });
 

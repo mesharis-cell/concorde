@@ -1,6 +1,7 @@
 import { prisma } from '../config/database.js';
 import { EmailService } from './email.js';
 import { JwtService } from '../utils/jwt.js';
+import { env } from '../config/env.js';
 
 export interface OTPRequest {
   userId: string;
@@ -168,8 +169,9 @@ export class OTPService {
         };
       }
 
-      // Generate OTP code
-      const otpCode = this.generateOTPCode();
+      // [V1] Deterministic OTP fallback in demo mode (Task 2.5.6)
+      const isDemoOtpMode = env.DEMO_OTP_MODE && env.NODE_ENV !== 'production';
+      const otpCode = isDemoOtpMode ? env.DEMO_OTP_FIXED_CODE : this.generateOTPCode();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
       // Create OTP record
@@ -184,22 +186,27 @@ export class OTPService {
         }
       });
 
-      // Send OTP via channel
-      const sendResult = await channelProvider.send(request.userEmail, otpCode, request.eventId);
-      
-      if (!sendResult.success) {
-        // Clean up the OTP record if sending failed
-        await prisma.userOTP.delete({ where: { id: otpRecord.id } });
-        return {
-          success: false,
-          error: sendResult.error || 'Failed to send OTP'
-        };
+      // [V1] In demo OTP mode we intentionally skip provider delivery.
+      if (!isDemoOtpMode) {
+        // Send OTP via channel
+        const sendResult = await channelProvider.send(request.userEmail, otpCode, request.eventId);
+        
+        if (!sendResult.success) {
+          // Clean up the OTP record if sending failed
+          await prisma.userOTP.delete({ where: { id: otpRecord.id } });
+          return {
+            success: false,
+            error: sendResult.error || 'Failed to send OTP'
+          };
+        }
       }
 
       return {
         success: true,
         otpId: otpRecord.id,
-        message: `OTP sent via ${request.channel}`
+        message: isDemoOtpMode
+          ? 'OTP generated in demo mode'
+          : `OTP sent via ${request.channel}`
       };
 
     } catch (error: any) {
@@ -259,8 +266,11 @@ export class OTPService {
         };
       }
 
+      const isDemoOtpMode = env.DEMO_OTP_MODE && env.NODE_ENV !== 'production';
+      const expectedCode = isDemoOtpMode ? env.DEMO_OTP_FIXED_CODE : otpRecord.otpCode;
+
       // Validate OTP code
-      if (otpRecord.otpCode !== validation.otpCode) {
+      if (expectedCode !== validation.otpCode) {
         // Increment attempts
         await prisma.userOTP.update({
           where: { id: validation.otpId },
@@ -294,19 +304,30 @@ export class OTPService {
       const token = JwtService.generateGuestAccessToken(otpRecord.userId, otpRecord.eventId);
 
       // Prepare user data for response
+      const formResponses = (otpRecord.user.formResponses as any[]) || [];
+      const profileFromForm = {
+        email: otpRecord.user.email,
+        firstName:
+          formResponses.find((entry: any) => entry?.fieldName === 'firstName')?.value || '',
+        lastName:
+          formResponses.find((entry: any) => entry?.fieldName === 'lastName')?.value || '',
+        phone:
+          formResponses.find((entry: any) =>
+            ['phone', 'phoneNumber', 'mobile'].includes(entry?.fieldName)
+          )?.value || '',
+      };
+
       const userData = {
         id: otpRecord.user.id,
         eventId: otpRecord.user.eventId,
-        profile: otpRecord.user.profile,
+        email: otpRecord.user.email,
+        profile: profileFromForm,
+        formResponses: otpRecord.user.formResponses,
         communication: otpRecord.user.communication,
         assigned: otpRecord.user.assigned,
-        groupId: otpRecord.user.groupId,
-        group: otpRecord.user.group,
+        groupIds: otpRecord.user.groupIds,
         flight: otpRecord.user.flight,
         accommodation: otpRecord.user.accommodation,
-        requirements: otpRecord.user.requirements,
-        merchandiseSize: otpRecord.user.merchandiseSize,
-        emergencyContact: otpRecord.user.emergencyContact,
         event: {
           id: otpRecord.user.event.id,
           name: otpRecord.user.event.name,

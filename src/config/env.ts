@@ -1,52 +1,91 @@
 import { z } from 'zod';
 import 'dotenv/config';
 
-const envSchema = z.object({
-  // Database
-  DATABASE_URL: z.string().min(1),
+const boolFromEnv = z.preprocess((value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') return value.toLowerCase() === 'true';
+  return false;
+}, z.boolean());
 
-  // JWT
+const envSchema = z.object({
+  DATABASE_URL: z.string().min(1),
   JWT_SECRET: z.string().min(1),
   JWT_EXPIRES_IN: z.string().default('7d'),
   MAGIC_LINK_EXPIRES_IN: z.string().default('24h'),
 
-  // AWS
-  AWS_ACCESS_KEY_ID: z.string().min(1),
-  AWS_SECRET_ACCESS_KEY: z.string().min(1),
-  AWS_REGION: z.string().default('us-east-1'),
-  AWS_S3_BUCKET: z.string().min(1),
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  PORT: z.string().default('3001'),
+  APP_URL: z.string().url().default('https://demo.savvio.digital'),
+  FRONTEND_URL: z.string().url().optional(),
 
-  // SES (keeping for fallback)
-  SES_FROM_EMAIL: z.string().email(),
-  SES_FROM_NAME: z.string().default('Event Concierge'),
+  // [V1] Demo-mode gates (Task 2.9.5 + 2.5.6)
+  DEMO_MODE: boolFromEnv.default(false),
+  DEMO_OTP_MODE: boolFromEnv.default(false),
+  DEMO_OTP_FIXED_CODE: z.string().regex(/^\d{4}$/).default('1234'),
 
-  // Resend
-  RESEND_API_KEY: z.string().min(1),
   EMAIL_PROVIDER: z.enum(['ses', 'resend']).default('resend'),
+  SES_FROM_EMAIL: z.string().email().default('no-reply@savvio.digital'),
+  SES_FROM_NAME: z.string().default('Savvio Concorde'),
+  RESEND_API_KEY: z.string().optional(),
 
-  // Twilio
-  TWILIO_ACCOUNT_SID: z.string().min(1),
-  TWILIO_AUTH_TOKEN: z.string().min(1),
-  TWILIO_WHATSAPP_FROM: z.string().min(1),
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
+  AWS_REGION: z.string().default('us-east-1'),
+  AWS_S3_BUCKET: z.string().optional(),
 
-  // App
-  APP_URL: z.string().url().default('https://chivasregalmonza.com'),
-  PORT: z.string().default('3000'),
-  NODE_ENV: z
-    .enum(['development', 'production', 'test'])
-    .default('development'),
+  // [V1] Optional channel gating
+  TWILIO_ENABLED: boolFromEnv.default(false),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_WHATSAPP_FROM: z.string().optional(),
 
-  // Monitoring (optional)
+  // [V1] PassKit contract (Task 2.6.1)
+  PASSKIT_API_KEY: z.string().optional(),
+  PASSKIT_TEMPLATE_ID: z.string().optional(),
+  PASSKIT_ISSUER_ID: z.string().optional(),
+  PASSKIT_BASE_URL: z.string().url().default('https://api.passkit.com'),
+  WALLET_PASS_TTL_HOURS: z.coerce.number().int().positive().default(24),
+
   MONITORING_EMAIL: z.string().email().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
-
 if (!parsed.success) {
   console.error('❌ Invalid environment variables:', parsed.error.format());
   throw new Error('Invalid environment variables');
 }
 
-export const env = parsed.data;
+const envData = parsed.data;
+const modeLabel = envData.DEMO_MODE ? 'DEMO_MODE=true' : 'DEMO_MODE=false';
+const errors: string[] = [];
+
+// [V1] Keep strict provider validation outside demo mode.
+if (!envData.DEMO_MODE) {
+  if (envData.EMAIL_PROVIDER === 'resend' && !envData.RESEND_API_KEY) {
+    errors.push('RESEND_API_KEY is required when EMAIL_PROVIDER=resend and DEMO_MODE=false');
+  }
+
+  if (envData.EMAIL_PROVIDER === 'ses') {
+    if (!envData.AWS_ACCESS_KEY_ID) errors.push('AWS_ACCESS_KEY_ID is required for SES mode');
+    if (!envData.AWS_SECRET_ACCESS_KEY) errors.push('AWS_SECRET_ACCESS_KEY is required for SES mode');
+  }
+
+  if (!envData.AWS_S3_BUCKET) {
+    errors.push('AWS_S3_BUCKET is required when DEMO_MODE=false');
+  }
+}
+
+if (envData.TWILIO_ENABLED) {
+  if (!envData.TWILIO_ACCOUNT_SID) errors.push('TWILIO_ACCOUNT_SID is required when TWILIO_ENABLED=true');
+  if (!envData.TWILIO_AUTH_TOKEN) errors.push('TWILIO_AUTH_TOKEN is required when TWILIO_ENABLED=true');
+  if (!envData.TWILIO_WHATSAPP_FROM) errors.push('TWILIO_WHATSAPP_FROM is required when TWILIO_ENABLED=true');
+}
+
+if (errors.length > 0) {
+  console.error(`❌ Invalid environment variables (${modeLabel}):`, errors);
+  throw new Error('Invalid environment variables');
+}
+
+export const env = envData;
 
 export type Env = typeof env;

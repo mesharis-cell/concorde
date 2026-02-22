@@ -1,6 +1,7 @@
 import { prisma } from '../config/database.js';
 import type { Pagination, PaginatedResponse } from '../types/index.js';
 import { ObjectId } from 'mongodb';
+import { Prisma } from '@prisma/client';
 
 export type AuditAction =
   | 'CREATE'
@@ -35,6 +36,7 @@ export interface AuditLogRequest {
   };
   summary: string;
   metadata?: {
+    [key: string]: unknown;
     ipAddress?: string;
     userAgent?: string;
     bulkOperation?: {
@@ -58,6 +60,17 @@ export interface AuditTrailFilters {
 }
 
 export class AuditTrailService {
+  private static toInputJsonValue(
+    value: unknown
+  ): Prisma.InputJsonValue | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    // Normalize unknown payloads into plain JSON-compatible data for Prisma.
+    return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+  }
+
   /**
    * Log an audit trail entry
    */
@@ -71,9 +84,9 @@ export class AuditTrailService {
           eventId: request.eventId,
           performedBy: request.performedBy,
           performedByType: request.performedByType,
-          changes: request.changes,
+          changes: this.toInputJsonValue(request.changes),
           summary: request.summary,
-          metadata: request.metadata,
+          metadata: this.toInputJsonValue(request.metadata),
         },
       });
     } catch (error: any) {
@@ -588,9 +601,9 @@ export class AuditTrailService {
           eventId: request.eventId,
           performedBy: request.performedBy,
           performedByType: request.performedByType,
-          changes: request.changes,
+          changes: this.toInputJsonValue(request.changes),
           summary: request.summary,
-          metadata: request.metadata,
+          metadata: this.toInputJsonValue(request.metadata),
         })),
       });
     } catch (error: any) {

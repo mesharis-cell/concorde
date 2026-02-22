@@ -1,5 +1,6 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { ActivityService } from '../services/activities.js';
+import type { AuthContext } from '../middleware/auth.js';
 import { 
   CreateActivitySchema, 
   UpdateActivitySchema, 
@@ -9,7 +10,7 @@ import {
   ApiErrorSchema 
 } from '../types/index.js';
 
-const app = new OpenAPIHono();
+const app = new OpenAPIHono<{ Variables: AuthContext }>();
 
 // Create Activity
 const createActivityRoute = createRoute({
@@ -365,9 +366,19 @@ app.openapi(updateActivityRoute, async (c) => {
   try {
     const { id } = c.req.valid('param');
     const data = c.req.valid('json');
+    const authUser = c.get('user');
     
     // Check if admin can modify this activity
-    const adminId = data.lastModifiedBy;
+    const adminId = authUser?.id;
+    if (!adminId) {
+      return c.json(
+        {
+          success: false,
+          error: 'Unauthorized',
+        },
+        401
+      );
+    }
     const permissionCheck = await ActivityService.canAdminModifyActivity(id, adminId);
     
     if (!permissionCheck.canModify) {
@@ -378,7 +389,7 @@ app.openapi(updateActivityRoute, async (c) => {
       }, 403);
     }
     
-    const activity = await ActivityService.update(id, data);
+    const activity = await ActivityService.update(id, data, adminId);
     
     return c.json({
       success: true,

@@ -102,19 +102,19 @@ model Event {
   updatedAt DateTime @updatedAt
 
   // Relations
-  groups      Group[]
-  activities  Activity[]
-  users       User[]
-  otps        UserOTP[]
-  messages    Message[]
-  adminEvents AdminEvent[]
-  communicationLogs CommunicationLog[]
+  groups                 Group[]
+  activities             Activity[]
+  users                  User[]
+  otps                   UserOTP[]
+  messages               Message[]
+  adminEvents            AdminEvent[]
+  communicationLogs      CommunicationLog[]
   userActivityExclusions UserActivityExclusion[]
-  emailTemplates EmailTemplate[]
-  auditTrails AuditTrail[]
-  roomAssignments RoomAssignment[]
-  hotels      Hotel[]
-  roomTypes   RoomType[]
+  emailTemplates         EmailTemplate[]
+  auditTrails            AuditTrail[]
+  roomAssignments        RoomAssignment[]
+  hotels                 Hotel[]
+  roomTypes              RoomType[]
 
   @@map("events")
 }
@@ -130,26 +130,26 @@ model Group {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
-  
+
   // Many-to-many with activities (MongoDB array approach)
-  activityIds String[]   @db.ObjectId
-  
+  activityIds String[] @db.ObjectId
+
   // Transport assignments - default cars for group members
   carNumbers String[] @default([]) // ["car-1", "car-2"] - inherited by all group members
 
   // Relations
-  event      Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  activities Activity[] @relation(fields: [activityIds], references: [id])
-  communicationLogs CommunicationLog[]
+  event                  Event                   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  activities             Activity[]              @relation(fields: [activityIds], references: [id])
+  communicationLogs      CommunicationLog[]
   userActivityExclusions UserActivityExclusion[]
 
   @@map("groups")
 }
 
 model Activity {
-  id      String  @id @default(auto()) @map("_id") @db.ObjectId
-  eventId String  @db.ObjectId
-  groupIds String[] @db.ObjectId  // Multiple groups per activity
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  eventId  String   @db.ObjectId
+  groupIds String[] @db.ObjectId // Multiple groups per activity
 
   // Scheduling (required)
   title         String
@@ -165,18 +165,18 @@ model Activity {
   location Json? // { name, address, mapLink }
 
   // Content
-  content Json // { html: string }
+  content   Json // { html: string }
   dressCode String? // Dress code for the activity
 
   // Capacity management
-  capacity         Int?      // null = unlimited capacity
-  currentAttendees Int       @default(0) // Auto-computed from assignments
+  capacity         Int? // null = unlimited capacity
+  currentAttendees Int  @default(0) // Auto-computed from assignments
 
   // Timing details for structured scheduling
   timingTable Json[] // [{ enabled: Boolean, time: String, description: String, location?: String }]
 
   // Import/content management
-  importKey      String? // Stable key for content updates after nightly imports
+  importKey String? // Stable key for content updates after nightly imports
 
   active         Boolean   @default(true)
   deleted        Boolean   @default(false)
@@ -188,11 +188,11 @@ model Activity {
   deletedAt      DateTime?
 
   // Relations
-  event                 Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  groups                Group[] @relation(fields: [groupIds], references: [id])
-  createdByAdmin        Admin   @relation("ActivityCreator", fields: [createdBy], references: [id])
-  lastModifiedByAdmin   Admin?  @relation("ActivityModifier", fields: [lastModifiedBy], references: [id])
-  userExclusions        UserActivityExclusion[]
+  event               Event                   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  groups              Group[]                 @relation(fields: [groupIds], references: [id])
+  createdByAdmin      Admin                   @relation("ActivityCreator", fields: [createdBy], references: [id])
+  lastModifiedByAdmin Admin?                  @relation("ActivityModifier", fields: [lastModifiedBy], references: [id])
+  userExclusions      UserActivityExclusion[]
 
   // Prisma v6 optimized indexes for timeline queries
   @@index([groupIds, startDateTime])
@@ -212,11 +212,11 @@ model User {
 
   // CORE IDENTITY - Email only (unique identifier)
   email String
-  
+
   // FORM RESPONSES - Array of field responses with metadata
   // Structure: [{ fieldName, fieldLabel, fieldType, value, step, order }]
   formResponses Json // Array of all form field responses with metadata
-  
+
   // Admin-managed structured tickets  
   tickets Json[] @default([]) // Array of structured tickets: [{ name: string, number: string, valid: boolean }]
 
@@ -226,49 +226,51 @@ model User {
   communication Json // { emailOptIn, whatsappOptIn }
 
   // Travel & accommodation details (admin-managed, separate from registration)
-  flight               Json? // Flight details managed by admin
-  accommodation        Json? // Accommodation managed by admin
-  transferRequirements Boolean @default(false)
-  gpTransfersRequired Boolean @default(false)
+  flight                 Json? // Flight details managed by admin
+  accommodation          Json? // Accommodation managed by admin
+  transferRequirements   Boolean @default(false)
+  gpTransfersRequired    Boolean @default(false)
   eventTransfersRequired Boolean @default(false)
 
   // Assignment status (now supports multiple groups)
   assigned   Boolean   @default(false) // true if assigned to any group
   assignedAt DateTime? // last assignment date
   assignedBy String?   @db.ObjectId // last admin who assigned
-  
+
   // Notification status
-  groupAssignmentNotified Boolean @default(false)
+  groupAssignmentNotified   Boolean   @default(false)
   groupAssignmentNotifiedAt DateTime?
 
   // Hotel & room management
-  guestCategory String? // Admin-assigned guest tier (VIP, Standard, etc.)
+  guestCategory    String? // Admin-assigned guest tier (VIP, Standard, etc.)
   roomDropAssigned String? // ID of assigned room drop package
-  hotelId String? @db.ObjectId // Reference to assigned hotel
-  
+  hotelId          String? @db.ObjectId // Reference to assigned hotel
+
   // Transport assignments - individual car overrides
   carNumbers String[] @default([]) // [] = inherit from group, ["car-5"] = individual override
 
   // Report-specific notes
-  arrivalNotes String? // Notes specific to arrival logistics
-  departureNotes String? // Notes specific to departure logistics
-  masterGuestNotes String? // General notes for master guest report
+  arrivalNotes       String? // Notes specific to arrival logistics
+  departureNotes     String? // Notes specific to departure logistics
+  masterGuestNotes   String? // General notes for master guest report
   carAssignmentNotes String? // Notes specific to car assignments
 
   // Status & timestamps
   active       Boolean   @default(true)
+  checkedIn    Boolean   @default(false) // [V1] Phase 1 demo check-in state
+  checkedInAt  DateTime? // [V1] Phase 1 demo check-in timestamp
   registeredAt DateTime  @default(now())
   lastLoginAt  DateTime?
   updatedAt    DateTime  @updatedAt
 
   // Relations
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  hotel Hotel? @relation("UserHotel", fields: [hotelId], references: [id], onDelete: SetNull)
-  otps UserOTP[]
-  communicationLogs CommunicationLog[]
+  event              Event                   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  hotel              Hotel?                  @relation("UserHotel", fields: [hotelId], references: [id], onDelete: SetNull)
+  otps               UserOTP[]
+  communicationLogs  CommunicationLog[]
   activityExclusions UserActivityExclusion[]
-  emailTracking EmailTracking[]
-  roomAssignments RoomAssignment[]
+  emailTracking      EmailTracking[]
+  roomAssignments    RoomAssignment[]
 
   // Prisma v6 optimized indexes
   @@index([eventId, active])
@@ -279,30 +281,30 @@ model User {
 }
 
 model UserOTP {
-  id       String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId   String   @db.ObjectId
-  eventId  String   @db.ObjectId
-  
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  userId  String @db.ObjectId
+  eventId String @db.ObjectId
+
   // OTP details
-  otpCode    String   // 4-digit OTP
-  channel    String   // "email" | "sms" (extensible for future channels)
-  
+  otpCode String // 4-digit OTP
+  channel String // "email" | "sms" (extensible for future channels)
+
   // Rate limiting & security
-  attempts   Int      @default(0)
-  verified   Boolean  @default(false)
-  
+  attempts Int     @default(0)
+  verified Boolean @default(false)
+
   // Expiry (10 minutes)
   expiresAt  DateTime
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
   verifiedAt DateTime?
-  
+
   // User context
-  userEmail String   // Store email for quick lookup
-  
+  userEmail String // Store email for quick lookup
+
   // Relations
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  
+
   // Indexes for performance and rate limiting
   @@index([userId, createdAt])
   @@index([userEmail, createdAt])
@@ -312,39 +314,39 @@ model UserOTP {
 }
 
 model CommunicationLog {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String   @db.ObjectId
-  eventId   String   @db.ObjectId
-  groupId   String?  @db.ObjectId
-  adminId   String   @db.ObjectId
-  
+  id      String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId  String  @db.ObjectId
+  eventId String  @db.ObjectId
+  groupId String? @db.ObjectId
+  adminId String  @db.ObjectId
+
   // Communication details
-  type        String   // "email" | "whatsapp"
-  channel     String   // "email" | "whatsapp" | "sms"
-  purpose     String   // "group_assignment" | "event_reminder" | "custom" | "announcement"
-  subject     String?
-  content     Json     // { html?, text?, templateId?, variables? }
-  
+  type    String // "email" | "whatsapp"
+  channel String // "email" | "whatsapp" | "sms"
+  purpose String // "group_assignment" | "event_reminder" | "custom" | "announcement"
+  subject String?
+  content Json // { html?, text?, templateId?, variables? }
+
   // Recipients (for bulk sends)
   recipientType String // "single" | "group" | "event" | "custom"
   recipientIds  String[] @db.ObjectId // Array of user IDs for bulk sends
-  
+
   // Status tracking
-  status      String   // "sent" | "delivered" | "failed" | "pending"
-  sentAt      DateTime @default(now())
+  status      String // "sent" | "delivered" | "failed" | "pending"
+  sentAt      DateTime  @default(now())
   deliveredAt DateTime?
   failedAt    DateTime?
   error       String?
-  
+
   // Metadata
-  metadata    Json?    // { messageId?, trackingId?, cost?, etc. }
-  
+  metadata Json? // { messageId?, trackingId?, cost?, etc. }
+
   // Relations
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
   group Group? @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
-  
+  admin Admin  @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([eventId])
   @@index([groupId])
@@ -368,15 +370,15 @@ model Admin {
   updatedAt    DateTime  @updatedAt
 
   // Relations
-  adminEvents           AdminEvent[]
-  communicationLogs     CommunicationLog[]
-  createdActivities     Activity[] @relation("ActivityCreator")
-  lastModifiedActivities Activity[] @relation("ActivityModifier")
-  createdExclusions     UserActivityExclusion[] @relation("ExclusionCreator")
-  createdTemplates      EmailTemplate[] @relation("TemplateCreator")
-  auditTrails           AuditTrail[]
-  roomAssignments       RoomAssignment[] @relation("RoomAssigner")
-  roomUpdates           RoomAssignment[] @relation("RoomUpdater")
+  adminEvents            AdminEvent[]
+  communicationLogs      CommunicationLog[]
+  createdActivities      Activity[]              @relation("ActivityCreator")
+  lastModifiedActivities Activity[]              @relation("ActivityModifier")
+  createdExclusions      UserActivityExclusion[] @relation("ExclusionCreator")
+  createdTemplates       EmailTemplate[]         @relation("TemplateCreator")
+  auditTrails            AuditTrail[]
+  roomAssignments        RoomAssignment[]        @relation("RoomAssigner")
+  roomUpdates            RoomAssignment[]        @relation("RoomUpdater")
 
   @@map("admins")
 }
@@ -400,19 +402,19 @@ model UserActivityExclusion {
   activityId String @db.ObjectId
   groupId    String @db.ObjectId // For context and validation
   eventId    String @db.ObjectId // For event isolation
-  
+
   // Metadata
   excludedBy String   @db.ObjectId // Admin who created the exclusion
-  reason     String?  // Optional reason for exclusion
+  reason     String? // Optional reason for exclusion
   createdAt  DateTime @default(now())
-  
+
   // Relations
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
   group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   admin    Admin    @relation("ExclusionCreator", fields: [excludedBy], references: [id])
-  
+
   // Ensure unique exclusions per user-activity pair
   @@unique([userId, activityId])
   @@index([userId])
@@ -423,28 +425,28 @@ model UserActivityExclusion {
 }
 
 model EmailTemplate {
-  id       String   @id @default(auto()) @map("_id") @db.ObjectId
-  eventId  String   @db.ObjectId
-  name     String   // Template name (unique per event)
+  id       String           @id @default(auto()) @map("_id") @db.ObjectId
+  eventId  String           @db.ObjectId
+  name     String // Template name (unique per event)
   type     TemplateType // 'COMMUNICATION' | 'AUTHENTICATION'
   category TemplateCategory // 'WELCOME' | 'ASSIGNMENT' | etc.
-  
+
   // Email content
-  subject  String   // Email subject with variable placeholders
-  html     String   // Complete HTML template
-  
+  subject String // Email subject with variable placeholders
+  html    String // Complete HTML template
+
   // Template metadata
   requiredVariables String[] // Variable names needed for template
-  active            Boolean @default(true)
-  createdBy         String  @db.ObjectId // Super admin who created template
+  active            Boolean  @default(true)
+  createdBy         String   @db.ObjectId // Super admin who created template
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-  
+
   // Relations
-  event             Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  createdByAdmin    Admin    @relation("TemplateCreator", fields: [createdBy], references: [id])
-  messages          Message[]
-  
+  event          Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdByAdmin Admin     @relation("TemplateCreator", fields: [createdBy], references: [id])
+  messages       Message[]
+
   // Unique template name per event
   @@unique([eventId, name])
   @@index([eventId, type])
@@ -454,21 +456,21 @@ model EmailTemplate {
 }
 
 model EmailTracking {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  messageId  String   @db.ObjectId
-  userId     String   @db.ObjectId
-  
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
+  messageId String @db.ObjectId
+  userId    String @db.ObjectId
+
   // Tracking details
-  trackingUrl String   // Generated unique tracking URL
-  opened      Boolean @default(false)
+  trackingUrl String // Generated unique tracking URL
+  opened      Boolean   @default(false)
   openedAt    DateTime?
-  userAgent   String?  // Email client info
+  userAgent   String? // Email client info
   ipAddress   String?
-  
+
   // Relations
-  message     Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // Unique tracking per message-user pair and unique tracking URL
   @@unique([messageId, userId])
   @@unique([trackingUrl])
@@ -500,14 +502,14 @@ model Message {
 
   // Monitoring
   monitoringEmailSent Boolean @default(false)
-  
+
   sentBy    String   @db.ObjectId // Admin ID
   createdAt DateTime @default(now())
   status    String   @default("draft") // 'draft' | 'sending' | 'sent' | 'failed'
 
   // Relations
-  event         Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  template      EmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  event         Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  template      EmailTemplate?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
   emailTracking EmailTracking[]
 
   @@index([eventId])
@@ -528,28 +530,28 @@ model Migration {
 }
 
 model RoomAssignment {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String   @db.ObjectId
-  eventId   String   @db.ObjectId
-  hotelId   String   @db.ObjectId // Reference to hotel
-  roomTypeId String  @db.ObjectId // Reference to room type
+  id         String @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String @db.ObjectId
+  eventId    String @db.ObjectId
+  hotelId    String @db.ObjectId // Reference to hotel
+  roomTypeId String @db.ObjectId // Reference to room type
 
   // Operational fields
-  assignedBy  String   @db.ObjectId // Admin who assigned the room
-  assignedAt  DateTime @default(now())
-  updatedBy   String   @db.ObjectId
-  updatedAt   DateTime @updatedAt
-  hotelNotes  String?  // Notes from hotel
-  billingNotes String? // Billing information
+  assignedBy                String   @db.ObjectId // Admin who assigned the room
+  assignedAt                DateTime @default(now())
+  updatedBy                 String   @db.ObjectId
+  updatedAt                 DateTime @updatedAt
+  hotelNotes                String? // Notes from hotel
+  billingNotes              String? // Billing information
   bookingConfirmationNumber String? // Hotel booking reference
 
   // Relations
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  hotel       Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  roomType    RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
-  assignedByAdmin Admin @relation("RoomAssigner", fields: [assignedBy], references: [id])
-  updatedByAdmin Admin @relation("RoomUpdater", fields: [updatedBy], references: [id])
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  hotel           Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  roomType        RoomType @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  assignedByAdmin Admin    @relation("RoomAssigner", fields: [assignedBy], references: [id])
+  updatedByAdmin  Admin    @relation("RoomUpdater", fields: [updatedBy], references: [id])
 
   @@unique([userId, eventId])
   @@index([eventId])
@@ -561,24 +563,24 @@ model RoomAssignment {
 }
 
 model Hotel {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  eventId     String   @db.ObjectId
-  name        String
-  isDefault   Boolean  @default(false)
-  checkInTime String   // "15:00"
-  checkOutTime String  // "11:00"
-  address     String?
-  phone       String?
-  email       String?
-  website     String?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  eventId      String   @db.ObjectId
+  name         String
+  isDefault    Boolean  @default(false)
+  checkInTime  String // "15:00"
+  checkOutTime String // "11:00"
+  address      String?
+  phone        String?
+  email        String?
+  website      String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relations
-  event       Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  roomTypes   RoomType[]
-  users       User[]       @relation("UserHotel")
+  event           Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  roomTypes       RoomType[]
+  users           User[]           @relation("UserHotel")
   roomAssignments RoomAssignment[]
 
   @@index([eventId])
@@ -587,21 +589,21 @@ model Hotel {
 }
 
 model RoomType {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  eventId     String   @db.ObjectId
-  hotelId     String   @db.ObjectId
-  name        String   // "Deluxe Twin", "Club Suite", etc.
-  description String?
-  maxOccupancy Int     @default(2)
-  amenities   String[] // ["WiFi", "Air Conditioning", "Mini Bar"]
-  basePrice   Float?   // Optional pricing information
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  eventId      String   @db.ObjectId
+  hotelId      String   @db.ObjectId
+  name         String // "Deluxe Twin", "Club Suite", etc.
+  description  String?
+  maxOccupancy Int      @default(2)
+  amenities    String[] // ["WiFi", "Air Conditioning", "Mini Bar"]
+  basePrice    Float? // Optional pricing information
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relations
-  event       Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  hotel       Hotel          @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  event           Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  hotel           Hotel            @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   roomAssignments RoomAssignment[]
 
   @@index([eventId])
@@ -612,33 +614,33 @@ model RoomType {
 }
 
 model AuditTrail {
-  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  id String @id @default(auto()) @map("_id") @db.ObjectId
 
   // What was changed
-  action      AuditAction // CREATE, UPDATE, DELETE, etc.
-  resourceType String     // "User", "Activity", "Group", "Event", etc.
-  resourceId  String      @db.ObjectId // ID of the affected resource
+  action       AuditAction // CREATE, UPDATE, DELETE, etc.
+  resourceType String // "User", "Activity", "Group", "Event", etc.
+  resourceId   String      @db.ObjectId // ID of the affected resource
 
   // Context information
-  eventId     String?     @db.ObjectId // Event context (if applicable)
+  eventId String? @db.ObjectId // Event context (if applicable)
 
   // Who made the change
-  performedBy String      @db.ObjectId // Admin ID who performed the action
-  performedByType String  // "ADMIN" or "SYSTEM" (for automated actions)
+  performedBy     String @db.ObjectId // Admin ID who performed the action
+  performedByType String // "ADMIN" or "SYSTEM" (for automated actions)
 
   // Change details
-  changes     Json?       // Before/after values for updates, full object for creates/deletes
-  summary     String      // Human-readable summary of what happened
+  changes Json? // Before/after values for updates, full object for creates/deletes
+  summary String // Human-readable summary of what happened
 
   // Additional context
-  metadata    Json?       // Additional context like IP address, user agent, bulk operation details, etc.
+  metadata Json? // Additional context like IP address, user agent, bulk operation details, etc.
 
   // Timestamps
-  createdAt   DateTime    @default(now())
+  createdAt DateTime @default(now())
 
   // Relations
-  event       Event?      @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  admin       Admin       @relation(fields: [performedBy], references: [id], onDelete: Restrict)
+  event Event? @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  admin Admin  @relation(fields: [performedBy], references: [id], onDelete: Restrict)
 
   // Indexes for efficient querying
   @@index([eventId, createdAt])

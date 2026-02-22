@@ -1,9 +1,10 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { OTPService } from '../services/otp.js';
 import { UserService } from '../services/users.js';
+import type { AuthContext } from '../middleware/auth.js';
 import { RequestOTPSchema, ValidateOTPSchema, ApiSuccessSchema, ApiErrorSchema } from '../types/index.js';
 
-const app = new OpenAPIHono();
+const app = new OpenAPIHono<{ Variables: AuthContext }>();
 
 // =============================================================================
 // OTP AUTHENTICATION ROUTES
@@ -235,104 +236,6 @@ app.openapi(validateOTPRoute, async (c) => {
   }
 });
 
-// Get OTP Status Route (for debugging/monitoring)
-const getOTPStatusRoute = createRoute({
-  method: 'get',
-  path: '/otp-status/{otpId}',
-  tags: ['Authentication - OTP'],
-  summary: 'Get OTP status (for debugging)',
-  description: 'Get the current status of an OTP (for debugging purposes)',
-  request: {
-    params: z.object({
-      otpId: z.string().min(1).openapi({
-        param: {
-          name: 'otpId',
-          in: 'path',
-        },
-        example: '60f7b3b3b3b3b3b3b3b3b3b3',
-      }),
-    }),
-  },
-  responses: {
-    200: {
-      content: {
-        'application/json': {
-          schema: z.object({
-            success: z.literal(true),
-            data: z.object({
-              id: z.string(),
-              channel: z.string(),
-              attempts: z.number(),
-              verified: z.boolean(),
-              expired: z.boolean(),
-              expiresAt: z.string(),
-              createdAt: z.string(),
-            }),
-          }),
-        },
-      },
-      description: 'OTP status retrieved successfully',
-    },
-    404: {
-      content: {
-        'application/json': {
-          schema: ApiErrorSchema,
-        },
-      },
-      description: 'OTP not found',
-    },
-  },
-});
-
-app.openapi(getOTPStatusRoute, async (c) => {
-  try {
-    const { otpId } = c.req.valid('param');
-
-    // This is for debugging only - in production you might want to remove this
-    const { prisma } = await import('../config/database.js');
-    const otp = await prisma.userOTP.findUnique({
-      where: { id: otpId },
-      select: {
-        id: true,
-        channel: true,
-        attempts: true,
-        verified: true,
-        expiresAt: true,
-        createdAt: true,
-      },
-    });
-
-    if (!otp) {
-      return c.json(
-        {
-          success: false,
-          error: 'OTP not found',
-        },
-        404
-      );
-    }
-
-    return c.json({
-      success: true,
-      data: {
-        ...otp,
-        expired: otp.expiresAt < new Date(),
-        expiresAt: otp.expiresAt.toISOString(),
-        createdAt: otp.createdAt.toISOString(),
-      },
-    });
-
-  } catch (error: any) {
-    console.error('Get OTP status error:', error);
-    return c.json(
-      {
-        success: false,
-        error: 'Failed to get OTP status',
-        details: error.message,
-      },
-      500
-    );
-  }
-});
+// [V1] Removed public OTP status debug endpoint from active demo path (Task 2.5.3).
 
 export default app;

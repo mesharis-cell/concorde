@@ -1,8 +1,9 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { AdminService } from '../services/admins.js';
+import type { AuthContext } from '../middleware/auth.js';
 import { CreateAdminSchema, PaginationSchema, AdminRole, ApiSuccessSchema, ApiErrorSchema } from '../types/index.js';
 
-const app = new OpenAPIHono();
+const app = new OpenAPIHono<{ Variables: AuthContext }>();
 
 
 // Create Admin (Super Admin only)
@@ -278,11 +279,6 @@ app.openapi(patchAdminRoute, async (c) => {
   try {
     const { id } = c.req.valid('param');
     const data = c.req.valid('json');
-    
-    // Convert frontend role format to backend format
-    if (data.role) {
-      data.role = data.role === 'super' ? 'SUPER' : 'STANDARD';
-    }
     
     // Handle active status toggle
     if (typeof data.active !== 'undefined') {

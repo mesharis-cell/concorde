@@ -1,4 +1,5 @@
 import { prisma } from '../config/database.js';
+import { Prisma } from '@prisma/client';
 import { AuditTrailService } from './audit-trail.js';
 
 export interface CarConfig {
@@ -31,6 +32,29 @@ export interface CarUsage {
 }
 
 export class TransportService {
+    private static getFormResponseValue(formResponses: unknown, fieldName: string): string {
+        if (!Array.isArray(formResponses)) {
+            return '';
+        }
+
+        const entry = formResponses.find((item) => {
+            if (!item || typeof item !== 'object') {
+                return false;
+            }
+            const candidate = item as { fieldName?: unknown };
+            return candidate.fieldName === fieldName;
+        }) as { value?: unknown } | undefined;
+
+        return typeof entry?.value === 'string' ? entry.value : '';
+    }
+
+    private static getUserName(user: { email?: string | null; formResponses?: unknown }): string {
+        const firstName = this.getFormResponseValue(user.formResponses, 'firstName');
+        const lastName = this.getFormResponseValue(user.formResponses, 'lastName');
+        const fullName = `${firstName} ${lastName}`.trim();
+        return fullName || user.email || 'Unknown User';
+    }
+
     /**
      * Get car configuration for an event
      */
@@ -48,13 +72,25 @@ export class TransportService {
      * Update car configuration for an event
      */
     static async updateEventCarConfig(eventId: string, cars: CarConfig[]): Promise<void> {
+        const serializedCars: Prisma.InputJsonArray = cars.map(
+            (car): Prisma.InputJsonObject => ({
+                id: car.id,
+                name: car.name,
+                type: car.type,
+                plate: car.plate,
+                driver: car.driver,
+            })
+        );
+
+        const nextCarConfig: Prisma.InputJsonObject = {
+            cars: serializedCars,
+            lastUpdated: new Date().toISOString(),
+        };
+
         await prisma.event.update({
             where: { id: eventId },
             data: {
-                carConfig: {
-                    cars,
-                    lastUpdated: new Date().toISOString(),
-                },
+                carConfig: nextCarConfig,
             },
         });
     }
@@ -72,7 +108,8 @@ export class TransportService {
                 },
                 select: {
                     id: true,
-                    profile: true,
+                    email: true,
+                    formResponses: true,
                     groupIds: true,
                     carNumbers: true,
                 },
@@ -92,9 +129,11 @@ export class TransportService {
         const assignments: CarAssignment[] = [];
 
         users.forEach(user => {
-            const profile = user.profile as any;
-            const userName = `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim();
-            const userEmail = profile?.email || '';
+            const userName = this.getUserName(user);
+            const userEmail =
+                this.getFormResponseValue(user.formResponses, 'email') ||
+                user.email ||
+                '';
 
             // Get user's groups
             const userGroups = user.groupIds
@@ -173,7 +212,7 @@ export class TransportService {
                     active: true,
                     carNumbers: { has: carId }
                 },
-                select: { id: true, profile: true },
+                select: { id: true, email: true, formResponses: true },
             }),
             prisma.group.findMany({
                 where: {
@@ -187,10 +226,9 @@ export class TransportService {
         ]);
 
         const assignedUsers = users.map(user => {
-            const profile = user.profile as any;
             return {
                 userId: user.id,
-                userName: `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim(),
+                userName: this.getUserName(user),
                 source: 'individual' as const,
             };
         });
@@ -410,10 +448,11 @@ export class TransportService {
 
         // Create user-level audit entries for operational visibility
         for (const user of affectedUsers) {
-            const profile = user.profile as any;
-            const userName = profile?.firstName && profile?.lastName
-                ? `${profile.firstName} ${profile.lastName}`
-                : profile?.email || 'Unknown User';
+            const userName = this.getUserName(user);
+            const userEmail =
+                this.getFormResponseValue(user.formResponses, 'email') ||
+                user.email ||
+                undefined;
 
             await AuditTrailService.log({
                 action: 'UPDATE',
@@ -429,7 +468,7 @@ export class TransportService {
                 },
                 summary: `${userName}'s effective car assignment changed due to group update`,
                 metadata: {
-                    userEmail: profile?.email,
+                    userEmail,
                     groupId,
                     changeSource: 'group_inheritance',
                     impactType: 'car_assignment_change',

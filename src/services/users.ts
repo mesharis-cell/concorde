@@ -805,6 +805,23 @@ export class UserService {
     };
   }
 
+  static async getEventStats(eventId: string) {
+    const [totalUsers, assignedUsers, unassignedUsers] =
+      await prisma.$transaction([
+        prisma.user.count({ where: { eventId, active: true } }),
+        prisma.user.count({ where: { eventId, active: true, assigned: true } }),
+        prisma.user.count({ where: { eventId, active: true, assigned: false } }),
+      ]);
+
+    return {
+      total: totalUsers,
+      assigned: assignedUsers,
+      unassigned: unassignedUsers,
+      registrationPercentage:
+        totalUsers > 0 ? Math.round((assignedUsers / totalUsers) * 100) : 0,
+    };
+  }
+
   static async updateCommunicationPreferences(
     userId: string,
     preferences: { emailOptIn: boolean; whatsappOptIn: boolean }
@@ -1072,6 +1089,45 @@ export class UserService {
       token,
       expiresAt,
     };
+  }
+
+  /**
+   * Validate a magic link token and return the associated active user.
+   */
+  static async validateMagicLink(token: string): Promise<User | null> {
+    let payload: { id: string; eventId?: string; type: string };
+
+    try {
+      payload = JwtService.verify(token);
+    } catch {
+      return null;
+    }
+
+    if (payload.type !== 'magic') {
+      return null;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: payload.id,
+        active: true,
+      },
+      include: {
+        event: {
+          select: { id: true, name: true, shortName: true },
+        },
+      },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    if (payload.eventId && user.eventId !== payload.eventId) {
+      return null;
+    }
+
+    return user;
   }
 
   /**

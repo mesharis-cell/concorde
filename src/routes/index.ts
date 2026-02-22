@@ -10,15 +10,16 @@ import unsubscribeController from '../controllers/unsubscribe.js';
 import authController from '../controllers/auth.js';
 
 // Import middleware
-import { authenticateAdmin, authenticateUser, authenticateUserByEmail } from '../middleware/auth.js';
+import { authenticateAdmin, authenticateUser } from '../middleware/auth.js';
+import type { AuthContext } from '../middleware/auth.js';
 
-const app = new OpenAPIHono();
+const app = new OpenAPIHono<{ Variables: AuthContext }>();
 
 // Health check
 app.get('/health', (c) => {
   return c.json({
     success: true,
-    message: 'Event Concierge API is running',
+    message: 'Savvio Concorde API is running',
     timestamp: new Date().toISOString(),
   });
 });
@@ -65,7 +66,7 @@ app.use('/api/admins*', adminAuth);
 app.route('/api', adminsController);
 
 // User-facing routes (user authentication required)
-const userRoutes = new OpenAPIHono();
+const userRoutes = new OpenAPIHono<{ Variables: AuthContext }>();
 userRoutes.use(authenticateUser);
 
 // User can view their own data and itinerary
@@ -126,6 +127,61 @@ userRoutes.get('/profile', async (c) => {
   });
 });
 
+// [V1] Wallet pass endpoint (Task 2.6.2)
+userRoutes.get('/wallet-pass', async (c) => {
+  try {
+    const user = c.get('user');
+    const { WalletService } = await import('../services/wallet.js');
+
+    const passPayload = await WalletService.getOrCreateWalletPass({
+      userId: user.userData.id,
+      eventId: user.userData.eventId,
+      email: user.userData.email,
+      formResponses: user.userData.formResponses,
+    });
+
+    return c.json({
+      success: true,
+      data: passPayload,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to generate wallet pass',
+        details: error.message,
+      },
+      500
+    );
+  }
+});
+
+// [V1] Signed attendee-specific check-in QR endpoint (Task 2.6.3)
+userRoutes.get('/check-in-qr', async (c) => {
+  try {
+    const user = c.get('user');
+    const { WalletService } = await import('../services/wallet.js');
+    const qrPayload = await WalletService.generateCheckInQr({
+      userId: user.userData.id,
+      eventId: user.userData.eventId,
+    });
+
+    return c.json({
+      success: true,
+      data: qrPayload,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Failed to generate check-in QR payload',
+        details: error.message,
+      },
+      500
+    );
+  }
+});
+
 // Update user preferences (matches /api/user/preferences)
 userRoutes.put('/preferences', async (c) => {
   try {
@@ -164,7 +220,7 @@ app.route('/api/v1/user', userRoutes);
 app.route('/api/user', userRoutes);
 
 // Mount activity routes directly under /api for microsite compatibility
-const activityRoutes = new OpenAPIHono();
+const activityRoutes = new OpenAPIHono<{ Variables: AuthContext }>();
 activityRoutes.use(authenticateUser);
 
 activityRoutes.get('/{activityId}', async (c) => {
@@ -185,12 +241,18 @@ activityRoutes.get('/{activityId}', async (c) => {
       );
     }
 
-    // Ensure user can only see activities from their group
-    if (activity.groupId !== user.userData?.groupId) {
+    // [V1] Multi-group authorization guard (Task 2.5.5).
+    const userGroupIds = user.userData?.groupIds || [];
+    const activityGroupIds = activity.groupIds || [];
+    const hasAccess = activityGroupIds.some((groupId: string) =>
+      userGroupIds.includes(groupId)
+    );
+
+    if (!hasAccess) {
       return c.json(
         {
           success: false,
-          error: 'Access denied - Activity not in your group',
+          error: 'Access denied - Activity not assigned to your groups',
         },
         403
       );
@@ -218,10 +280,10 @@ app.route('/api/activities', activityRoutes);
 app.doc('/openapi.json', {
   openapi: '3.0.0',
   info: {
-    title: 'Event Concierge API',
+    title: 'Savvio Concorde API',
     version: '1.0.0',
     description:
-      'Multi-event management platform with personalized itinerary management',
+      'Demo event management platform with personalized itinerary management',
   },
   servers: [
     {

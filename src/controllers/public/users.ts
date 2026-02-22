@@ -124,6 +124,16 @@ app.openapi(eventRegisterRoute, async (c) => {
       );
     }
 
+    if (!event.active) {
+      return c.json(
+        {
+          success: false,
+          error: 'Registration is not available for inactive events',
+        },
+        400
+      );
+    }
+
     const eventConfig = event.config as any;
     if (!eventConfig?.registrationOpen) {
       return c.json(
@@ -222,17 +232,17 @@ const eventInfoRoute = createRoute({
             success: true,
             data: {
               id: '60f7b3b3b3b3b3b3b3b3b3b3',
-              name: 'F1 Singapore Grand Prix 2025',
-              shortName: 'Singapore 2025',
+              name: 'Concorde Showcase Summit 2026',
+              shortName: 'Concorde Demo 2026',
               location: {
-                city: 'Singapore',
-                country: 'Singapore',
-                venue: 'Marina Bay Street Circuit',
-                timezone: 'Asia/Singapore',
+                city: 'Geneva',
+                country: 'Switzerland',
+                venue: 'Concorde Convention Centre',
+                timezone: 'Europe/Zurich',
               },
               dateRange: {
-                start: '2025-09-18T00:00:00Z',
-                end: '2025-09-21T23:59:59Z',
+                start: '2026-06-10T00:00:00Z',
+                end: '2026-06-13T23:59:59Z',
               },
               config: {
                 registrationOpen: true,
@@ -240,7 +250,7 @@ const eventInfoRoute = createRoute({
               hotelConfig: {
                 hotels: [
                   {
-                    name: 'Grand Hotel Singapore',
+                    name: 'Concorde Grand Hotel',
                     isDefault: true,
                     roomTypes: ['Deluxe King', 'Premium Twin', 'Suite'],
                     checkInTime: '15:00',
@@ -411,6 +421,15 @@ const getUserItineraryRoute = createRoute({
 });
 
 app.openapi(getUserItineraryRoute, async (c) => {
+  // [V1] Legacy email-body auth endpoint disabled in Phase 1 demo path.
+  return c.json(
+    {
+      success: false,
+      error: 'Deprecated endpoint. Use /api/v1/user/itinerary with JWT bearer token.',
+    },
+    410
+  );
+
   // Apply authentication middleware manually
   const authResult = await authenticateUserByEmail(c, async () => { });
   if (authResult) {
@@ -545,6 +564,15 @@ const getUserProfileRoute = createRoute({
 });
 
 app.openapi(getUserProfileRoute, async (c) => {
+  // [V1] Legacy email-body auth endpoint disabled in Phase 1 demo path.
+  return c.json(
+    {
+      success: false,
+      error: 'Deprecated endpoint. Use /api/v1/user/profile with JWT bearer token.',
+    },
+    410
+  );
+
   // Apply authentication middleware manually
   const authResult = await authenticateUserByEmail(c, async () => { });
   if (authResult) {
@@ -658,6 +686,15 @@ const updateCommunicationPreferencesRoute = createRoute({
 });
 
 app.openapi(updateCommunicationPreferencesRoute, async (c) => {
+  // [V1] Legacy email-body auth endpoint disabled in Phase 1 demo path.
+  return c.json(
+    {
+      success: false,
+      error: 'Deprecated endpoint. Use /api/v1/user/preferences with JWT bearer token.',
+    },
+    410
+  );
+
   // Manually run authentication middleware
   const authResult = await authenticateUserByEmail(c, async () => { });
   if (authResult) {
@@ -824,6 +861,78 @@ app.openapi(getActivityInfoRoute, async (c) => {
 // =============================================================================
 // UNSUBSCRIBE ENDPOINTS (No Authentication Required)
 // =============================================================================
+
+// [V1] Public scanner/check-in endpoint (Task 2.6.3)
+const consumeCheckInRoute = createRoute({
+  method: 'post',
+  path: '/check-in/consume',
+  tags: ['Public - Check-In'],
+  summary: 'Consume attendee QR payload and mark check-in state',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            token: z.string().optional(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: ApiSuccessSchema,
+        },
+      },
+      description: 'Check-in consumed successfully',
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+        },
+      },
+      description: 'Invalid payload',
+    },
+  },
+});
+
+app.openapi(consumeCheckInRoute, async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const queryToken = c.req.query('token');
+    const token = body?.token || queryToken;
+
+    if (!token) {
+      return c.json(
+        {
+          success: false,
+          error: 'Missing check-in token',
+        },
+        400
+      );
+    }
+
+    const { WalletService } = await import('../../services/wallet.js');
+    const result = await WalletService.consumeCheckInToken(token);
+
+    return c.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: 'Invalid or expired check-in payload',
+        details: error.message,
+      },
+      400
+    );
+  }
+});
 
 // Unsubscribe from email communications
 const unsubscribeRoute = createRoute({

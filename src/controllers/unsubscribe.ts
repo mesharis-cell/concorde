@@ -1,8 +1,9 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { UserService } from '../services/users.js';
+import type { AuthContext } from '../middleware/auth.js';
 import { ApiSuccessSchema, ApiErrorSchema } from '../types/index.js';
 
-const app = new OpenAPIHono();
+const app = new OpenAPIHono<{ Variables: AuthContext }>();
 
 // Simple Unsubscribe Route
 const unsubscribeRoute = createRoute({
@@ -21,7 +22,7 @@ const unsubscribeRoute = createRoute({
     200: {
       content: {
         'text/html': {
-          schema: { type: 'string' },
+          schema: z.string(),
         },
       },
       description: 'Unsubscribe confirmation page',
@@ -29,7 +30,7 @@ const unsubscribeRoute = createRoute({
     404: {
       content: {
         'text/html': {
-          schema: { type: 'string' },
+          schema: z.string(),
         },
       },
       description: 'User not found',
@@ -37,7 +38,7 @@ const unsubscribeRoute = createRoute({
     500: {
       content: {
         'text/html': {
-          schema: { type: 'string' },
+          schema: z.string(),
         },
       },
       description: 'Server error',
@@ -45,9 +46,9 @@ const unsubscribeRoute = createRoute({
   },
 });
 
-app.openapi(unsubscribeRoute, async (c) => {
+app.get('/unsubscribe/:userId/:eventId', async (c) => {
   try {
-    const { userId, eventId } = c.req.valid('param');
+    const { userId, eventId } = c.req.param();
 
     // Find user and update email preferences
     const user = await UserService.findById(userId);
@@ -75,9 +76,18 @@ app.openapi(unsubscribeRoute, async (c) => {
     }
 
     // Update email preferences to opt out
+    const communication =
+      user.communication && typeof user.communication === 'object'
+        ? (user.communication as Record<string, unknown>)
+        : undefined;
+    const whatsappOptIn =
+      communication?.whatsappOptIn === true || communication?.whatsappOptIn === false
+        ? (communication.whatsappOptIn as boolean)
+        : false;
+
     await UserService.updateCommunicationPreferences(userId, {
       emailOptIn: false,
-      whatsappOptIn: user.communication?.whatsappOptIn || false, // Keep WhatsApp as-is
+      whatsappOptIn, // Keep WhatsApp as-is
     });
 
     // Return simple confirmation HTML

@@ -2,15 +2,18 @@ import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { Resend } from 'resend';
 import { env } from '../config/env.js';
 
-const sesClient = new SESClient({
-  region: env.AWS_REGION,
-  credentials: {
-    accessKeyId: env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
-  },
-});
+const sesClient =
+  env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY
+    ? new SESClient({
+        region: env.AWS_REGION,
+        credentials: {
+          accessKeyId: env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+        },
+      })
+    : new SESClient({ region: env.AWS_REGION });
 
-const resend = new Resend(env.RESEND_API_KEY);
+const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
 
 export interface EmailTemplate {
   subject: string;
@@ -29,6 +32,14 @@ export class EmailService {
     }
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
+      // [V4] Keep demo-mode comms deterministic even if provider credentials/domain are misconfigured.
+      if (env.DEMO_MODE) {
+        return {
+          success: true,
+          messageId: `demo-email-${Date.now()}`,
+        };
+      }
+
       const recipients = Array.isArray(to) ? to : [to];
 
       // Replace variables in template
@@ -42,8 +53,16 @@ export class EmailService {
       const fromEmail = options?.fromEmail || env.SES_FROM_EMAIL;
       const fromName = options?.fromName || env.SES_FROM_NAME;
       const fromAddress = `${fromName} <${fromEmail}>`;
+      const appUrl = env.APP_URL.replace(/\/$/, '');
+      const unsubscribeHost = new URL(appUrl).hostname;
 
       if (env.EMAIL_PROVIDER === 'resend') {
+        if (!resend) {
+          return {
+            success: false,
+            error: 'Resend API key is not configured',
+          };
+        }
         // Use Resend (new and improved!)
         const { data, error } = await resend.emails.send({
           from: fromAddress,
@@ -52,7 +71,7 @@ export class EmailService {
           html: htmlBody,
           ...(textBody && { text: textBody }),
           headers: {
-            'List-Unsubscribe': '<mailto:unsubscribe@notifications.chivasregalcrystalgoldrsvp.com>, <https://notifications.chivasregalcrystalgoldrsvp.com/api/unsubscribe>',
+            'List-Unsubscribe': `<mailto:unsubscribe@${unsubscribeHost}>, <${appUrl}/api/unsubscribe>`,
             'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
           },
         });

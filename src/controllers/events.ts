@@ -1,8 +1,9 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { EventService } from '../services/events.js';
+import type { AuthContext } from '../middleware/auth.js';
 import { CreateEventSchema, PaginationSchema, ApiSuccessSchema, ApiErrorSchema } from '../types/index.js';
 
-const app = new OpenAPIHono();
+const app = new OpenAPIHono<{ Variables: AuthContext }>();
 
 // Create Event
 const createEventRoute = createRoute({

@@ -6,7 +6,7 @@ import { UserService } from '../services/users.js';
 export interface AuthContext {
   user?: {
     id: string;
-    role: 'admin' | 'user' | 'guest';
+    role: 'superadmin' | 'admin' | 'user' | 'guest';
     eventId?: string;
     adminData?: any;
     userData?: any;
@@ -168,7 +168,8 @@ export async function authenticateUserByEmail(c: Context, next: Next) {
     const body = await c.req.json();
 
     email = body.email;
-    eventId = body.eventId || process.env.DEFAULT_EVENT_ID || "68b5aa94b9d13b18bb4694c6";
+    // [V1] Removed legacy hardcoded/default event fallback from active auth path (Task 2.5.3).
+    eventId = body.eventId;
   } catch (error) {
     return c.json({
       success: false,
@@ -180,6 +181,13 @@ export async function authenticateUserByEmail(c: Context, next: Next) {
     return c.json({
       success: false,
       error: 'Email is required for authentication',
+    }, 401);
+  }
+
+  if (!eventId) {
+    return c.json({
+      success: false,
+      error: 'Event ID is required for authentication',
     }, 401);
   }
 

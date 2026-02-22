@@ -145,7 +145,7 @@ export class ConflictDetectionService {
       where: { id: userId },
       select: { 
         groupIds: true, 
-        profile: true,
+        email: true,
       },
     });
 
@@ -229,7 +229,7 @@ export class ConflictDetectionService {
         conflicts.push({
           type: 'timing_overlap',
           userId,
-          userEmail: (user.profile as any)?.email,
+          userEmail: user.email,
           activities: [activity1, ...overlapping.map(o => o.activity)],
           overlapDuration: maxOverlap,
           severity: maxOverlap > 60 ? 'high' : maxOverlap > 30 ? 'medium' : 'low',

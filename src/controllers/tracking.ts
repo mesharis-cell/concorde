@@ -1,7 +1,8 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { TemplateService } from '../services/templates.js';
+import type { AuthContext } from '../middleware/auth.js';
 
-const app = new OpenAPIHono();
+const app = new OpenAPIHono<{ Variables: AuthContext }>();
 
 // Email Open Tracking Endpoint
 const trackEmailOpenRoute = createRoute({
@@ -21,10 +22,7 @@ const trackEmailOpenRoute = createRoute({
     200: {
       content: {
         'image/gif': {
-          schema: {
-            type: 'string',
-            format: 'binary',
-          },
+          schema: z.any(),
         },
       },
       description: '1x1 transparent GIF image',
@@ -33,14 +31,16 @@ const trackEmailOpenRoute = createRoute({
   hide: true, // Hide from OpenAPI docs since it's a tracking pixel
 });
 
-app.openapi(trackEmailOpenRoute, async (c) => {
+app.get('/track/open/:messageId/:userId/:trackingId', async (c) => {
   try {
-    const { messageId, userId, trackingId } = c.req.param();
+    const { trackingId } = c.req.param();
     const userAgent = c.req.header('User-Agent');
-    const ipAddress = c.req.header('x-forwarded-for') || 
-                      c.req.header('x-real-ip') || 
-                      c.env?.CF_CONNECTING_IP || 
-                      'unknown';
+    const cloudflareEnv = c.env as { CF_CONNECTING_IP?: string } | undefined;
+    const ipAddress =
+      c.req.header('x-forwarded-for') ||
+      c.req.header('x-real-ip') ||
+      cloudflareEnv?.CF_CONNECTING_IP ||
+      'unknown';
     
     // Track the email open
     await TemplateService.trackEmailOpen(trackingId, userAgent, ipAddress as string);

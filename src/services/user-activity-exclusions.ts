@@ -11,6 +11,25 @@ export interface CreateExclusion {
 }
 
 export class UserActivityExclusionService {
+  private static getFormResponseValue(
+    formResponses: unknown,
+    fieldName: string
+  ): string {
+    if (!Array.isArray(formResponses)) {
+      return '';
+    }
+
+    const entry = formResponses.find((item) => {
+      if (!item || typeof item !== 'object') {
+        return false;
+      }
+      const candidate = item as { fieldName?: unknown };
+      return candidate.fieldName === fieldName;
+    }) as { value?: unknown } | undefined;
+
+    return typeof entry?.value === 'string' ? entry.value : '';
+  }
+
   static async excludeUserFromActivity(
     data: CreateExclusion
   ): Promise<UserActivityExclusion> {
@@ -137,7 +156,13 @@ export class UserActivityExclusionService {
   static async getGroupUserExclusions(groupId: string): Promise<
     Array<{
       userId: string;
-      user: { id: string; profile: any; firstName?: string; lastName?: string };
+      user: {
+        id: string;
+        email: string;
+        formResponses: unknown;
+        firstName?: string;
+        lastName?: string;
+      };
       exclusions: Array<{
         activityId: string;
         activity: {
@@ -159,7 +184,8 @@ export class UserActivityExclusionService {
         user: {
           select: {
             id: true,
-            profile: true,
+            email: true,
+            formResponses: true,
           },
         },
         activity: {
@@ -188,8 +214,14 @@ export class UserActivityExclusionService {
           userId,
           user: {
             ...exclusion.user,
-            firstName: (exclusion.user.profile as any)?.firstName,
-            lastName: (exclusion.user.profile as any)?.lastName,
+            firstName: this.getFormResponseValue(
+              exclusion.user.formResponses,
+              'firstName'
+            ),
+            lastName: this.getFormResponseValue(
+              exclusion.user.formResponses,
+              'lastName'
+            ),
           },
           exclusions: [],
         };
@@ -219,7 +251,8 @@ export class UserActivityExclusionService {
         user: {
           select: {
             id: true,
-            profile: true,
+            email: true,
+            formResponses: true,
           },
         },
         admin: {

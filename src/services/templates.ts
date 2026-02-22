@@ -12,7 +12,7 @@ export interface CreateTemplate {
     | 'ASSIGNMENT'
     | 'ACTIVITY_UPDATE'
     | 'ANNOUNCEMENT'
-    | 'MAGIC_LINK'
+    | 'OTP_VERIFICATION'
     | 'CUSTOM';
   subject: string;
   html: string;
@@ -37,7 +37,10 @@ export class TemplateService {
     }
 
     // Validate authentication templates must include magicLink variable
-    if (data.type === 'AUTHENTICATION' && data.category === 'MAGIC_LINK') {
+    if (
+      data.type === 'AUTHENTICATION' &&
+      data.category === 'OTP_VERIFICATION'
+    ) {
       const magicLinkRegex = /\{\{\s*magicLink\s*\}\}/i;
       if (!magicLinkRegex.test(data.html)) {
         throw new Error(

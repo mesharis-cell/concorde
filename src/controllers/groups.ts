@@ -1,8 +1,9 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { GroupService } from '../services/groups.js';
+import type { AuthContext } from '../middleware/auth.js';
 import { CreateGroupSchema, UpdateGroupSchema, PaginationSchema, ApiSuccessSchema, ApiErrorSchema } from '../types/index.js';
 
-const app = new OpenAPIHono();
+const app = new OpenAPIHono<{ Variables: AuthContext }>();
 
 // Create Group
 const createGroupRoute = createRoute({

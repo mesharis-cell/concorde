@@ -17,11 +17,263 @@ export interface ReportData {
     description: string;
     generatedAt: Date;
     eventName?: string;
+    eventId?: string;
     totalCount: number;
   };
 }
 
 export class ReportsService {
+  private static asRecord(
+    value: unknown
+  ): Record<string, unknown> | undefined {
+    return value && typeof value === 'object'
+      ? (value as Record<string, unknown>)
+      : undefined;
+  }
+
+  private static getFormResponses(user: unknown): Array<Record<string, unknown>> {
+    const userRecord = this.asRecord(user);
+    const formResponses = userRecord?.formResponses;
+    if (!Array.isArray(formResponses)) {
+      return [];
+    }
+
+    return formResponses
+      .map((entry) => this.asRecord(entry))
+      .filter((entry): entry is Record<string, unknown> => !!entry);
+  }
+
+  private static getFormResponseString(
+    user: unknown,
+    fieldNames: string[]
+  ): string {
+    const normalizedTargets = new Set(fieldNames.map((name) => name.toLowerCase()));
+
+    for (const entry of this.getFormResponses(user)) {
+      const fieldName = entry.fieldName;
+      if (typeof fieldName !== 'string') {
+        continue;
+      }
+
+      if (!normalizedTargets.has(fieldName.toLowerCase())) {
+        continue;
+      }
+
+      const value = entry.value;
+      if (typeof value === 'string') {
+        return value.trim();
+      }
+      if (typeof value === 'number' || typeof value === 'boolean') {
+        return String(value);
+      }
+    }
+
+    return '';
+  }
+
+  private static getFormResponseBoolean(
+    user: unknown,
+    fieldNames: string[]
+  ): boolean {
+    const normalizedTargets = new Set(fieldNames.map((name) => name.toLowerCase()));
+
+    for (const entry of this.getFormResponses(user)) {
+      const fieldName = entry.fieldName;
+      if (typeof fieldName !== 'string') {
+        continue;
+      }
+
+      if (!normalizedTargets.has(fieldName.toLowerCase())) {
+        continue;
+      }
+
+      const value = entry.value;
+      if (typeof value === 'boolean') {
+        return value;
+      }
+      if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (['true', 'yes', 'y', '1'].includes(normalized)) {
+          return true;
+        }
+        if (['false', 'no', 'n', '0'].includes(normalized)) {
+          return false;
+        }
+      }
+      if (typeof value === 'number') {
+        return value !== 0;
+      }
+    }
+
+    return false;
+  }
+
+  private static getProfile(user: unknown): {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    host: string;
+    vip: boolean;
+    guestType: string;
+    jobTitle: string;
+    company: string;
+  } {
+    const userRecord = this.asRecord(user);
+    const emailFromModel = typeof userRecord?.email === 'string' ? userRecord.email : '';
+
+    return {
+      firstName: this.getFormResponseString(user, ['firstName', 'preferredFirstName']),
+      lastName: this.getFormResponseString(user, ['lastName', 'surname', 'familyName']),
+      email: this.getFormResponseString(user, ['email']) || emailFromModel,
+      phone: this.getFormResponseString(user, ['phone', 'phoneNumber', 'mobile']),
+      host: this.getFormResponseString(user, ['host', 'marketHost']),
+      vip: this.getFormResponseBoolean(user, ['vip', 'isVip']),
+      guestType: this.getFormResponseString(user, ['guestType', 'guestCategory']),
+      jobTitle: this.getFormResponseString(user, ['jobTitle']),
+      company: this.getFormResponseString(user, ['company']),
+    };
+  }
+
+  private static getRequirements(user: unknown): {
+    dietary: { enabled: boolean; details: string };
+    allergiesIntolerances: { enabled: boolean; details: string };
+    medical: { enabled: boolean; details: string };
+    accessibility: { enabled: boolean; details: string };
+  } {
+    const dietaryDetails = this.getFormResponseString(user, [
+      'dietary',
+      'dietaryRequirements',
+      'specialDietaryRequirements',
+    ]);
+    const allergiesDetails = this.getFormResponseString(user, [
+      'allergies',
+      'allergiesIntolerances',
+      'allergiesAndIntolerances',
+    ]);
+    const medicalDetails = this.getFormResponseString(user, [
+      'medical',
+      'medicalConditions',
+      'medicalInformation',
+    ]);
+    const accessibilityDetails = this.getFormResponseString(user, [
+      'accessibility',
+      'accessibilityNeeds',
+    ]);
+
+    return {
+      dietary: { enabled: dietaryDetails.length > 0, details: dietaryDetails },
+      allergiesIntolerances: {
+        enabled: allergiesDetails.length > 0,
+        details: allergiesDetails,
+      },
+      medical: { enabled: medicalDetails.length > 0, details: medicalDetails },
+      accessibility: {
+        enabled: accessibilityDetails.length > 0,
+        details: accessibilityDetails,
+      },
+    };
+  }
+
+  private static getEmergencyContact(user: unknown): {
+    name: string;
+    phone: string;
+    email: string;
+    relationship: string;
+  } {
+    return {
+      name: this.getFormResponseString(user, ['emergencyContactName']),
+      phone: this.getFormResponseString(user, ['emergencyContactPhone']),
+      email: this.getFormResponseString(user, ['emergencyContactEmail']),
+      relationship: this.getFormResponseString(user, ['emergencyContactRelationship']),
+    };
+  }
+
+  private static getMerchandiseSize(user: unknown): {
+    gender: string;
+    size: string;
+    shirt: string;
+  } {
+    const size = this.getFormResponseString(user, ['merchandiseSize', 'shirtSize']);
+
+    return {
+      gender: this.getFormResponseString(user, ['gender']),
+      size,
+      shirt: size,
+    };
+  }
+
+  private static getRoomAssignments(user: unknown): Array<Record<string, unknown>> {
+    const userRecord = this.asRecord(user);
+    const roomAssignments = userRecord?.roomAssignments;
+    if (!Array.isArray(roomAssignments)) {
+      return [];
+    }
+
+    return roomAssignments
+      .map((assignment) => this.asRecord(assignment))
+      .filter((assignment): assignment is Record<string, unknown> => !!assignment);
+  }
+
+  private static getRoomAssignmentHotelName(roomAssignment: unknown): string {
+    const record = this.asRecord(roomAssignment);
+    const hotelRecord = this.asRecord(record?.hotel);
+    if (typeof hotelRecord?.name === 'string') {
+      return hotelRecord.name;
+    }
+    return '';
+  }
+
+  private static getRoomAssignmentRoomType(roomAssignment: unknown): string {
+    const record = this.asRecord(roomAssignment);
+    const roomTypeRecord = this.asRecord(record?.roomType);
+    if (typeof roomTypeRecord?.name === 'string') {
+      return roomTypeRecord.name;
+    }
+    if (typeof record?.roomType === 'string') {
+      return record.roomType;
+    }
+    if (typeof record?.roomTypeId === 'string') {
+      return record.roomTypeId;
+    }
+    return '';
+  }
+
+  private static getActivityExclusionIds(user: unknown): string[] {
+    const userRecord = this.asRecord(user);
+    const activityExclusions = userRecord?.activityExclusions;
+    if (!Array.isArray(activityExclusions)) {
+      return [];
+    }
+
+    return activityExclusions
+      .map((exclusion) => this.asRecord(exclusion)?.activityId)
+      .filter((id): id is string => typeof id === 'string');
+  }
+
+  private static getRoomDrops(roomDrops: unknown): Array<{
+    id: string;
+    name: string;
+    description: string;
+  }> {
+    const roomDropsRecord = this.asRecord(roomDrops);
+    const drops = roomDropsRecord?.drops;
+    if (!Array.isArray(drops)) {
+      return [];
+    }
+
+    return drops
+      .map((drop) => this.asRecord(drop))
+      .filter((drop): drop is Record<string, unknown> => !!drop)
+      .map((drop) => ({
+        id: typeof drop.id === 'string' ? drop.id : '',
+        name: typeof drop.name === 'string' ? drop.name : '',
+        description:
+          typeof drop.description === 'string' ? drop.description : '',
+      }))
+      .filter((drop) => drop.id.length > 0);
+  }
+
   /**
    * Helper method to safely parse accommodation dates (handles both DD/MM/YYYY strings and ISO strings)
    */
@@ -221,7 +473,8 @@ export class ReportsService {
       'Inbound Arrival to [station/airport]',
       'First Name *as shown on Passport',
       'Surname *as shown on Passport',
-      'Guest type [Chivas market host, Cultural creator, Media, CEO/MD, Trade, Photographer/Videographer, Accompanying guest, Agent/Manager]',
+      // [V1] Decontaminated legacy report header label for demo-safe exports.
+      'Guest type [Market host, Cultural creator, Media, CEO/MD, Trade, Photographer/Videographer, Accompanying guest, Agent/Manager]',
       'Market',
       'Contact mobile number *including area code',
       'market host to keep on cc for all comms',
@@ -243,8 +496,8 @@ export class ReportsService {
       .sort((a, b) => {
         const aFlight = (a.flight as any)?.inbound;
         const bFlight = (b.flight as any)?.inbound;
-        const aProfile = a.profile as any;
-        const bProfile = b.profile as any;
+        const aProfile = this.getProfile(a);
+        const bProfile = this.getProfile(b);
 
         // Compare arrival dates first
         if (aFlight?.arrivalDate && bFlight?.arrivalDate) {
@@ -275,7 +528,7 @@ export class ReportsService {
       });
 
     sortedUsers.forEach((user) => {
-      const profile = user.profile as any;
+      const profile = this.getProfile(user);
       const flight = (user.flight as any)?.inbound;
       const accommodation = user.accommodation as any;
 
@@ -403,8 +656,8 @@ export class ReportsService {
       .sort((a, b) => {
         const aFlight = (a.flight as any)?.outbound;
         const bFlight = (b.flight as any)?.outbound;
-        const aProfile = a.profile as any;
-        const bProfile = b.profile as any;
+        const aProfile = this.getProfile(a);
+        const bProfile = this.getProfile(b);
 
         // Compare departure dates first
         if (aFlight?.departureDate && bFlight?.departureDate) {
@@ -435,10 +688,10 @@ export class ReportsService {
       });
 
     sortedUsers.forEach((user) => {
-      const profile = user.profile as any;
+      const profile = this.getProfile(user);
       const flight = (user.flight as any)?.outbound;
       const accommodation = user.accommodation as any;
-      const roomAssignment = user.roomAssignments[0];
+      const roomAssignment = this.getRoomAssignments(user)[0];
       const groupNames = user.groupIds
         .map((id) => groupMap.get(id))
         .filter(Boolean)
@@ -462,7 +715,7 @@ export class ReportsService {
 
       // Get hotel checkout time from room assignment or accommodation
       const hotelName =
-        accommodation?.hotel || roomAssignment?.hotel?.name || '';
+        accommodation?.hotel || this.getRoomAssignmentHotelName(roomAssignment) || '';
       const checkOutDate = this.parseAccommodationDate(accommodation?.checkOut);
       const hotelDepartureTime = checkOutDate
         ? checkOutDate.toLocaleTimeString('en-GB', {
@@ -523,10 +776,6 @@ export class ReportsService {
         where: {
           eventId,
           active: true,
-          OR: [
-            { requirements: { not: null } },
-            { emergencyContact: { not: null } },
-          ],
         },
         include: {
           roomAssignments: {
@@ -563,10 +812,10 @@ export class ReportsService {
     const rowMetadata = [];
 
     users.forEach((user) => {
-      const profile = user.profile as any;
-      const requirements = user.requirements as any;
-      const emergency = user.emergencyContact as any;
-      const roomAssignment = user.roomAssignments[0];
+      const profile = this.getProfile(user);
+      const requirements = this.getRequirements(user);
+      const emergency = this.getEmergencyContact(user);
+      const roomAssignment = this.getRoomAssignments(user)[0];
       const groupNames = user.groupIds
         .map((id) => groupMap.get(id))
         .filter(Boolean)
@@ -625,7 +874,6 @@ export class ReportsService {
         where: {
           eventId,
           active: true,
-          requirements: { not: null },
         },
         include: {
           roomAssignments: {
@@ -672,16 +920,14 @@ export class ReportsService {
     const rowMetadata = [];
 
     users.forEach((user) => {
-      const profile = user.profile as any;
-      const requirements = user.requirements as any;
-      const roomAssignment = user.roomAssignments[0];
+      const profile = this.getProfile(user);
+      const requirements = this.getRequirements(user);
+      const roomAssignment = this.getRoomAssignments(user)[0];
       const groupNames = user.groupIds
         .map((id) => groupMap.get(id))
         .filter(Boolean)
         .join(', ');
-      const exclusions = new Set(
-        user.activityExclusions.map((e) => e.activityId)
-      );
+      const exclusions = new Set(this.getActivityExclusionIds(user));
 
       // Base row data matching the baseHeaders order
       const baseRow = [
@@ -752,7 +998,6 @@ export class ReportsService {
         where: {
           eventId,
           active: true,
-          requirements: { not: null }, // Get users with requirements field
         },
         include: {
           roomAssignments: {
@@ -780,7 +1025,7 @@ export class ReportsService {
 
     // Filter users with dietary requirements enabled
     const usersWithDietary = users.filter((user) => {
-      const requirements = user.requirements as any;
+      const requirements = this.getRequirements(user);
       return requirements?.dietary?.enabled === true;
     });
 
@@ -803,15 +1048,13 @@ export class ReportsService {
     const rowMetadata = [];
 
     usersWithDietary.forEach((user) => {
-      const profile = user.profile as any;
-      const requirements = user.requirements as any;
+      const profile = this.getProfile(user);
+      const requirements = this.getRequirements(user);
       const groupNames = user.groupIds
         .map((id) => groupMap.get(id))
         .filter(Boolean)
         .join(', ');
-      const exclusions = new Set(
-        user.activityExclusions.map((e) => e.activityId)
-      );
+      const exclusions = new Set(this.getActivityExclusionIds(user));
 
       // Base row data matching the baseHeaders order
       const baseRow = [
@@ -873,7 +1116,6 @@ export class ReportsService {
         where: {
           eventId,
           active: true,
-          emergencyContact: { not: null },
         },
         orderBy: [{ guestCategory: 'asc' }, { updatedAt: 'asc' }],
       }),
@@ -901,8 +1143,8 @@ export class ReportsService {
     const rowMetadata = [];
 
     users.forEach((user) => {
-      const profile = user.profile as any;
-      const emergency = user.emergencyContact as any;
+      const profile = this.getProfile(user);
+      const emergency = this.getEmergencyContact(user);
       const groupNames = user.groupIds
         .map((id) => groupMap.get(id))
         .filter(Boolean)
@@ -1052,8 +1294,8 @@ export class ReportsService {
     usersWithCheckIn.sort((a, b) => {
       const aAccommodation = a.accommodation as any;
       const bAccommodation = b.accommodation as any;
-      const aProfile = a.profile as any;
-      const bProfile = b.profile as any;
+      const aProfile = this.getProfile(a);
+      const bProfile = this.getProfile(b);
 
       // Parse check-in dates
       const aCheckIn = this.parseAccommodationDate(aAccommodation?.checkIn);
@@ -1085,10 +1327,10 @@ export class ReportsService {
     const rowMetadata = [];
 
     usersWithCheckIn.forEach((user) => {
-      const profile = user.profile as any;
+      const profile = this.getProfile(user);
       const accommodation = user.accommodation as any;
       const flight = user.flight as any;
-      const roomAssignment = user.roomAssignments[0];
+      const roomAssignment = this.getRoomAssignments(user)[0];
       const checkIn = this.parseAccommodationDate(accommodation?.checkIn);
       const checkOut = this.parseAccommodationDate(accommodation?.checkOut);
       const groupNames = user.groupIds
@@ -1163,7 +1405,7 @@ export class ReportsService {
         checkOut ? checkOut.toLocaleDateString('en-GB') : null,
         flight?.outbound?.departureTime,
         ...occupancyData,
-        roomAssignment?.roomType?.name || roomAssignment?.roomType,
+        this.getRoomAssignmentRoomType(roomAssignment),
         roomAssignment?.billingNotes,
         roomAssignment?.bookingConfirmationNumber,
         accommodation?.occupancy, // 🎯 FIX: Read actual occupancy
@@ -1240,8 +1482,8 @@ export class ReportsService {
     const rowMetadata = [];
 
     users.forEach((user) => {
-      const profile = user.profile as any;
-      const roomAssignment = user.roomAssignments[0];
+      const profile = this.getProfile(user);
+      const roomAssignment = this.getRoomAssignments(user)[0];
       const groupNames = user.groupIds
         .map((id) => groupMap.get(id))
         .filter(Boolean)
@@ -1254,7 +1496,7 @@ export class ReportsService {
         profile?.phone || '',
         user.guestCategory || 'Standard',
         groupNames,
-        roomAssignment?.roomType || '',
+        this.getRoomAssignmentRoomType(roomAssignment),
         new Date(user.registeredAt).toLocaleDateString('en-GB'),
         // Enhanced ticket information
         (user.tickets as any)
@@ -1311,7 +1553,7 @@ export class ReportsService {
         userExclusions: {
           include: {
             user: {
-              select: { id: true, profile: true },
+              select: { id: true, email: true, formResponses: true },
             },
           },
         },
@@ -1400,8 +1642,8 @@ export class ReportsService {
 
     // Sort users alphabetically by last name, then first name
     users.sort((a, b) => {
-      const aProfile = a.profile as any;
-      const bProfile = b.profile as any;
+      const aProfile = this.getProfile(a);
+      const bProfile = this.getProfile(b);
 
       const aLastName = aProfile?.lastName || '';
       const bLastName = bProfile?.lastName || '';
@@ -1422,7 +1664,7 @@ export class ReportsService {
     users
       .filter((user) => !excludedUserIds.includes(user.id))
       .forEach((user) => {
-        const profile = user.profile as any;
+        const profile = this.getProfile(user);
         const accommodation = user.accommodation as any;
 
         // Get user groups from groupIds array
@@ -1448,9 +1690,9 @@ export class ReportsService {
               : 'None';
 
         // Get hotel name from room assignment or accommodation
-        const roomAssignment = user.roomAssignments?.[0];
+        const roomAssignment = this.getRoomAssignments(user)[0];
         const hotelName =
-          accommodation?.hotel || roomAssignment?.hotel?.name || '';
+          accommodation?.hotel || this.getRoomAssignmentHotelName(roomAssignment) || '';
 
         const row = [
           profile?.firstName || '',
@@ -1540,8 +1782,8 @@ export class ReportsService {
 
     // Sort users alphabetically by last name, then first name
     users.sort((a, b) => {
-      const aProfile = a.profile as any;
-      const bProfile = b.profile as any;
+      const aProfile = this.getProfile(a);
+      const bProfile = this.getProfile(b);
 
       const aLastName = aProfile?.lastName || '';
       const bLastName = bProfile?.lastName || '';
@@ -1579,16 +1821,14 @@ export class ReportsService {
     const rowMetadata: any[] = [];
 
     users.forEach((user) => {
-      const profile = user.profile as any;
+      const profile = this.getProfile(user);
       const accommodation = user.accommodation as any;
-      const roomAssignment = user.roomAssignments[0];
+      const roomAssignment = this.getRoomAssignments(user)[0];
       const groupNames = user.groupIds
         .map((id: string) => groupMap.get(id)?.name)
         .filter(Boolean)
         .join(', ');
-      const exclusions = new Set(
-        user.activityExclusions.map((e: any) => e.activityId)
-      );
+      const exclusions = new Set(this.getActivityExclusionIds(user));
 
       // Get user groups for car assignments
       const userGroupIds = (user.groupIds as string[]) || [];
@@ -1612,7 +1852,7 @@ export class ReportsService {
 
       // Get hotel name from room assignment or accommodation
       const hotelName =
-        accommodation?.hotel || roomAssignment?.hotel?.name || '';
+        accommodation?.hotel || this.getRoomAssignmentHotelName(roomAssignment) || '';
 
       // Base row data matching the baseHeaders order
       const baseRow = [
@@ -1717,8 +1957,8 @@ export class ReportsService {
     const rowMetadata = [];
 
     users.forEach((user) => {
-      const profile = user.profile as any;
-      const roomAssignment = user.roomAssignments[0];
+      const profile = this.getProfile(user);
+      const roomAssignment = this.getRoomAssignments(user)[0];
       const groupNames = user.groupIds
         .map((id) => groupMap.get(id))
         .filter(Boolean)
@@ -1731,7 +1971,7 @@ export class ReportsService {
         profile?.email || '',
         profile?.phone || '',
         groupNames,
-        roomAssignment?.roomType || '',
+        this.getRoomAssignmentRoomType(roomAssignment),
         user.roomDropAssigned || '',
         new Date(user.registeredAt).toLocaleDateString('en-GB'),
         // Enhanced ticket information
@@ -1814,8 +2054,8 @@ export class ReportsService {
       );
 
       groupUsers.forEach((user) => {
-        const profile = user.profile as any;
-        const roomAssignment = user.roomAssignments[0];
+        const profile = this.getProfile(user);
+        const roomAssignment = this.getRoomAssignments(user)[0];
 
         rows.push([
           group.name,
@@ -1824,7 +2064,7 @@ export class ReportsService {
           user.guestCategory || 'Standard',
           profile?.email || '',
           profile?.phone || '',
-          roomAssignment?.roomType || '',
+          this.getRoomAssignmentRoomType(roomAssignment),
           new Date(user.registeredAt).toLocaleDateString(),
           // Enhanced ticket information
           (user.tickets as any)
@@ -1941,16 +2181,14 @@ export class ReportsService {
     const rowMetadata = [];
 
     users.forEach((user) => {
-      const profile = user.profile as any;
+      const profile = this.getProfile(user);
       const accommodation = user.accommodation as any;
       const flight = user.flight as any;
-      const requirements = user.requirements as any;
-      const emergency = user.emergencyContact as any;
-      const merchandise = user.merchandiseSize as any;
-      const roomAssignment = user.roomAssignments[0];
-      const exclusions = new Set(
-        user.activityExclusions.map((e) => e.activityId)
-      );
+      const requirements = this.getRequirements(user);
+      const emergency = this.getEmergencyContact(user);
+      const merchandise = this.getMerchandiseSize(user);
+      const roomAssignment = this.getRoomAssignments(user)[0];
+      const exclusions = new Set(this.getActivityExclusionIds(user));
 
       const groupNames = user.groupIds
         .map((id) => groupMap.get(id))
@@ -1992,10 +2230,13 @@ export class ReportsService {
           : 'N/A',
         flight?.inbound ? 'Airplane' : 'N/A',
         accommodation?.required ? 'Y' : 'N',
-        accommodation?.hotel || roomAssignment?.roomType?.includes('Casa')
+        accommodation?.hotel ||
+        this.getRoomAssignmentRoomType(roomAssignment).includes('Casa')
           ? 'Casa Brera'
           : '',
-        roomAssignment?.roomType || accommodation?.roomType || '',
+        this.getRoomAssignmentRoomType(roomAssignment) ||
+          accommodation?.roomType ||
+          '',
         checkIn ? checkIn.toLocaleDateString('en-GB') : '',
         checkOut ? checkOut.toLocaleDateString('en-GB') : '',
         nights,
@@ -2316,7 +2557,6 @@ export class ReportsService {
         where: {
           eventId,
           active: true,
-          merchandiseSize: { not: null },
         },
         include: {
           roomAssignments: {
@@ -2345,8 +2585,8 @@ export class ReportsService {
     const rowMetadata = [];
 
     users.forEach((user) => {
-      const profile = user.profile as any;
-      const merchandise = user.merchandiseSize as any;
+      const profile = this.getProfile(user);
+      const merchandise = this.getMerchandiseSize(user);
 
       // Only include users who have either gender or size data
       const hasGender = merchandise?.gender && merchandise.gender.trim() !== '';
@@ -2357,7 +2597,7 @@ export class ReportsService {
         return; // Skip this user - no merchandise data
       }
 
-      const roomAssignment = user.roomAssignments[0];
+      const roomAssignment = this.getRoomAssignments(user)[0];
       const groupNames = user.groupIds
         .map((id) => groupMap.get(id))
         .filter(Boolean)
@@ -2428,15 +2668,15 @@ export class ReportsService {
       'Assigned Date',
     ];
 
-    const roomDrops = (event?.roomDrops as any)?.drops || [];
-    const roomDropMap = new Map(roomDrops.map((drop: any) => [drop.id, drop]));
+    const roomDrops = this.getRoomDrops(event?.roomDrops);
+    const roomDropMap = new Map(roomDrops.map((drop) => [drop.id, drop]));
 
     const rows = [];
     const rowMetadata = [];
 
     users.forEach((user) => {
-      const profile = user.profile as any;
-      const roomAssignment = user.roomAssignments[0];
+      const profile = this.getProfile(user);
+      const roomAssignment = this.getRoomAssignments(user)[0];
       const roomDrop = roomDropMap.get(user.roomDropAssigned);
 
       rows.push([
@@ -2446,7 +2686,7 @@ export class ReportsService {
         user.guestCategory || 'Standard',
         roomDrop?.name || user.roomDropAssigned || '',
         roomDrop?.description || '',
-        roomAssignment?.roomType || '',
+        this.getRoomAssignmentRoomType(roomAssignment),
         'Pending', // TODO: Add delivery status tracking
         user.updatedAt ? new Date(user.updatedAt).toLocaleDateString() : '',
       ]);
@@ -2502,8 +2742,8 @@ export class ReportsService {
 
     // Sort users by market (groups) alphabetically, then by first name within each market
     users.sort((a, b) => {
-      const aProfile = a.profile as any;
-      const bProfile = b.profile as any;
+      const aProfile = this.getProfile(a);
+      const bProfile = this.getProfile(b);
 
       // Get market names for comparison
       const aUserGroupIds = (a.groupIds as string[]) || [];
@@ -2543,7 +2783,7 @@ export class ReportsService {
     const rows: any[][] = [];
 
     for (const user of users) {
-      const profile = user.profile as any;
+      const profile = this.getProfile(user);
 
       // Get user groups from groupIds array
       const userGroupIds = (user.groupIds as string[]) || [];
@@ -2733,7 +2973,8 @@ export class ReportsService {
       });
     }
 
-    return (await workbook.xlsx.writeBuffer()) as Buffer;
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
   }
 
   /**
@@ -2916,12 +3157,11 @@ export class ReportsService {
         column.width = 20;
       });
 
-      // Move summary sheet to first position
-      workbook.removeWorksheet(summarySheet.id);
-      workbook.insertWorksheet(summarySheet, 0);
+      // Keep summary sheet in workbook; ExcelJS appends newly created sheets.
     }
 
-    return (await workbook.xlsx.writeBuffer()) as Buffer;
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
   }
 
   /**

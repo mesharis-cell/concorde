@@ -10,6 +10,57 @@ export interface NotificationResult {
 }
 
 export class NotificationService {
+  private static getFormResponseValue(
+    formResponses: unknown,
+    fieldName: string
+  ): string {
+    if (!Array.isArray(formResponses)) {
+      return '';
+    }
+
+    const entry = formResponses.find((item) => {
+      if (!item || typeof item !== 'object') {
+        return false;
+      }
+      const candidate = item as { fieldName?: unknown };
+      return candidate.fieldName === fieldName;
+    }) as { value?: unknown } | undefined;
+
+    return typeof entry?.value === 'string' ? entry.value : '';
+  }
+
+  private static getRecipientProfile(recipient: {
+    email?: string | null;
+    formResponses?: unknown;
+  }) {
+    return {
+      email:
+        this.getFormResponseValue(recipient.formResponses, 'email') ||
+        recipient.email ||
+        '',
+      firstName: this.getFormResponseValue(recipient.formResponses, 'firstName'),
+      lastName: this.getFormResponseValue(recipient.formResponses, 'lastName'),
+      phone:
+        this.getFormResponseValue(recipient.formResponses, 'phone') ||
+        this.getFormResponseValue(recipient.formResponses, 'phoneNumber'),
+    };
+  }
+
+  private static getCommunicationPreferences(communication: unknown): {
+    emailOptIn: boolean;
+    whatsappOptIn: boolean;
+  } {
+    if (!communication || typeof communication !== 'object') {
+      return { emailOptIn: false, whatsappOptIn: false };
+    }
+
+    const record = communication as Record<string, unknown>;
+    return {
+      emailOptIn: record.emailOptIn === true,
+      whatsappOptIn: record.whatsappOptIn === true,
+    };
+  }
+
   static async sendNotification(data: CreateMessage): Promise<NotificationResult> {
     try {
       // Get recipients based on type
@@ -63,7 +114,8 @@ export class NotificationService {
           },
           select: {
             id: true,
-            profile: true,
+            email: true,
+            formResponses: true,
             communication: true,
           },
         });
@@ -71,14 +123,15 @@ export class NotificationService {
       case 'GROUP':
         return prisma.user.findMany({
           where: {
-            groupId: { in: data.recipientIds },
+            groupIds: { hasSome: data.recipientIds },
             eventId: data.eventId,
             active: true,
             assigned: true,
           },
           select: {
             id: true,
-            profile: true,
+            email: true,
+            formResponses: true,
             communication: true,
           },
         });
@@ -92,7 +145,8 @@ export class NotificationService {
           },
           select: {
             id: true,
-            profile: true,
+            email: true,
+            formResponses: true,
             communication: true,
           },
         });
@@ -106,8 +160,10 @@ export class NotificationService {
     recipient: any,
     data: CreateMessage
   ): Promise<MessageDelivery> {
-    const profile = recipient.profile as any;
-    const communication = recipient.communication as UserCommunication;
+    const profile = this.getRecipientProfile(recipient);
+    const communication = this.getCommunicationPreferences(
+      recipient.communication
+    ) as UserCommunication;
 
     const delivery: MessageDelivery = {
       user: recipient.id,
@@ -180,7 +236,7 @@ export class NotificationService {
       throw new Error('User not found');
     }
 
-    const profile = user.profile as any;
+    const profile = this.getRecipientProfile(user);
     const event = user.event;
 
     return this.sendNotification({
@@ -209,17 +265,26 @@ export class NotificationService {
       where: { id: userId },
       include: {
         event: true,
-        group: true,
       },
     });
 
-    if (!user || !user.group) {
+    if (!user) {
       throw new Error('User or group not found');
     }
 
-    const profile = user.profile as any;
+    const profile = this.getRecipientProfile(user);
     const event = user.event;
-    const group = user.group;
+    const primaryGroupId = user.groupIds?.[0];
+    const group = primaryGroupId
+      ? await prisma.group.findUnique({
+          where: { id: primaryGroupId },
+          select: { id: true, name: true },
+        })
+      : null;
+
+    if (!group) {
+      throw new Error('User is not assigned to a group');
+    }
 
     // Generate itinerary link
     const itineraryLink = `${process.env.APP_URL}/events/${event.id}/itinerary`;
@@ -256,13 +321,8 @@ export class NotificationService {
       where: { id: activityId },
       include: {
         event: true,
-        group: {
-          include: {
-            users: {
-              where: { assigned: true, active: true },
-              select: { id: true },
-            },
-          },
+        groups: {
+          select: { id: true, name: true },
         },
       },
     });
@@ -272,7 +332,16 @@ export class NotificationService {
     }
 
     const event = activity.event;
-    const userIds = activity.group.users.map((u: any) => u.id);
+    const users = await prisma.user.findMany({
+      where: {
+        eventId: activity.eventId,
+        active: true,
+        assigned: true,
+        groupIds: { hasSome: activity.groupIds },
+      },
+      select: { id: true },
+    });
+    const userIds = users.map((user) => user.id);
 
     // Generate itinerary link
     const itineraryLink = `${process.env.APP_URL}/events/${event.id}/itinerary`;
@@ -340,7 +409,7 @@ export class NotificationService {
       throw new Error('User not found');
     }
 
-    const _profile = user.profile as any;
+    const profile = this.getRecipientProfile(user);
     const event = user.event;
 
     // Generate magic link
@@ -349,9 +418,9 @@ export class NotificationService {
     // Magic links are always sent via email only for security
     return this.sendNotification({
       eventId: user.eventId,
-      type: 'MAGIC_LINK',
+      type: 'OTP_VERIFICATION',
       emailSubject: `Access Your ${event.name} Itinerary`,
-      emailContent: `Click here to access your itinerary: ${magicLink} (expires in 24 hours)`,
+      emailContent: `${profile.firstName || 'Guest'}, click here to access your itinerary: ${magicLink} (expires in 24 hours)`,
       recipientType: 'INDIVIDUAL',
       recipientIds: [userId],
       sentBy: 'system', // System-generated

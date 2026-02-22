@@ -25,6 +25,29 @@ interface ConflictGroup {
 }
 
 export class ImprovedTransportConflictService {
+    private static getFormResponseValue(formResponses: unknown, fieldName: string): string {
+        if (!Array.isArray(formResponses)) {
+            return '';
+        }
+
+        const entry = formResponses.find((item) => {
+            if (!item || typeof item !== 'object') {
+                return false;
+            }
+            const candidate = item as { fieldName?: unknown };
+            return candidate.fieldName === fieldName;
+        }) as { value?: unknown } | undefined;
+
+        return typeof entry?.value === 'string' ? entry.value : '';
+    }
+
+    private static getUserName(user: { email?: string | null; formResponses?: unknown }): string {
+        const firstName = this.getFormResponseValue(user.formResponses, 'firstName');
+        const lastName = this.getFormResponseValue(user.formResponses, 'lastName');
+        const fullName = `${firstName} ${lastName}`.trim();
+        return fullName || user.email || 'Unknown User';
+    }
+
 
     /**
      * Convert DD/MM/YYYY HH:MM to proper Date object
@@ -61,7 +84,7 @@ export class ImprovedTransportConflictService {
         conflicts: Array<{
             userId: string;
             userName: string;
-            groupName: string;
+            groupNames: string[];
             carId: string;
             type: 'arrival' | 'departure';
             dateTime: Date;
@@ -98,7 +121,7 @@ export class ImprovedTransportConflictService {
                     conflictingUsers: [{
                         userId: conflict.userId,
                         userName: conflict.userName,
-                        groupName: conflict.groupName,
+                        groupName: conflict.groupNames.join(', '),
                         time: conflict.time,
                         flightNumber: conflict.flightNumber
                     }],
@@ -114,7 +137,7 @@ export class ImprovedTransportConflictService {
                     currentGroup.conflictingUsers.push({
                         userId: conflict.userId,
                         userName: conflict.userName,
-                        groupName: conflict.groupName,
+                        groupName: conflict.groupNames.join(', '),
                         time: conflict.time,
                         flightNumber: conflict.flightNumber
                     });
@@ -128,7 +151,7 @@ export class ImprovedTransportConflictService {
                         conflictingUsers: [{
                             userId: conflict.userId,
                             userName: conflict.userName,
-                            groupName: conflict.groupName,
+                            groupName: conflict.groupNames.join(', '),
                             time: conflict.time,
                             flightNumber: conflict.flightNumber
                         }],
@@ -190,7 +213,8 @@ export class ImprovedTransportConflictService {
                 },
                 select: {
                     id: true,
-                    profile: true,
+                    email: true,
+                    formResponses: true,
                     flight: true,
                     carNumbers: true,
                     groupIds: true,
@@ -219,7 +243,6 @@ export class ImprovedTransportConflictService {
 
         // Process users and build schedule
         for (const user of users) {
-            const profile = user.profile as any;
             const flight = user.flight as any;
 
             if (!flight) continue;
@@ -237,7 +260,7 @@ export class ImprovedTransportConflictService {
 
             const userGroups = user.groupIds.map(id => groupMap.get(id)).filter(Boolean);
             const groupNames = userGroups.map(g => g!.name);
-            const userName = `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim();
+            const userName = this.getUserName(user);
 
             // Process arrival
             if (flight.inbound?.arrivalDate && flight.inbound?.arrivalTime) {
@@ -328,14 +351,8 @@ export class ImprovedTransportConflictService {
 
                     if (timeDiff <= windowMinutes) {
                         // Conflict found - add both to conflicts list
-                        allConflicts.push({
-                            ...schedA,
-                            groupName: schedA.groupNames.join(', ')
-                        });
-                        allConflicts.push({
-                            ...schedB,
-                            groupName: schedB.groupNames.join(', ')
-                        });
+                        allConflicts.push(schedA);
+                        allConflicts.push(schedB);
                     } else {
                         // No more conflicts possible for schedA (sorted list)
                         break;

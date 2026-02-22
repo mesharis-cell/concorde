@@ -45,9 +45,9 @@ app.route('/', apiRoutes);
 // Root endpoint
 app.get('/', (c) => {
   return c.json({
-    name: 'Event Concierge API',
+    name: 'Savvio Concorde API',
     version: '1.0.0',
-    description: 'Multi-event management platform with personalized itinerary management',
+    description: 'Demo event management platform with personalized itinerary management',
     documentation: '/docs',
     health: '/health',
     openapi: '/openapi.json',
@@ -77,7 +77,7 @@ app.get('/db-health', async (c) => {
 // Start server
 const port = parseInt(env.PORT);
 
-console.log(`🚀 Starting Event Concierge API server...`);
+console.log(`🚀 Starting Savvio Concorde API server...`);
 console.log(`📊 Environment: ${env.NODE_ENV}`);
 console.log(`🔧 Port: ${port}`);
 

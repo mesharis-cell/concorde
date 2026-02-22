@@ -3,6 +3,25 @@ import type { CreateGroup, UpdateGroup, Pagination, PaginatedResponse } from '..
 import type { Group } from '@prisma/client';
 
 export class GroupService {
+  private static getFormResponseValue(
+    formResponses: unknown,
+    fieldName: string
+  ): string {
+    if (!Array.isArray(formResponses)) {
+      return '';
+    }
+
+    const entry = formResponses.find((item) => {
+      if (!item || typeof item !== 'object') {
+        return false;
+      }
+      const candidate = item as { fieldName?: unknown };
+      return candidate.fieldName === fieldName;
+    }) as { value?: unknown } | undefined;
+
+    return typeof entry?.value === 'string' ? entry.value : '';
+  }
+
   static async create(data: CreateGroup): Promise<Group> {
     return prisma.group.create({
       data: {
@@ -147,7 +166,7 @@ export class GroupService {
   static async softDelete(id: string): Promise<Group> {
     // Cannot delete group if it has users assigned
     const userCount = await prisma.user.count({
-      where: { groupId: id, assigned: true },
+      where: { groupIds: { has: id }, assigned: true },
     });
 
     if (userCount > 0) {
@@ -169,16 +188,6 @@ export class GroupService {
       where: { id, deleted: false },
       include: {
         event: true,
-        users: {
-          where: { assigned: true, active: true },
-          select: {
-            id: true,
-            profile: true,
-            communication: true,
-            requirements: true,
-            assignedAt: true,
-          },
-        },
         activities: {
           where: { deleted: false, active: true },
           orderBy: { startDateTime: 'asc' },
@@ -199,7 +208,26 @@ export class GroupService {
       },
     });
 
-    return group;
+    if (!group) {
+      return null;
+    }
+
+    const users = await prisma.user.findMany({
+      where: { groupIds: { has: id }, assigned: true, active: true },
+      select: {
+        id: true,
+        email: true,
+        formResponses: true,
+        communication: true,
+        assignedAt: true,
+      },
+      orderBy: { assignedAt: 'desc' },
+    });
+
+    return {
+      ...group,
+      users,
+    };
   }
 
   static async getMembers(
@@ -214,7 +242,7 @@ export class GroupService {
     const skip = (page - 1) * limit;
 
     const where: any = {
-      groupId,
+      groupIds: { has: groupId },
       assigned: true,
       active: true,
     };
@@ -222,19 +250,18 @@ export class GroupService {
     // Get all users first, then filter in JavaScript (MongoDB JSON field limitations)
     const allUsers = await prisma.user.findMany({
       where: {
-        groupId,
+        groupIds: { has: groupId },
         assigned: true,
         active: true,
       },
       orderBy: { assignedAt: 'desc' },
       select: {
         id: true,
-        profile: true,
+        email: true,
+        formResponses: true,
         communication: true,
         flight: true,
         accommodation: true,
-        requirements: true,
-        emergencyContact: true,
         assignedAt: true,
         registeredAt: true,
       },
@@ -246,10 +273,15 @@ export class GroupService {
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       filteredUsers = filteredUsers.filter(user => {
-        const profile = user.profile as any;
-        const firstName = profile?.firstName?.toLowerCase() || '';
-        const lastName = profile?.lastName?.toLowerCase() || '';
-        const email = profile?.email?.toLowerCase() || '';
+        const firstName = this.getFormResponseValue(
+          user.formResponses,
+          'firstName'
+        ).toLowerCase();
+        const lastName = this.getFormResponseValue(
+          user.formResponses,
+          'lastName'
+        ).toLowerCase();
+        const email = (user.email || '').toLowerCase();
         return firstName.includes(searchLower) ||
           lastName.includes(searchLower) ||
           email.includes(searchLower);
@@ -258,10 +290,17 @@ export class GroupService {
 
     if (filters.hasRequirements) {
       filteredUsers = filteredUsers.filter(user => {
-        const requirements = user.requirements as any;
-        return requirements?.dietary ||
-          requirements?.medical ||
-          requirements?.accessibility;
+        return Boolean(
+          this.getFormResponseValue(user.formResponses, 'dietaryRequirements') ||
+            this.getFormResponseValue(
+              user.formResponses,
+              'medicalRequirements'
+            ) ||
+            this.getFormResponseValue(
+              user.formResponses,
+              'accessibilityRequirements'
+            )
+        );
       });
     }
 
@@ -339,10 +378,15 @@ export class GroupService {
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       filtered = filtered.filter((user) => {
-        const profile = user.profile as any;
-        const firstName = profile?.firstName || '';
-        const lastName = profile?.lastName || '';
-        const email = profile?.email || '';
+        const firstName = this.getFormResponseValue(
+          user.formResponses,
+          'firstName'
+        );
+        const lastName = this.getFormResponseValue(
+          user.formResponses,
+          'lastName'
+        );
+        const email = user.email || '';
         return (
           firstName.toLowerCase().includes(searchLower) ||
           lastName.toLowerCase().includes(searchLower) ||

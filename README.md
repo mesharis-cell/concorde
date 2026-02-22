@@ -1,4 +1,4 @@
-# Event Concierge Platform Backend
+# Savvio Concorde Platform Backend
 
 A comprehensive multi-event management system with personalized itinerary management, rich content creation, and multi-channel communications for luxury events.
 
@@ -237,9 +237,62 @@ bun run reset-db           # Reset database (development)
 
 ### Setup & Utilities
 ```bash
-bun run setup              # Initial setup with sample data
+bun run setup              # Ensure demo super admin + run demo seeding
+bun run seed:demo          # Seed deterministic demo dataset
+bun run demo:reset         # Force-reset and reseed demo dataset
+bun run demo:setup         # Prisma generate/push + setup + seed flow
 bun run create-dummy-users # Generate test users
 ```
+
+### Demo Reset
+Use this sequence before recording to guarantee deterministic state:
+
+```bash
+bun run prisma:generate
+bun run prisma:push
+bun run demo:reset
+```
+
+If you need full setup (admin bootstrap + seed) in one command:
+
+```bash
+bun run demo:setup
+```
+
+### [V1] Demo Mode & OTP Fallback
+Use these values in `backend/.env` for local recording reliability:
+
+```bash
+DEMO_MODE=true
+DEMO_OTP_MODE=true
+DEMO_OTP_FIXED_CODE=1234
+EMAIL_PROVIDER=resend
+```
+
+With `DEMO_MODE=true`, backend boot does not require unused provider credentials.  
+With `DEMO_OTP_MODE=true`, `/api/v1/auth/request-email-otp` succeeds without outbound delivery and `/api/v1/auth/validate-otp` accepts only `DEMO_OTP_FIXED_CODE`.
+
+### [V1] PassKit Setup (Google Wallet)
+Required env vars:
+
+```bash
+PASSKIT_API_KEY=pk_test_replace_me
+PASSKIT_TEMPLATE_ID=template_replace_me
+PASSKIT_ISSUER_ID=issuer_replace_me
+PASSKIT_BASE_URL=https://api.passkit.com
+WALLET_PASS_TTL_HOURS=24
+```
+
+When configured, attendee endpoint `GET /api/v1/user/wallet-pass` calls PassKit to return `googleWalletUrl`.
+
+### [V1] Smoke Check
+From repo root:
+
+```bash
+./scripts/demo-smoke.sh
+```
+
+The script checks backend health/docs, dashboard login route, public event info, OTP request/validate, and wallet endpoint readiness.
 
 ### Frontend Admin Dashboard
 ```bash

@@ -85,7 +85,7 @@ export class RoomMatrixDetailedService {
         if (!validation.isValid) {
             for (const error of validation.errors) {
                 if (error.includes('Over-allocated:')) {
-                    // Parse error message: "Over-allocated: Marina Bay Sands - Deluxe King on 19/09/2025"
+                    // [V1] Parse format: "Over-allocated: {Hotel Name} - {Room Type} on {Date}"
                     const match = error.match(/Over-allocated: (.+) - (.+) on (.+)/);
                     if (match) {
                         const [, hotel, roomType, date] = match;

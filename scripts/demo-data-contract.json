@@ -1,0 +1,4602 @@
+{
+  "contractVersion": "1.0.0",
+  "generatedAt": "2026-02-21",
+  "event": {
+    "name": "Concorde Showcase Summit",
+    "shortName": "CONCORDE-DEMO",
+    "timezone": "Etc/UTC",
+    "location": {
+      "city": "Concorde City",
+      "country": "Demo Region",
+      "venue": "Concorde Summit Campus"
+    },
+    "dateRange": {
+      "start": "2026-04-14T08:00:00.000Z",
+      "end": "2026-04-18T18:00:00.000Z"
+    },
+    "config": {
+      "micrositeUrl": "https://demo.savvio.digital",
+      "registrationOpen": true
+    }
+  },
+  "admins": {
+    "superAdmin": {
+      "email": "demo.owner@savvio.digital",
+      "firstName": "Demo",
+      "lastName": "Owner"
+    },
+    "standardAdmin": {
+      "email": "demo.ops@savvio.digital",
+      "firstName": "Demo",
+      "lastName": "Ops"
+    }
+  },
+  "walkthroughIdentities": {
+    "primaryAttendeeEmail": "alex.morgan@concorde-demo.test"
+  },
+  "groups": [
+    {
+      "name": "Executive Delegation",
+      "description": "Executive guests and key decision makers"
+    },
+    {
+      "name": "Brand Partners",
+      "description": "Strategic partners and sponsor representatives"
+    },
+    {
+      "name": "Media Circle",
+      "description": "Press, photographers, and content creators"
+    },
+    {
+      "name": "Operations Crew",
+      "description": "Event operations and production teams"
+    },
+    {
+      "name": "Guest Experience",
+      "description": "Hospitality hosts and concierge support"
+    }
+  ],
+  "activities": [
+    {
+      "title": "Arrival Transfer Desk",
+      "category": "TRANSPORT",
+      "groupNames": [
+        "Executive Delegation",
+        "Brand Partners"
+      ],
+      "start": "2026-04-14T07:00:00.000Z",
+      "end": "2026-04-14T19:00:00.000Z",
+      "location": {
+        "name": "Concorde City Terminal",
+        "address": "100 Arrival Boulevard, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Concorde+City+Terminal"
+      },
+      "description": "Dedicated arrival transfers for inbound attendees."
+    },
+    {
+      "title": "City Shuttle Loop",
+      "category": "TRANSPORT",
+      "groupNames": [
+        "Executive Delegation",
+        "Brand Partners",
+        "Media Circle",
+        "Guest Experience"
+      ],
+      "start": "2026-04-15T06:30:00.000Z",
+      "end": "2026-04-17T22:00:00.000Z",
+      "location": {
+        "name": "Concorde Mobility Hub",
+        "address": "22 Transit Way, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Concorde+Mobility+Hub"
+      },
+      "description": "Continuous shuttle loop between key demo venues."
+    },
+    {
+      "title": "VIP Car Dispatch",
+      "category": "TRANSPORT",
+      "groupNames": [
+        "Executive Delegation"
+      ],
+      "start": "2026-04-15T08:00:00.000Z",
+      "end": "2026-04-17T21:00:00.000Z",
+      "location": {
+        "name": "Executive Motor Pool",
+        "address": "5 Priority Lane, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Executive+Motor+Pool"
+      },
+      "description": "Reserved premium transport for executive itinerary slots."
+    },
+    {
+      "title": "Departure Transfer Desk",
+      "category": "TRANSPORT",
+      "groupNames": [
+        "Executive Delegation",
+        "Brand Partners",
+        "Media Circle",
+        "Operations Crew",
+        "Guest Experience"
+      ],
+      "start": "2026-04-18T05:30:00.000Z",
+      "end": "2026-04-18T16:30:00.000Z",
+      "location": {
+        "name": "Concorde Departure Point",
+        "address": "102 Arrival Boulevard, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Concorde+Departure+Point"
+      },
+      "description": "Managed outbound transfer windows for all attendees."
+    },
+    {
+      "title": "Opening Reception",
+      "category": "HOSPITALITY",
+      "groupNames": [
+        "Executive Delegation",
+        "Brand Partners",
+        "Media Circle",
+        "Guest Experience"
+      ],
+      "start": "2026-04-14T18:00:00.000Z",
+      "end": "2026-04-14T20:30:00.000Z",
+      "location": {
+        "name": "Concorde Atrium",
+        "address": "1 Summit Square, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Concorde+Atrium"
+      },
+      "description": "Welcome reception with networking and orientation."
+    },
+    {
+      "title": "Partner Networking Lunch",
+      "category": "HOSPITALITY",
+      "groupNames": [
+        "Brand Partners",
+        "Guest Experience"
+      ],
+      "start": "2026-04-15T12:00:00.000Z",
+      "end": "2026-04-15T13:30:00.000Z",
+      "location": {
+        "name": "Harborview Hall",
+        "address": "40 Harbor Street, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Harborview+Hall"
+      },
+      "description": "Hosted lunch focused on partnership outcomes."
+    },
+    {
+      "title": "Evening Showcase Dinner",
+      "category": "HOSPITALITY",
+      "groupNames": [
+        "Executive Delegation",
+        "Brand Partners",
+        "Media Circle"
+      ],
+      "start": "2026-04-16T19:00:00.000Z",
+      "end": "2026-04-16T22:00:00.000Z",
+      "location": {
+        "name": "Summit Banquet Room",
+        "address": "1 Summit Square, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Summit+Banquet+Room"
+      },
+      "description": "Formal dinner and stage presentation."
+    },
+    {
+      "title": "Farewell Brunch",
+      "category": "HOSPITALITY",
+      "groupNames": [
+        "Executive Delegation",
+        "Brand Partners",
+        "Media Circle",
+        "Operations Crew",
+        "Guest Experience"
+      ],
+      "start": "2026-04-18T09:00:00.000Z",
+      "end": "2026-04-18T11:00:00.000Z",
+      "location": {
+        "name": "Concorde Terrace",
+        "address": "9 Lakefront Drive, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Concorde+Terrace"
+      },
+      "description": "Light closing meal before departures."
+    },
+    {
+      "title": "Innovation Pavilion Tour",
+      "category": "EXPERIENCE",
+      "groupNames": [
+        "Executive Delegation",
+        "Brand Partners",
+        "Media Circle"
+      ],
+      "start": "2026-04-15T14:00:00.000Z",
+      "end": "2026-04-15T15:30:00.000Z",
+      "location": {
+        "name": "Innovation Pavilion",
+        "address": "78 Discovery Avenue, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Innovation+Pavilion"
+      },
+      "description": "Guided walkthrough of experiential exhibits."
+    },
+    {
+      "title": "Creator Studio Session",
+      "category": "EXPERIENCE",
+      "groupNames": [
+        "Media Circle"
+      ],
+      "start": "2026-04-15T16:00:00.000Z",
+      "end": "2026-04-15T17:30:00.000Z",
+      "location": {
+        "name": "Creator Studio",
+        "address": "6 Broadcast Road, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Creator+Studio+Concorde"
+      },
+      "description": "Content capture and interview workflows."
+    },
+    {
+      "title": "Concierge Service Lab",
+      "category": "EXPERIENCE",
+      "groupNames": [
+        "Guest Experience",
+        "Operations Crew"
+      ],
+      "start": "2026-04-16T10:00:00.000Z",
+      "end": "2026-04-16T11:30:00.000Z",
+      "location": {
+        "name": "Service Lab",
+        "address": "14 Operations Loop, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Service+Lab+Concorde"
+      },
+      "description": "Hands-on service experience drills."
+    },
+    {
+      "title": "Immersive Product Demo",
+      "category": "EXPERIENCE",
+      "groupNames": [
+        "Executive Delegation",
+        "Brand Partners",
+        "Guest Experience"
+      ],
+      "start": "2026-04-17T11:00:00.000Z",
+      "end": "2026-04-17T12:30:00.000Z",
+      "location": {
+        "name": "Demo Theater",
+        "address": "3 Summit Square, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Demo+Theater+Concorde"
+      },
+      "description": "Interactive feature demonstration."
+    },
+    {
+      "title": "Executive Briefing",
+      "category": "MEETING",
+      "groupNames": [
+        "Executive Delegation"
+      ],
+      "start": "2026-04-15T09:00:00.000Z",
+      "end": "2026-04-15T10:00:00.000Z",
+      "location": {
+        "name": "Boardroom Alpha",
+        "address": "2 Summit Square, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Boardroom+Alpha+Concorde"
+      },
+      "description": "Closed-door leadership briefing."
+    },
+    {
+      "title": "Partner Alignment Meeting",
+      "category": "MEETING",
+      "groupNames": [
+        "Brand Partners"
+      ],
+      "start": "2026-04-16T09:30:00.000Z",
+      "end": "2026-04-16T10:30:00.000Z",
+      "location": {
+        "name": "Meeting Suite B",
+        "address": "2 Summit Square, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Meeting+Suite+B+Concorde"
+      },
+      "description": "Roadmap and execution alignment."
+    },
+    {
+      "title": "Media Planning Standup",
+      "category": "MEETING",
+      "groupNames": [
+        "Media Circle",
+        "Guest Experience"
+      ],
+      "start": "2026-04-16T08:30:00.000Z",
+      "end": "2026-04-16T09:00:00.000Z",
+      "location": {
+        "name": "Press Briefing Room",
+        "address": "7 Broadcast Road, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Press+Briefing+Room+Concorde"
+      },
+      "description": "Daily briefing on content priorities."
+    },
+    {
+      "title": "Operations Readiness Review",
+      "category": "MEETING",
+      "groupNames": [
+        "Operations Crew",
+        "Guest Experience"
+      ],
+      "start": "2026-04-17T08:00:00.000Z",
+      "end": "2026-04-17T09:00:00.000Z",
+      "location": {
+        "name": "Ops Control Center",
+        "address": "14 Operations Loop, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Ops+Control+Center+Concorde"
+      },
+      "description": "Risk and readiness review across all stations."
+    },
+    {
+      "title": "Analytics Overview",
+      "category": "OTHER",
+      "groupNames": [
+        "Executive Delegation",
+        "Brand Partners",
+        "Operations Crew"
+      ],
+      "start": "2026-04-17T15:00:00.000Z",
+      "end": "2026-04-17T16:00:00.000Z",
+      "location": {
+        "name": "Insight Room",
+        "address": "5 Summit Square, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Insight+Room+Concorde"
+      },
+      "description": "Performance snapshot and trend recap."
+    },
+    {
+      "title": "Sponsor Content Review",
+      "category": "OTHER",
+      "groupNames": [
+        "Brand Partners",
+        "Media Circle"
+      ],
+      "start": "2026-04-17T13:00:00.000Z",
+      "end": "2026-04-17T14:00:00.000Z",
+      "location": {
+        "name": "Studio Review Bay",
+        "address": "6 Broadcast Road, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Studio+Review+Bay+Concorde"
+      },
+      "description": "Review of approved media assets."
+    },
+    {
+      "title": "Guest Support Help Desk",
+      "category": "OTHER",
+      "groupNames": [
+        "Guest Experience"
+      ],
+      "start": "2026-04-15T08:00:00.000Z",
+      "end": "2026-04-18T14:00:00.000Z",
+      "location": {
+        "name": "Support Desk",
+        "address": "1 Summit Square, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Support+Desk+Concorde"
+      },
+      "description": "On-site support and attendee issue resolution."
+    },
+    {
+      "title": "Closing Panel Session",
+      "category": "OTHER",
+      "groupNames": [
+        "Executive Delegation",
+        "Brand Partners",
+        "Media Circle",
+        "Operations Crew",
+        "Guest Experience"
+      ],
+      "start": "2026-04-17T17:00:00.000Z",
+      "end": "2026-04-17T18:00:00.000Z",
+      "location": {
+        "name": "Concorde Main Stage",
+        "address": "1 Summit Square, Concorde City",
+        "mapLink": "https://maps.google.com/?q=Concorde+Main+Stage"
+      },
+      "description": "Final cross-functional panel before wrap-up."
+    }
+  ],
+  "attendees": [
+    {
+      "firstName": "Alex",
+      "lastName": "Morgan",
+      "email": "alex.morgan@concorde-demo.test",
+      "groupNames": [
+        "Executive Delegation",
+        "Media Circle"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": false
+      },
+      "guestCategory": "VIP",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Alex",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Morgan",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "alex.morgan@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551000",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Northwind Labs",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Regional Director",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "None",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "Step-free venue access requested",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Executive King",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4000"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": [
+          "car-priority-1"
+        ]
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC700",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC900",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Jamie",
+      "lastName": "Lee",
+      "email": "jamie.lee@concorde-demo.test",
+      "groupNames": [
+        "Brand Partners"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Jamie",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Lee",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "jamie.lee@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551001",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Apex Horizon",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Program Lead",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Vegetarian",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "City Double",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4001"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC701",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC901",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Taylor",
+      "lastName": "Brooks",
+      "email": "taylor.brooks@concorde-demo.test",
+      "groupNames": [
+        "Media Circle"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Taylor",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Brooks",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "taylor.brooks@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551002",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Blue Cedar Group",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Operations Manager",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Gluten-free",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Deluxe Twin",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4002"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC702",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC902",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Jordan",
+      "lastName": "Reed",
+      "email": "jordan.reed@concorde-demo.test",
+      "groupNames": [
+        "Operations Crew"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": false
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Jordan",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Reed",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "jordan.reed@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551003",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Silverline Media",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Communications Manager",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Halal",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "City Double",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4003"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC703",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC903",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Casey",
+      "lastName": "Nguyen",
+      "email": "casey.nguyen@concorde-demo.test",
+      "groupNames": [
+        "Guest Experience",
+        "Brand Partners"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Casey",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Nguyen",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "casey.nguyen@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551004",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Harborview Partners",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Product Specialist",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "No shellfish",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Deluxe Twin",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4004"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC704",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC904",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Riley",
+      "lastName": "Patel",
+      "email": "riley.patel@concorde-demo.test",
+      "groupNames": [
+        "Executive Delegation"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Riley",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Patel",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "riley.patel@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551005",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Vertex Advisory",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Experience Producer",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "None",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "Skyline Suite",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4005"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC705",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC905",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Morgan",
+      "lastName": "Diaz",
+      "email": "morgan.diaz@concorde-demo.test",
+      "groupNames": [
+        "Brand Partners"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": false
+      },
+      "guestCategory": "VIP",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Morgan",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Diaz",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "morgan.diaz@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551006",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Northwind Labs",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Regional Director",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Vegetarian",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Deluxe Twin",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4006"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC706",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC906",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Avery",
+      "lastName": "Campbell",
+      "email": "avery.campbell@concorde-demo.test",
+      "groupNames": [
+        "Media Circle"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Avery",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Campbell",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "avery.campbell@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551007",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Apex Horizon",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Program Lead",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Gluten-free",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "City Double",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4007"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": [
+          "car-priority-1"
+        ]
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC707",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC907",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Cameron",
+      "lastName": "Hayes",
+      "email": "cameron.hayes@concorde-demo.test",
+      "groupNames": [
+        "Operations Crew",
+        "Executive Delegation"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Cameron",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Hayes",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "cameron.hayes@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551008",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Blue Cedar Group",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Operations Manager",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Halal",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Deluxe Twin",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4008"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC708",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC908",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Parker",
+      "lastName": "Shaw",
+      "email": "parker.shaw@concorde-demo.test",
+      "groupNames": [
+        "Guest Experience"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": false
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Parker",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Shaw",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "parker.shaw@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551009",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Silverline Media",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Communications Manager",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "No shellfish",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "Step-free venue access requested",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "City Double",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4009"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC709",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC909",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Dakota",
+      "lastName": "Flores",
+      "email": "dakota.flores@concorde-demo.test",
+      "groupNames": [
+        "Executive Delegation"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Dakota",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Flores",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "dakota.flores@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551010",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Harborview Partners",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Product Specialist",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "None",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Executive King",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4010"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC710",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC910",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Quinn",
+      "lastName": "Russell",
+      "email": "quinn.russell@concorde-demo.test",
+      "groupNames": [
+        "Brand Partners"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Quinn",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Russell",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "quinn.russell@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551011",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Vertex Advisory",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Experience Producer",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Vegetarian",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "City Double",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4011"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC711",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC911",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Reese",
+      "lastName": "Bennett",
+      "email": "reese.bennett@concorde-demo.test",
+      "groupNames": [
+        "Media Circle",
+        "Guest Experience"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": false
+      },
+      "guestCategory": "VIP",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Reese",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Bennett",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "reese.bennett@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551012",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Northwind Labs",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Regional Director",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Gluten-free",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Deluxe Twin",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4012"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC712",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC912",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Skyler",
+      "lastName": "Price",
+      "email": "skyler.price@concorde-demo.test",
+      "groupNames": [
+        "Operations Crew"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Skyler",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Price",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "skyler.price@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551013",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Apex Horizon",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Program Lead",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Halal",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "City Double",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4013"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC713",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC913",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Kendall",
+      "lastName": "Cook",
+      "email": "kendall.cook@concorde-demo.test",
+      "groupNames": [
+        "Guest Experience"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Kendall",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Cook",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "kendall.cook@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551014",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Blue Cedar Group",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Operations Manager",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "No shellfish",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Deluxe Twin",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4014"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": [
+          "car-priority-1"
+        ]
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC714",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC914",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Rowan",
+      "lastName": "Ward",
+      "email": "rowan.ward@concorde-demo.test",
+      "groupNames": [
+        "Executive Delegation"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": false
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Rowan",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Ward",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "rowan.ward@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551015",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Silverline Media",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Communications Manager",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "None",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "Skyline Suite",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4015"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC715",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC915",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Sawyer",
+      "lastName": "Bailey",
+      "email": "sawyer.bailey@concorde-demo.test",
+      "groupNames": [
+        "Brand Partners",
+        "Operations Crew"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Sawyer",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Bailey",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "sawyer.bailey@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551016",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Harborview Partners",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Product Specialist",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Vegetarian",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Deluxe Twin",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4016"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC716",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC916",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Harper",
+      "lastName": "James",
+      "email": "harper.james@concorde-demo.test",
+      "groupNames": [
+        "Media Circle"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Harper",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "James",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "harper.james@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551017",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Vertex Advisory",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Experience Producer",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Gluten-free",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "City Double",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4017"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC717",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC917",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Logan",
+      "lastName": "Bell",
+      "email": "logan.bell@concorde-demo.test",
+      "groupNames": [
+        "Operations Crew"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": false
+      },
+      "guestCategory": "VIP",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Logan",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Bell",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "logan.bell@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551018",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Northwind Labs",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Regional Director",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Halal",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "Step-free venue access requested",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Deluxe Twin",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4018"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC718",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC918",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Emerson",
+      "lastName": "Gray",
+      "email": "emerson.gray@concorde-demo.test",
+      "groupNames": [
+        "Guest Experience"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Emerson",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Gray",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "emerson.gray@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551019",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Apex Horizon",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Program Lead",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "No shellfish",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "City Double",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4019"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC719",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC919",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Finley",
+      "lastName": "Turner",
+      "email": "finley.turner@concorde-demo.test",
+      "groupNames": [
+        "Executive Delegation",
+        "Media Circle"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Finley",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Turner",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "finley.turner@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551020",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Blue Cedar Group",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Operations Manager",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "None",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Executive King",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4020"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC720",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC920",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Blake",
+      "lastName": "Watson",
+      "email": "blake.watson@concorde-demo.test",
+      "groupNames": [
+        "Brand Partners"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": false
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Blake",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Watson",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "blake.watson@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551021",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Silverline Media",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Communications Manager",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Vegetarian",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "City Double",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4021"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": [
+          "car-priority-1"
+        ]
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC721",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC921",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Phoenix",
+      "lastName": "Long",
+      "email": "phoenix.long@concorde-demo.test",
+      "groupNames": [
+        "Media Circle"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Phoenix",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Long",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "phoenix.long@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551022",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Harborview Partners",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Product Specialist",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Gluten-free",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Deluxe Twin",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4022"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC722",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC922",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Charlie",
+      "lastName": "Wood",
+      "email": "charlie.wood@concorde-demo.test",
+      "groupNames": [
+        "Operations Crew"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Charlie",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Wood",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "charlie.wood@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551023",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Vertex Advisory",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Experience Producer",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Halal",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "City Double",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4023"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC723",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC923",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Micah",
+      "lastName": "Reyes",
+      "email": "micah.reyes@concorde-demo.test",
+      "groupNames": [
+        "Guest Experience",
+        "Brand Partners"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": false
+      },
+      "guestCategory": "VIP",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Micah",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Reyes",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "micah.reyes@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551024",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Northwind Labs",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Regional Director",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "No shellfish",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Deluxe Twin",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4024"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC724",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC924",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Sage",
+      "lastName": "Kelly",
+      "email": "sage.kelly@concorde-demo.test",
+      "groupNames": [
+        "Executive Delegation"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Sage",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Kelly",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "sage.kelly@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551025",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Apex Horizon",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Program Lead",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "None",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "Skyline Suite",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4025"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC725",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC925",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Jules",
+      "lastName": "Adams",
+      "email": "jules.adams@concorde-demo.test",
+      "groupNames": [
+        "Brand Partners"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Jules",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Adams",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "jules.adams@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551026",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Blue Cedar Group",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Operations Manager",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Vegetarian",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Deluxe Twin",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4026"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC726",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC926",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Noel",
+      "lastName": "Rivera",
+      "email": "noel.rivera@concorde-demo.test",
+      "groupNames": [
+        "Media Circle"
+      ],
+      "communication": {
+        "emailOptIn": true,
+        "whatsappOptIn": false
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Noel",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Rivera",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "noel.rivera@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551027",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Silverline Media",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Communications Manager",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Gluten-free",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "Step-free venue access requested",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "City Double",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4027"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC727",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC927",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Devon",
+      "lastName": "Murphy",
+      "email": "devon.murphy@concorde-demo.test",
+      "groupNames": [
+        "Operations Crew",
+        "Executive Delegation"
+      ],
+      "communication": {
+        "emailOptIn": false,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Devon",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Murphy",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "devon.murphy@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551028",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Harborview Partners",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Product Specialist",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Halal",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Deluxe Twin",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4028"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": [
+          "car-priority-1"
+        ]
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC728",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC928",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Robin",
+      "lastName": "Stewart",
+      "email": "robin.stewart@concorde-demo.test",
+      "groupNames": [
+        "Guest Experience"
+      ],
+      "communication": {
+        "emailOptIn": false,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Robin",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Stewart",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "robin.stewart@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551029",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Vertex Advisory",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Experience Producer",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "No shellfish",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "City Double",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4029"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC729",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC929",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Elliot",
+      "lastName": "Cooper",
+      "email": "elliot.cooper@concorde-demo.test",
+      "groupNames": [],
+      "communication": {
+        "emailOptIn": false,
+        "whatsappOptIn": false
+      },
+      "guestCategory": "VIP",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Elliot",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Cooper",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "elliot.cooper@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551030",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Northwind Labs",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Regional Director",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "None",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Executive King",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4030"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC730",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC930",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Shawn",
+      "lastName": "Baez",
+      "email": "shawn.baez@concorde-demo.test",
+      "groupNames": [],
+      "communication": {
+        "emailOptIn": false,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Shawn",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Baez",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "shawn.baez@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551031",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Apex Horizon",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Program Lead",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Vegetarian",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "City Double",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4031"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC731",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC931",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Lane",
+      "lastName": "Perry",
+      "email": "lane.perry@concorde-demo.test",
+      "groupNames": [],
+      "communication": {
+        "emailOptIn": false,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Lane",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Perry",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "lane.perry@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551032",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Blue Cedar Group",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Operations Manager",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Gluten-free",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Deluxe Twin",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4032"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC732",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC932",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Remy",
+      "lastName": "Peterson",
+      "email": "remy.peterson@concorde-demo.test",
+      "groupNames": [],
+      "communication": {
+        "emailOptIn": false,
+        "whatsappOptIn": false
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Remy",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Peterson",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "remy.peterson@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551033",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Silverline Media",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Communications Manager",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Halal",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "City Double",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4033"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC733",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC933",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Adrian",
+      "lastName": "Ross",
+      "email": "adrian.ross@concorde-demo.test",
+      "groupNames": [],
+      "communication": {
+        "emailOptIn": false,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Adrian",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Ross",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "adrian.ross@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551034",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Harborview Partners",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Product Specialist",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "No shellfish",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Deluxe Twin",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4034"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC734",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC934",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Chris",
+      "lastName": "Hughes",
+      "email": "chris.hughes@concorde-demo.test",
+      "groupNames": [],
+      "communication": {
+        "emailOptIn": false,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Chris",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Hughes",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "chris.hughes@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551035",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Vertex Advisory",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Experience Producer",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "None",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "Skyline Suite",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4035"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": [
+          "car-priority-1"
+        ]
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC735",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC935",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Drew",
+      "lastName": "Powell",
+      "email": "drew.powell@concorde-demo.test",
+      "groupNames": [],
+      "communication": {
+        "emailOptIn": false,
+        "whatsappOptIn": false
+      },
+      "guestCategory": "VIP",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Drew",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Powell",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "drew.powell@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551036",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Northwind Labs",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Regional Director",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Vegetarian",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "Step-free venue access requested",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Deluxe Twin",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4036"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC736",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC936",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Kai",
+      "lastName": "Simmons",
+      "email": "kai.simmons@concorde-demo.test",
+      "groupNames": [],
+      "communication": {
+        "emailOptIn": false,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Kai",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Simmons",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "kai.simmons@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551037",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Apex Horizon",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Program Lead",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Gluten-free",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "City Double",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4037"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC737",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC937",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Milan",
+      "lastName": "Foster",
+      "email": "milan.foster@concorde-demo.test",
+      "groupNames": [],
+      "communication": {
+        "emailOptIn": false,
+        "whatsappOptIn": true
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Milan",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Foster",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "milan.foster@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551038",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Blue Cedar Group",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Operations Manager",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "Halal",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Concorde Grand Hotel",
+        "roomTypeName": "Deluxe Twin",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4038"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC738",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC938",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    },
+    {
+      "firstName": "Nico",
+      "lastName": "Coleman",
+      "email": "nico.coleman@concorde-demo.test",
+      "groupNames": [],
+      "communication": {
+        "emailOptIn": false,
+        "whatsappOptIn": false
+      },
+      "guestCategory": "Standard",
+      "formResponses": [
+        {
+          "fieldName": "firstName",
+          "fieldLabel": "First Name",
+          "fieldType": "text",
+          "value": "Nico",
+          "step": "personal",
+          "order": 1
+        },
+        {
+          "fieldName": "lastName",
+          "fieldLabel": "Last Name",
+          "fieldType": "text",
+          "value": "Coleman",
+          "step": "personal",
+          "order": 2
+        },
+        {
+          "fieldName": "email",
+          "fieldLabel": "Email",
+          "fieldType": "email",
+          "value": "nico.coleman@concorde-demo.test",
+          "step": "personal",
+          "order": 3
+        },
+        {
+          "fieldName": "phoneNumber",
+          "fieldLabel": "Phone Number",
+          "fieldType": "tel",
+          "value": "+12025551039",
+          "step": "personal",
+          "order": 4
+        },
+        {
+          "fieldName": "company",
+          "fieldLabel": "Company",
+          "fieldType": "text",
+          "value": "Silverline Media",
+          "step": "profile",
+          "order": 5
+        },
+        {
+          "fieldName": "jobTitle",
+          "fieldLabel": "Job Title",
+          "fieldType": "text",
+          "value": "Communications Manager",
+          "step": "profile",
+          "order": 6
+        },
+        {
+          "fieldName": "dietaryRequirements",
+          "fieldLabel": "Dietary Requirements",
+          "fieldType": "text",
+          "value": "No shellfish",
+          "step": "preferences",
+          "order": 7
+        },
+        {
+          "fieldName": "accessibilityRequirements",
+          "fieldLabel": "Accessibility Requirements",
+          "fieldType": "text",
+          "value": "",
+          "step": "preferences",
+          "order": 8
+        }
+      ],
+      "accommodation": {
+        "hotelName": "Harborview Suites",
+        "roomTypeName": "City Double",
+        "checkIn": "2026-04-14T15:00:00.000Z",
+        "checkOut": "2026-04-18T11:00:00.000Z",
+        "confirmationNumber": "CONF-4039"
+      },
+      "transport": {
+        "arrivalTransfer": true,
+        "departureTransfer": true,
+        "carNumbers": []
+      },
+      "flight": {
+        "arrival": {
+          "flightNumber": "SC739",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-14T09:30:00.000Z"
+        },
+        "departure": {
+          "flightNumber": "SC939",
+          "airport": "Concorde International Airport",
+          "dateTime": "2026-04-18T14:30:00.000Z"
+        }
+      }
+    }
+  ],
+  "communicationOptInDistribution": {
+    "emailOptInTrue": 28,
+    "emailOptInFalse": 12,
+    "whatsappOptInTrue": 26,
+    "whatsappOptInFalse": 14
+  },
+  "assignmentPlan": {
+    "preAssignedUsers": 30,
+    "unassignedUsers": 10
+  },
+  "accommodation": {
+    "hotels": [
+      {
+        "name": "Concorde Grand Hotel",
+        "isDefault": true,
+        "checkInTime": "15:00",
+        "checkOutTime": "11:00",
+        "roomTypes": [
+          {
+            "name": "Executive King",
+            "maxOccupancy": 2,
+            "amenities": [
+              "WiFi",
+              "Workspace",
+              "Breakfast"
+            ]
+          },
+          {
+            "name": "Deluxe Twin",
+            "maxOccupancy": 2,
+            "amenities": [
+              "WiFi",
+              "City View",
+              "Breakfast"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Harborview Suites",
+        "isDefault": false,
+        "checkInTime": "14:00",
+        "checkOutTime": "11:00",
+        "roomTypes": [
+          {
+            "name": "Skyline Suite",
+            "maxOccupancy": 2,
+            "amenities": [
+              "WiFi",
+              "Lounge Access",
+              "Late Checkout"
+            ]
+          },
+          {
+            "name": "City Double",
+            "maxOccupancy": 2,
+            "amenities": [
+              "WiFi",
+              "Shuttle Access"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "transport": {
+    "groupCarDefaults": {
+      "Executive Delegation": [
+        "car-exec-1",
+        "car-exec-2"
+      ],
+      "Brand Partners": [
+        "car-partner-1"
+      ],
+      "Media Circle": [
+        "car-media-1"
+      ],
+      "Operations Crew": [
+        "car-ops-1",
+        "car-ops-2"
+      ],
+      "Guest Experience": [
+        "car-guest-1"
+      ]
+    },
+    "notes": "Individual attendee carNumbers override group defaults when provided."
+  }
+}

@@ -47,6 +47,40 @@ export interface RoomAllocationSummary {
 }
 
 export class RoomAssignmentService {
+  private static getFormResponseValue(
+    formResponses: unknown,
+    fieldName: string
+  ): string {
+    if (!Array.isArray(formResponses)) {
+      return '';
+    }
+
+    const entry = formResponses.find((item) => {
+      if (!item || typeof item !== 'object') {
+        return false;
+      }
+
+      const candidate = item as { fieldName?: unknown };
+      return candidate.fieldName === fieldName;
+    }) as { value?: unknown } | undefined;
+
+    return typeof entry?.value === 'string' ? entry.value : '';
+  }
+
+  private static getUserEmail(user: {
+    email?: string | null;
+    formResponses?: unknown;
+  }): string {
+    const fromForm = this.getFormResponseValue(user.formResponses, 'email');
+    return fromForm || user.email || 'Unknown User';
+  }
+
+  private static getUserFullName(user: { formResponses?: unknown }): string {
+    const firstName = this.getFormResponseValue(user.formResponses, 'firstName');
+    const lastName = this.getFormResponseValue(user.formResponses, 'lastName');
+    return `${firstName} ${lastName}`.trim();
+  }
+
   /**
    * Assign a room to a user
    */
@@ -95,7 +129,8 @@ export class RoomAssignmentService {
       where: { id: data.userId },
       select: {
         accommodation: true,
-        profile: true,
+        email: true,
+        formResponses: true,
         eventId: true,
       },
     });
@@ -164,7 +199,7 @@ export class RoomAssignmentService {
     });
 
     // Log audit trail
-    const userEmail = (user.profile as any)?.email || 'Unknown User';
+    const userEmail = this.getUserEmail(user);
     const admin = await prisma.admin.findUnique({
       where: { id: data.assignedBy },
       select: { email: true },
@@ -287,7 +322,7 @@ export class RoomAssignmentService {
   ): Promise<RoomAssignment> {
     const assignment = await prisma.roomAssignment.findUnique({
       where: { id: assignmentId },
-      include: { user: { select: { profile: true } } },
+      include: { user: { select: { email: true, formResponses: true } } },
     });
 
     if (!assignment) {
@@ -335,7 +370,7 @@ export class RoomAssignmentService {
     });
 
     // Log audit trail
-    const userEmail = (assignment.user.profile as any)?.email || 'Unknown User';
+    const userEmail = this.getUserEmail(assignment.user);
     const admin = await prisma.admin.findUnique({
       where: { id: data.updatedBy },
       select: { email: true },
@@ -608,7 +643,8 @@ export class RoomAssignmentService {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
-        profile: true,
+        email: true,
+        formResponses: true,
         guestCategory: true,
         roomDropAssigned: true,
         eventId: true,
@@ -638,7 +674,7 @@ export class RoomAssignmentService {
     });
 
     // Log audit trail
-    const userEmail = (user.profile as any)?.email || 'Unknown User';
+    const userEmail = this.getUserEmail(user);
     const admin = await prisma.admin.findUnique({
       where: { id: assignedBy },
       select: { email: true },
@@ -740,7 +776,8 @@ export class RoomAssignmentService {
       include: {
         user: {
           select: {
-            profile: true,
+            email: true,
+            formResponses: true,
             accommodation: true,
             guestCategory: true,
           },
@@ -755,13 +792,13 @@ export class RoomAssignmentService {
     });
 
     return assignments.map(assignment => {
-      const profile = assignment.user.profile as any;
       const accommodation = assignment.user.accommodation as any;
+      const guestName = this.getUserFullName(assignment.user) || 'Unknown User';
 
       return {
         roomType: assignment.roomType.name,
         hotelName: assignment.hotel.name,
-        guestName: `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim(),
+        guestName,
         checkIn: accommodation?.checkIn ? new Date(accommodation.checkIn).toISOString().split('T')[0] : 'TBD',
         checkOut: accommodation?.checkOut ? new Date(accommodation.checkOut).toISOString().split('T')[0] : 'TBD',
         specialRequests: accommodation?.hotelNotes || '',
@@ -839,7 +876,7 @@ export class RoomAssignmentService {
   static async unassignRoom(assignmentId: string, unassignedBy: string): Promise<void> {
     const assignment = await prisma.roomAssignment.findUnique({
       where: { id: assignmentId },
-      include: { user: { select: { profile: true } } },
+      include: { user: { select: { email: true, formResponses: true } } },
     });
 
     if (!assignment) {
@@ -873,7 +910,7 @@ export class RoomAssignmentService {
     }
 
     // Log audit trail
-    const userEmail = (assignment.user.profile as any)?.email || 'Unknown User';
+    const userEmail = this.getUserEmail(assignment.user);
     const admin = await prisma.admin.findUnique({
       where: { id: unassignedBy },
       select: { email: true },
@@ -976,6 +1013,8 @@ export class RoomAssignmentService {
           roomType: { select: { name: true } },
           user: {
             select: {
+              email: true,
+              formResponses: true,
               accommodation: true,
             },
           },
@@ -1073,9 +1112,12 @@ export class RoomAssignmentService {
 
             console.log(`   Users staying on ${roomDateStr}:`);
             stayingUsers.forEach((assignment, idx) => {
-              const profile = assignment.user.profile as any;
               const accommodation = assignment.user.accommodation as any;
-              console.log(`   ${idx + 1}. ${profile?.firstName || 'Unknown'} ${profile?.lastName || 'User'}: ${accommodation?.checkIn} → ${accommodation?.checkOut}`);
+              const guestName =
+                this.getUserFullName(assignment.user) || 'Unknown User';
+              console.log(
+                `   ${idx + 1}. ${guestName}: ${accommodation?.checkIn} → ${accommodation?.checkOut}`
+              );
             });
 
             const checkingInUsers = stayingUsers.filter(assignment => {

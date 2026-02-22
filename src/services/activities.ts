@@ -11,6 +11,29 @@ import { AuditTrailService } from './audit-trail.js';
 import { ConflictDetectionService } from './conflict-detection.js';
 
 export class ActivityService {
+  private static parseEventDateRange(dateRange: unknown): {
+    start: Date;
+    end: Date;
+  } {
+    if (!dateRange || typeof dateRange !== 'object') {
+      throw new Error('Event date range not configured');
+    }
+
+    const candidate = dateRange as { start?: unknown; end?: unknown };
+    if (!candidate.start || !candidate.end) {
+      throw new Error('Event date range is incomplete');
+    }
+
+    const start = new Date(String(candidate.start));
+    const end = new Date(String(candidate.end));
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      throw new Error('Event date range contains invalid dates');
+    }
+
+    return { start, end };
+  }
+
   static async create(
     data: CreateActivity,
     performedBy?: string
@@ -36,9 +59,9 @@ export class ActivityService {
     const activityStart = new Date(data.startDateTime);
     const activityEnd = new Date(data.endDateTime);
 
-    // Event dates should already be in UTC in the database
-    const eventStart = new Date(event.dateRange.start);
-    const eventEnd = new Date(event.dateRange.end);
+    const { start: eventStart, end: eventEnd } = this.parseEventDateRange(
+      event.dateRange
+    );
 
     // Validate activity dates are within event dates
     if (activityStart < eventStart || activityStart > eventEnd) {
@@ -552,7 +575,11 @@ export class ActivityService {
     };
   }
 
-  static async update(id: string, data: UpdateActivity): Promise<Activity> {
+  static async update(
+    id: string,
+    data: UpdateActivity,
+    adminId?: string
+  ): Promise<Activity> {
     // If updating dates, validate against event dates
     if (data.startDateTime || data.endDateTime) {
       // Get current activity to get eventId and current dates
@@ -589,8 +616,9 @@ export class ActivityService {
         ? new Date(data.endDateTime)
         : new Date(currentActivity.endDateTime);
 
-      const eventStart = new Date(event.dateRange.start);
-      const eventEnd = new Date(event.dateRange.end);
+      const { start: eventStart, end: eventEnd } = this.parseEventDateRange(
+        event.dateRange
+      );
 
       // Validate dates are within event range
       if (activityStart < eventStart || activityStart > eventEnd) {
@@ -654,9 +682,10 @@ export class ActivityService {
       }
     }
 
-    const updateData: any = {
-      lastModifiedBy: data.lastModifiedBy,
-    };
+    const updateData: any = {};
+    if (adminId) {
+      updateData.lastModifiedBy = adminId;
+    }
 
     if (data.title) updateData.title = data.title;
     if (data.description !== undefined)
@@ -844,7 +873,7 @@ export class ActivityService {
 
     // Get user's exclusions for this group
     const exclusions = await prisma.userActivityExclusion.findMany({
-      where: { userId, groupId: user.groupId },
+      where: { userId, groupId: { in: user.groupIds } },
       select: { activityId: true },
     });
 

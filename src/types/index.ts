@@ -765,14 +765,18 @@ export type CreateMessage = z.infer<typeof CreateMessageSchema>;
 // ============================================================================
 
 export const ApiSuccessSchema = z.object({
-  success: z.literal(true),
-  data: z.any(),
+  success: z.boolean(),
+  data: z.any().optional(),
   message: z.string().optional(),
+  error: z.string().optional(),
+  details: z.any().optional(),
 });
 export type ApiSuccess<T = any> = {
-  success: true;
-  data: T;
+  success: boolean;
+  data?: T;
   message?: string;
+  error?: string;
+  details?: any;
 };
 
 export const ApiErrorSchema = z.object({

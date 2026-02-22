@@ -382,35 +382,26 @@ export class CommunicationLogService {
             id: true,
             email: true,
             formResponses: true,
-            groupId: true,
-            group: {
-              select: { name: true },
-            },
+            groupIds: true,
           },
         });
       }
     } else if (log.recipientType === 'group') {
       // Group recipients - get all users from those groups
       if (log.recipientIds.length > 0) {
-        const groups = await prisma.group.findMany({
-          where: { id: { in: log.recipientIds } },
-          include: {
-            users: {
-              select: {
-                id: true,
-                email: true,
-                formResponses: true,
-                groupId: true,
-                group: {
-                  select: { name: true },
-                },
-              },
-            },
+        recipients = await prisma.user.findMany({
+          where: {
+            eventId: log.eventId,
+            active: true,
+            groupIds: { hasSome: log.recipientIds },
+          },
+          select: {
+            id: true,
+            email: true,
+            formResponses: true,
+            groupIds: true,
           },
         });
-
-        // Flatten all users from all groups
-        recipients = groups.flatMap(group => group.users);
       }
     } else if (log.recipientType === 'event') {
       // All event users
@@ -418,12 +409,32 @@ export class CommunicationLogService {
         where: { eventId: log.eventId },
         select: {
           id: true,
-          profile: true,
-          groupId: true,
-          group: {
-            select: { name: true },
-          },
+          email: true,
+          formResponses: true,
+          groupIds: true,
         },
+      });
+    }
+
+    const recipientGroupIds = Array.from(
+      new Set(
+        recipients.flatMap((recipient) =>
+          Array.isArray(recipient.groupIds) ? recipient.groupIds : []
+        )
+      )
+    );
+    const groupNameById = new Map<string, string>();
+    if (recipientGroupIds.length > 0) {
+      const recipientGroups = await prisma.group.findMany({
+        where: {
+          id: { in: recipientGroupIds },
+          active: true,
+          deleted: false,
+        },
+        select: { id: true, name: true },
+      });
+      recipientGroups.forEach((group) => {
+        groupNameById.set(group.id, group.name);
       });
     }
 
@@ -453,7 +464,10 @@ export class CommunicationLogService {
       const firstName = formResponses.find(r => r.fieldName === 'firstName')?.value || '';
       const lastName = formResponses.find(r => r.fieldName === 'lastName')?.value || '';
 
-      const groupName = recipient.group?.name;
+      const groupName = (recipient.groupIds || [])
+        .map((groupId: string) => groupNameById.get(groupId))
+        .filter((name: string | undefined): name is string => Boolean(name))
+        .join(', ');
       if (groupName) groups.add(groupName);
 
       // Find delivery status in messages

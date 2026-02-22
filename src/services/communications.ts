@@ -52,6 +52,17 @@ export interface CommunicationResult {
 }
 
 export class CommunicationsService {
+  private static getFormResponseValue(
+    formResponses: any[],
+    fieldNames: string[]
+  ): string {
+    const normalizedNames = fieldNames.map((field) => field.toLowerCase());
+    const match = formResponses.find((response: any) =>
+      normalizedNames.includes((response?.fieldName || '').toLowerCase())
+    );
+    return (match?.value as string) || '';
+  }
+
   static async sendCommunication(
     request: SendCommunicationRequest
   ): Promise<CommunicationResult> {
@@ -304,7 +315,7 @@ export class CommunicationsService {
 
         // For assignment templates, automatically generate itineraryLink
         if (template.category === 'ASSIGNMENT') {
-          variables.itineraryLink = `${'https://chivasregalmonza.com'}/itinerary`;
+          variables.itineraryLink = `${env.APP_URL.replace(/\/$/, '')}/itinerary`;
         }
 
         // Conditionally inject tracking pixel into HTML
@@ -615,14 +626,25 @@ export class CommunicationsService {
     }
 
     return users
-      .map((user) => ({
-        userId: user.id,
-        email: (user.profile as any)?.email,
-        firstName: (user.profile as any)?.firstName || '',
-        lastName: (user.profile as any)?.lastName || '',
-        emailOptIn: (user.communication as any)?.emailOptIn || false,
-        groupId: user.groupIds?.[0] || null,
-      }))
+      .map((user) => {
+        const formResponses = (user.formResponses as any[]) || [];
+        return {
+          userId: user.id,
+          email: user.email || '',
+          firstName: this.getFormResponseValue(formResponses, [
+            'firstName',
+            'first_name',
+            'firstname',
+          ]),
+          lastName: this.getFormResponseValue(formResponses, [
+            'lastName',
+            'last_name',
+            'lastname',
+          ]),
+          emailOptIn: (user.communication as any)?.emailOptIn || false,
+          groupId: user.groupIds?.[0] || null,
+        };
+      })
       .filter((r) => r.email); // Filter out users without email
   }
 

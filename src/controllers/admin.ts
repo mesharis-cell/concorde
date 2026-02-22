@@ -2,6 +2,7 @@ import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { prisma } from '../config/database.js';
 import { AdminService } from '../services/admins.js';
 import { UserService } from '../services/users.js';
+import type { AuthContext } from '../middleware/auth.js';
 import { EventService } from '../services/events.js';
 import { GroupService } from '../services/groups.js';
 import { ActivityService } from '../services/activities.js';
@@ -48,8 +49,10 @@ import { AuditTrailService } from '../services/audit-trail.js';
 import { ConflictDetectionService } from '../services/conflict-detection.js';
 import { RoomAssignmentService } from '../services/room-assignments.js';
 import { ReportsService } from '../services/reports.js';
+import { env } from '../config/env.js';
+import { parse as parseCsv } from 'csv-parse/sync';
 
-const app = new OpenAPIHono();
+const app = new OpenAPIHono<{ Variables: AuthContext }>();
 
 // Helper function to safely parse accommodation dates
 const parseAccommodationDate = (dateInput: any): Date | null => {
@@ -63,6 +66,143 @@ const parseAccommodationDate = (dateInput: any): Date | null => {
     // ISO string or Date object (backward compatibility)
     return new Date(dateInput);
   }
+};
+
+const asRecord = (value: unknown): Record<string, unknown> | undefined =>
+  value && typeof value === 'object'
+    ? (value as Record<string, unknown>)
+    : undefined;
+
+const getFormResponses = (user: unknown): Array<Record<string, unknown>> => {
+  const userRecord = asRecord(user);
+  const formResponses = userRecord?.formResponses;
+  if (!Array.isArray(formResponses)) {
+    return [];
+  }
+
+  return formResponses
+    .map((entry) => asRecord(entry))
+    .filter((entry): entry is Record<string, unknown> => !!entry);
+};
+
+const getFormResponseString = (
+  user: unknown,
+  fieldNames: string[]
+): string => {
+  const normalizedTargets = new Set(
+    fieldNames.map((fieldName) => fieldName.toLowerCase())
+  );
+
+  for (const entry of getFormResponses(user)) {
+    const fieldName = entry.fieldName;
+    if (typeof fieldName !== 'string') {
+      continue;
+    }
+    if (!normalizedTargets.has(fieldName.toLowerCase())) {
+      continue;
+    }
+
+    const value = entry.value;
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+  }
+
+  return '';
+};
+
+const hasFormResponseValue = (user: unknown, fieldNames: string[]): boolean =>
+  getFormResponseString(user, fieldNames).length > 0;
+
+const getUserProfile = (user: unknown) => {
+  const userRecord = asRecord(user);
+  const fallbackEmail =
+    typeof userRecord?.email === 'string' ? userRecord.email : '';
+  const firstName = getFormResponseString(user, [
+    'firstName',
+    'preferredFirstName',
+  ]);
+  const lastName = getFormResponseString(user, ['lastName', 'surname']);
+
+  return {
+    email: getFormResponseString(user, ['email']) || fallbackEmail,
+    firstName,
+    lastName,
+    phone: getFormResponseString(user, ['phone', 'phoneNumber', 'mobile']),
+    fullName: [firstName, lastName].filter(Boolean).join(' ').trim(),
+  };
+};
+
+const getEmergencyContactFromResponses = (user: unknown) => ({
+  name: getFormResponseString(user, ['emergencyContactName']),
+  phone: getFormResponseString(user, ['emergencyContactPhone']),
+  email: getFormResponseString(user, ['emergencyContactEmail']),
+  relationship: getFormResponseString(user, ['emergencyContactRelationship']),
+});
+
+const getRequirementsFromResponses = (user: unknown) => {
+  const dietary = getFormResponseString(user, [
+    'dietary',
+    'dietaryRequirements',
+    'specialDietaryRequirements',
+  ]);
+  const medical = getFormResponseString(user, [
+    'medical',
+    'medicalConditions',
+    'medicalInformation',
+  ]);
+  const accessibility = getFormResponseString(user, [
+    'accessibility',
+    'accessibilityNeeds',
+  ]);
+  const allergies = getFormResponseString(user, [
+    'allergies',
+    'allergiesIntolerances',
+    'allergiesAndIntolerances',
+  ]);
+  const merchandiseSize = getFormResponseString(user, [
+    'merchandiseSize',
+    'shirtSize',
+  ]);
+
+  return {
+    dietary,
+    medical,
+    accessibility,
+    allergies,
+    merchandiseSize,
+  };
+};
+
+const parseCsvImportRows = (
+  csvText: string
+): { headers: string[]; dataRows: string[][] } => {
+  // [V2: FIXED — Task 2.7.2] Replace naive split(',') parsing with RFC-aware CSV parsing.
+  const records = parseCsv(csvText, {
+    bom: true,
+    columns: false,
+    skip_empty_lines: true,
+    trim: true,
+    relax_quotes: true,
+  }) as string[][];
+
+  if (!Array.isArray(records) || records.length === 0) {
+    return { headers: [], dataRows: [] };
+  }
+
+  const normalizedRows = records.map((row) =>
+    (Array.isArray(row) ? row : []).map((cell) =>
+      typeof cell === 'string' ? cell.trim() : String(cell ?? '').trim()
+    )
+  );
+
+  const headers = normalizedRows[0].map((header) => header.replace(/"/g, '').trim());
+  const dataRows = normalizedRows.slice(1);
+
+  return { headers, dataRows };
 };
 
 // =============================================================================
@@ -288,6 +428,21 @@ const exportUsersRoute = createRoute({
 app.openapi(exportUsersRoute, async (c) => {
   try {
     const { eventId, format } = c.req.valid('query');
+    const authUser = c.get('user');
+
+    // [V5] Apply the same event-access guard pattern used by other admin export/list routes.
+    if (authUser.adminData?.role !== 'SUPER') {
+      const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
+      if (!hasAccess) {
+        return c.json(
+          {
+            success: false,
+            error: 'Access denied to this event',
+          },
+          403
+        );
+      }
+    }
 
     // Get all users for the event
     const users = await UserService.findByEventId(
@@ -348,6 +503,41 @@ app.openapi(exportUsersRoute, async (c) => {
         const accommodation = (user.accommodation as any) || {};
         const flight = (user.flight as any) || {};
         const communication = (user.communication as any) || {};
+        // [V5] Normalize legacy export columns from current schema-backed formResponses/objects.
+        const requirements = {
+          dietary: getFieldValue('dietaryRequirements'),
+          medical: getFieldValue('medicalRequirements'),
+          accessibility: getFieldValue('accessibilityRequirements'),
+          specialRequests: getFieldValue('specialRequests'),
+        };
+        const emergency = {
+          name: getFieldValue('emergencyContactName'),
+          phone: getFieldValue('emergencyContactPhone'),
+          email: getFieldValue('emergencyContactEmail'),
+          relationship: getFieldValue('emergencyContactRelationship'),
+        };
+        const merchandiseSize = {
+          shirt: getFieldValue('shirtSize'),
+          jacket: getFieldValue('jacketSize'),
+          hat: getFieldValue('hatSize'),
+        };
+
+        const arrival = (flight.arrival as any) || {};
+        const departure = (flight.departure as any) || {};
+        const arrivalDateTime = arrival.dateTime || flight.arrival || '';
+        const departureDateTime = departure.dateTime || flight.departure || '';
+        const formatDateTime = (value: unknown) => {
+          if (!value) return '';
+          const parsed = new Date(value as string);
+          return Number.isNaN(parsed.getTime())
+            ? ''
+            : parsed.toISOString().slice(0, 16).replace('T', ' ');
+        };
+        const formatDateOnly = (value: unknown) => {
+          if (!value) return '';
+          const parsed = parseAccommodationDate(value);
+          return parsed ? parsed.toISOString().split('T')[0] : '';
+        };
 
         return [
           getFieldValue('firstName'),
@@ -361,41 +551,25 @@ app.openapi(exportUsersRoute, async (c) => {
           requirements.medical || '',
           requirements.accessibility || '',
           requirements.specialRequests || '',
-          accommodation.required ? 'Yes' : 'No',
-          accommodation.hotel || '',
-          accommodation.checkIn
-            ? parseAccommodationDate(accommodation.checkIn)
-                ?.toISOString()
-                .split('T')[0] || ''
-            : '',
-          accommodation.checkOut
-            ? parseAccommodationDate(accommodation.checkOut)
-                ?.toISOString()
-                .split('T')[0] || ''
-            : '',
-          flight.arrival
-            ? new Date(flight.arrival)
-                .toISOString()
-                .slice(0, 16)
-                .replace('T', ' ')
-            : '',
-          flight.departure
-            ? new Date(flight.departure)
-                .toISOString()
-                .slice(0, 16)
-                .replace('T', ' ')
-            : '',
-          flight.arrivalAirport || '',
-          flight.departureAirport || '',
-          flight.airline || '',
-          flight.number || '',
+          accommodation.required || accommodation.hotelName || accommodation.hotel
+            ? 'Yes'
+            : 'No',
+          accommodation.hotelName || accommodation.hotel || '',
+          formatDateOnly(accommodation.checkIn),
+          formatDateOnly(accommodation.checkOut),
+          formatDateTime(arrivalDateTime),
+          formatDateTime(departureDateTime),
+          arrival.airport || flight.arrivalAirport || '',
+          departure.airport || flight.departureAirport || '',
+          arrival.airline || departure.airline || flight.airline || '',
+          arrival.flightNumber || departure.flightNumber || flight.number || '',
+          user.transferRequirements ? 'Yes' : 'No',
+          user.gpTransfersRequired ? 'Yes' : 'No', // NEW: GP transfers
+          user.eventTransfersRequired ? 'Yes' : 'No', // NEW: Event transfers
           emergency.name || '',
           emergency.phone || '',
           emergency.email || '',
           emergency.relationship || '',
-          user.transferRequirements ? 'Yes' : 'No',
-          user.gpTransfersRequired ? 'Yes' : 'No', // NEW: GP transfers
-          user.eventTransfersRequired ? 'Yes' : 'No', // NEW: Event transfers
           merchandiseSize.shirt || '',
           merchandiseSize.jacket || '',
           merchandiseSize.hat || '',
@@ -405,7 +579,12 @@ app.openapi(exportUsersRoute, async (c) => {
       });
 
       const csvContent = [headers, ...rows]
-        .map((row) => row.map((field) => `"${field}"`).join(','))
+        // [V5] Escape quotes to preserve CSV validity for user-entered values.
+        .map((row) =>
+          row
+            .map((field) => `"${String(field ?? '').replace(/"/g, '""')}"`)
+            .join(',')
+        )
         .join('\n');
 
       c.header('Content-Type', 'text/csv');
@@ -698,6 +877,7 @@ app.openapi(getUserItineraryRoute, async (c) => {
 
     // Check if user is assigned to groups
     if (!user.assigned || !user.groupIds || user.groupIds.length === 0) {
+      const userProfile = getUserProfile(user);
       return c.json(
         {
           success: false,
@@ -705,7 +885,9 @@ app.openapi(getUserItineraryRoute, async (c) => {
           data: {
             user: {
               id: user.id,
-              profile: user.profile,
+              email: userProfile.email,
+              firstName: userProfile.firstName,
+              lastName: userProfile.lastName,
               assigned: user.assigned,
               groupIds: user.groupIds,
             },
@@ -749,14 +931,17 @@ app.openapi(getUserItineraryRoute, async (c) => {
     return c.json({
       success: true,
       data: {
+        userProfile: getUserProfile(user),
         user: {
           id: user.id,
-          profile: user.profile,
+          email: getUserProfile(user).email,
+          firstName: getUserProfile(user).firstName,
+          lastName: getUserProfile(user).lastName,
           assigned: user.assigned,
           groupIds: user.groupIds,
           communication: user.communication,
-          requirements: user.requirements,
-          emergencyContact: user.emergencyContact,
+          requirements: getRequirementsFromResponses(user),
+          emergencyContact: getEmergencyContactFromResponses(user),
         },
         timeline, // What user sees (filtered)
         exclusions, // What's excluded
@@ -899,100 +1084,30 @@ app.openapi(updateUserRoute, async (c) => {
     const updates = c.req.valid('json');
     const authUser = c.get('user');
 
-    // Build the update payload for partial updates - only include changed fields
-    const updatePayload: any = {};
-
-    // Handle profile fields - support both nested and flat structure
-    const profileUpdates = updates.profile || {};
-    const profileFields = [
-      'firstName',
-      'lastName',
-      'preferredFirstName',
-      'email',
-      'phone',
-      'jobTitle',
-      'company',
-      'guestType',
-      'vip',
-      'initials',
-      'host',
-    ];
-
-    // Check for profile updates in nested structure or at root level
-    const hasProfileUpdates = profileFields.some(
-      (field) =>
-        profileUpdates[field] !== undefined || updates[field] !== undefined
-    );
-
-    if (hasProfileUpdates) {
-      // Get current user to merge with updates
-      const currentUser = await UserService.findById(userId);
-      if (!currentUser) {
-        throw new Error('User not found');
+    // Only forward fields supported by AdminUpdateUserSchema/current User model.
+    const updatePayload: Record<string, unknown> = {};
+    const assignIfDefined = (key: string, value: unknown) => {
+      if (value !== undefined) {
+        updatePayload[key] = value;
       }
+    };
 
-      const currentProfile = (currentUser.profile as any) || {};
-      updatePayload.profile = {
-        ...currentProfile,
-        // Handle nested profile structure (preferred) - include ALL profile fields
-        ...(profileUpdates.firstName !== undefined && {
-          firstName: profileUpdates.firstName,
-        }),
-        ...(profileUpdates.lastName !== undefined && {
-          lastName: profileUpdates.lastName,
-        }),
-        ...(profileUpdates.preferredFirstName !== undefined && {
-          preferredFirstName: profileUpdates.preferredFirstName,
-        }),
-        ...(profileUpdates.email !== undefined && {
-          email: profileUpdates.email,
-        }),
-        ...(profileUpdates.phone !== undefined && {
-          phone: profileUpdates.phone,
-        }),
-        ...(profileUpdates.jobTitle !== undefined && {
-          jobTitle: profileUpdates.jobTitle,
-        }),
-        ...(profileUpdates.company !== undefined && {
-          company: profileUpdates.company,
-        }),
-        ...(profileUpdates.guestType !== undefined && {
-          guestType: profileUpdates.guestType,
-        }),
-        ...(profileUpdates.vip !== undefined && {
-          vip: profileUpdates.vip,
-        }),
-        ...(profileUpdates.initials !== undefined && {
-          initials: profileUpdates.initials,
-        }),
-        ...(profileUpdates.host !== undefined && {
-          host: profileUpdates.host,
-        }),
-        // Handle flat structure for backward compatibility
-        ...(updates.firstName !== undefined &&
-          !profileUpdates.firstName && { firstName: updates.firstName }),
-        ...(updates.lastName !== undefined &&
-          !profileUpdates.lastName && { lastName: updates.lastName }),
-        ...(updates.email !== undefined &&
-          !profileUpdates.email && { email: updates.email }),
-        ...(updates.phone !== undefined &&
-          !profileUpdates.phone && { phone: updates.phone }),
-      };
-    }
-
-    // Handle other fields - only include if explicitly provided
-    // Note: communication field excluded from admin updates for privacy/consent compliance
-    if (updates.flight !== undefined) updatePayload.flight = updates.flight;
-    if (updates.accommodation !== undefined)
-      updatePayload.accommodation = updates.accommodation;
-    if (updates.transferRequirements !== undefined)
-      updatePayload.transferRequirements = updates.transferRequirements;
-    if (updates.requirements !== undefined)
-      updatePayload.requirements = updates.requirements;
-    if (updates.merchandiseSize !== undefined)
-      updatePayload.merchandiseSize = updates.merchandiseSize;
-    if (updates.emergencyContact !== undefined)
-      updatePayload.emergencyContact = updates.emergencyContact;
+    assignIfDefined('email', updates.email);
+    assignIfDefined('formResponses', updates.formResponses);
+    assignIfDefined('flight', updates.flight);
+    assignIfDefined('accommodation', updates.accommodation);
+    assignIfDefined('transferRequirements', updates.transferRequirements);
+    assignIfDefined('gpTransfersRequired', updates.gpTransfersRequired);
+    assignIfDefined('eventTransfersRequired', updates.eventTransfersRequired);
+    assignIfDefined('guestCategory', updates.guestCategory);
+    assignIfDefined('tickets', updates.tickets);
+    assignIfDefined('carNumbers', updates.carNumbers);
+    assignIfDefined('arrivalNotes', updates.arrivalNotes);
+    assignIfDefined('departureNotes', updates.departureNotes);
+    assignIfDefined('masterGuestNotes', updates.masterGuestNotes);
+    assignIfDefined('hotelId', updates.hotelId);
+    assignIfDefined('roomDropAssigned', updates.roomDropAssigned);
+    assignIfDefined('active', updates.active);
 
     const user = await UserService.update(userId, updatePayload, authUser.id);
 
@@ -1256,6 +1371,7 @@ const getEventConflictsRoute = createRoute({
           }),
         },
       },
+      description: 'Event conflicts retrieved successfully',
     },
     400: {
       content: {
@@ -1263,6 +1379,7 @@ const getEventConflictsRoute = createRoute({
           schema: ApiErrorSchema,
         },
       },
+      description: 'Failed to analyze event conflicts',
     },
   },
 });
@@ -1329,6 +1446,7 @@ const assignRoomRoute = createRoute({
           }),
         },
       },
+      description: 'Room assigned successfully',
     },
     400: {
       content: {
@@ -1336,6 +1454,7 @@ const assignRoomRoute = createRoute({
           schema: ApiErrorSchema,
         },
       },
+      description: 'Room assignment failed',
     },
   },
 });
@@ -1343,7 +1462,21 @@ const assignRoomRoute = createRoute({
 app.openapi(assignRoomRoute, async (c) => {
   try {
     const { userId } = c.req.valid('param');
-    const data = c.req.valid('json');
+    const parsedBody = CreateRoomAssignmentSchema.omit({
+      userId: true,
+      eventId: true,
+    }).safeParse(await c.req.json());
+    if (!parsedBody.success) {
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid room assignment payload',
+          details: parsedBody.error.flatten(),
+        },
+        400
+      );
+    }
+    const data = parsedBody.data;
     const authUser = c.get('user');
 
     // Get eventId from user data or query parameter
@@ -1371,7 +1504,6 @@ app.openapi(assignRoomRoute, async (c) => {
       eventId,
       hotelId: data.hotelId,
       roomTypeId: data.roomTypeId,
-      roomNumber: data.roomNumber,
       assignedBy: authUser.id,
       hotelNotes: data.hotelNotes,
       billingNotes: data.billingNotes,
@@ -1416,13 +1548,27 @@ const getRoomAllocationSummaryRoute = createRoute({
           }),
         },
       },
+      description: 'Room allocation summary retrieved successfully',
     },
   },
 });
 
-app.openapi(getRoomAllocationSummaryRoute, async (c) => {
+app.get('/events/:eventId/room-allocation-summary', async (c) => {
   try {
-    const { eventId } = c.req.valid('param');
+    const parsedParams = z
+      .object({ eventId: z.string().min(1) })
+      .safeParse(c.req.param());
+    if (!parsedParams.success) {
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid event id',
+          details: parsedParams.error.flatten(),
+        },
+        400
+      );
+    }
+    const { eventId } = parsedParams.data;
 
     // 🎯 CRITICAL: Auto-sync room allocations on load to ensure accuracy
     await RoomAssignmentService.updateEventRoomAllocations(eventId);
@@ -1471,13 +1617,27 @@ const getRoomMatrixDetailedRoute = createRoute({
           }),
         },
       },
+      description: 'Detailed room matrix retrieved successfully',
     },
   },
 });
 
-app.openapi(getRoomMatrixDetailedRoute, async (c) => {
+app.get('/events/:eventId/room-matrix-detailed', async (c) => {
   try {
-    const { eventId } = c.req.valid('param');
+    const parsedParams = z
+      .object({ eventId: z.string().min(1) })
+      .safeParse(c.req.param());
+    if (!parsedParams.success) {
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid event id',
+          details: parsedParams.error.flatten(),
+        },
+        400
+      );
+    }
+    const { eventId } = parsedParams.data;
 
     const detailedMatrix =
       await RoomMatrixDetailedService.getDetailedRoomMatrix(eventId);
@@ -1523,13 +1683,27 @@ const recalculateRoomAllocationsRoute = createRoute({
           }),
         },
       },
+      description: 'Room allocations recalculated successfully',
     },
   },
 });
 
-app.openapi(recalculateRoomAllocationsRoute, async (c) => {
+app.post('/events/:eventId/recalculate-room-allocations', async (c) => {
   try {
-    const { eventId } = c.req.valid('param');
+    const parsedParams = z
+      .object({ eventId: z.string().min(1) })
+      .safeParse(c.req.param());
+    if (!parsedParams.success) {
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid event id',
+          details: parsedParams.error.flatten(),
+        },
+        400
+      );
+    }
+    const { eventId } = parsedParams.data;
 
     const result = await RoomMatrixDetailedService.forceRecalculation(eventId);
 
@@ -1570,13 +1744,27 @@ const checkRoomMatrixIntegrityRoute = createRoute({
           }),
         },
       },
+      description: 'Room matrix integrity check completed',
     },
   },
 });
 
-app.openapi(checkRoomMatrixIntegrityRoute, async (c) => {
+app.get('/events/:eventId/room-matrix-integrity', async (c) => {
   try {
-    const { eventId } = c.req.valid('param');
+    const parsedParams = z
+      .object({ eventId: z.string().min(1) })
+      .safeParse(c.req.param());
+    if (!parsedParams.success) {
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid event id',
+          details: parsedParams.error.flatten(),
+        },
+        400
+      );
+    }
+    const { eventId } = parsedParams.data;
 
     const validation = await RoomAssignmentService.validateRoomMatrix(eventId);
 
@@ -1629,14 +1817,48 @@ const getUsersRequiringRoomsRoute = createRoute({
           }),
         },
       },
+      description: 'Users requiring rooms retrieved successfully',
     },
   },
 });
 
-app.openapi(getUsersRequiringRoomsRoute, async (c) => {
+app.get('/events/:eventId/users-requiring-rooms', async (c) => {
   try {
-    const { eventId } = c.req.valid('param');
-    const query = c.req.valid('query');
+    const parsedParams = z
+      .object({ eventId: z.string().min(1) })
+      .safeParse(c.req.param());
+    if (!parsedParams.success) {
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid event id',
+          details: parsedParams.error.flatten(),
+        },
+        400
+      );
+    }
+    const { eventId } = parsedParams.data;
+
+    const parsedQuery = z
+      .object({
+        page: z.coerce.number().min(1).default(1),
+        limit: z.coerce.number().min(1).max(100).default(20),
+        assigned: z.coerce.boolean().optional(),
+        roomType: z.string().optional(),
+        guestCategory: z.string().optional(),
+      })
+      .safeParse(c.req.query());
+    if (!parsedQuery.success) {
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid room query filters',
+          details: parsedQuery.error.flatten(),
+        },
+        400
+      );
+    }
+    const query = parsedQuery.data;
 
     const users = await RoomAssignmentService.getUsersRequiringRooms(
       eventId,
@@ -1694,10 +1916,7 @@ app.openapi(validateRoomMatrixRoute, async (c) => {
 
     // Verify admin has access to this event
     if (authUser.adminData?.role !== 'SUPER') {
-      const hasAccess = await AdminService.verifyEventAccess(
-        authUser.adminData.id,
-        eventId
-      );
+      const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
         return c.json(
           {
@@ -1751,13 +1970,27 @@ const exportRoomingListRoute = createRoute({
           }),
         },
       },
+      description: 'Rooming list exported successfully',
     },
   },
 });
 
-app.openapi(exportRoomingListRoute, async (c) => {
+app.get('/events/:eventId/rooming-list', async (c) => {
   try {
-    const { eventId } = c.req.valid('param');
+    const parsedParams = z
+      .object({ eventId: z.string().min(1) })
+      .safeParse(c.req.param());
+    if (!parsedParams.success) {
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid event id',
+          details: parsedParams.error.flatten(),
+        },
+        400
+      );
+    }
+    const { eventId } = parsedParams.data;
 
     const roomingList = await RoomAssignmentService.exportRoomingList(eventId);
 
@@ -1808,6 +2041,7 @@ const assignGuestCategoryRoute = createRoute({
           }),
         },
       },
+      description: 'Guest category assignment updated successfully',
     },
     400: {
       content: {
@@ -1815,6 +2049,7 @@ const assignGuestCategoryRoute = createRoute({
           schema: ApiErrorSchema,
         },
       },
+      description: 'Guest category assignment failed',
     },
   },
 });
@@ -1822,7 +2057,23 @@ const assignGuestCategoryRoute = createRoute({
 app.openapi(assignGuestCategoryRoute, async (c) => {
   try {
     const { userId } = c.req.valid('param');
-    const { guestCategory, roomDropId } = c.req.valid('json');
+    const parsedBody = z
+      .object({
+        guestCategory: z.string().min(1),
+        roomDropId: z.string().optional(),
+      })
+      .safeParse(await c.req.json());
+    if (!parsedBody.success) {
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid guest category payload',
+          details: parsedBody.error.flatten(),
+        },
+        400
+      );
+    }
+    const { guestCategory, roomDropId } = parsedBody.data;
     const authUser = c.get('user');
 
     await RoomAssignmentService.assignGuestCategoryAndDrop(
@@ -2068,7 +2319,7 @@ app.openapi(exportGroupsRoute, async (c) => {
           u.groupIds.includes(group.id)
         );
         const memberEmails = assignedUsers
-          .map((u) => (u.profile as any)?.email)
+          .map((u) => u.email)
           .filter(Boolean)
           .join(',');
 
@@ -2508,18 +2759,20 @@ app.openapi(getEventOverviewStatsRoute, async (c) => {
       select: { communication: true },
     });
 
-    const emailOptIns = users.filter(
-      (u: any) => u.communication?.emailOptIn
+    const communicationPreferencesData = users.map((u) =>
+      asRecord(u.communication)
+    );
+    const emailOptIns = communicationPreferencesData.filter(
+      (prefs) => prefs?.emailOptIn === true
     ).length;
-    const whatsappOptIns = users.filter(
-      (u: any) => u.communication?.whatsappOptIn
+    const whatsappOptIns = communicationPreferencesData.filter(
+      (prefs) => prefs?.whatsappOptIn === true
     ).length;
-    const bothChannels = users.filter(
-      (u: any) => u.communication?.emailOptIn && u.communication?.whatsappOptIn
+    const bothChannels = communicationPreferencesData.filter(
+      (prefs) => prefs?.emailOptIn === true && prefs?.whatsappOptIn === true
     ).length;
-    const noCommunication = users.filter(
-      (u: any) =>
-        !u.communication?.emailOptIn && !u.communication?.whatsappOptIn
+    const noCommunication = communicationPreferencesData.filter(
+      (prefs) => prefs?.emailOptIn !== true && prefs?.whatsappOptIn !== true
     ).length;
 
     const communicationPreferences = {
@@ -2533,28 +2786,57 @@ app.openapi(getEventOverviewStatsRoute, async (c) => {
     // Get special requirements breakdown
     const requirementsUsers = await prisma.user.findMany({
       where: { eventId, active: true },
-      select: { requirements: true, accommodation: true },
+      select: { formResponses: true, accommodation: true },
     });
 
     const requirementStats = {
-      dietary: requirementsUsers.filter((u: any) => u.requirements?.dietary)
-        .length,
-      medical: requirementsUsers.filter((u: any) => u.requirements?.medical)
-        .length,
-      accessibility: requirementsUsers.filter(
-        (u: any) => u.requirements?.accessibility
+      dietary: requirementsUsers.filter((u) =>
+        hasFormResponseValue(u, [
+          'dietary',
+          'dietaryRequirements',
+          'specialDietaryRequirements',
+        ])
+      ).length,
+      medical: requirementsUsers.filter((u) =>
+        hasFormResponseValue(u, [
+          'medical',
+          'medicalConditions',
+          'medicalInformation',
+        ])
+      ).length,
+      accessibility: requirementsUsers.filter((u) =>
+        hasFormResponseValue(u, ['accessibility', 'accessibilityNeeds'])
       ).length,
       accommodation: requirementsUsers.filter(
-        (u: any) => u.accommodation?.required
+        (u) => asRecord(u.accommodation)?.required === true
       ).length,
       any: requirementsUsers.filter(
-        (u: any) =>
-          u.requirements?.dietary ||
-          u.requirements?.medical ||
-          u.requirements?.accessibility ||
-          u.accommodation?.required
+        (u) =>
+          hasFormResponseValue(u, [
+            'dietary',
+            'dietaryRequirements',
+            'specialDietaryRequirements',
+            'medical',
+            'medicalConditions',
+            'medicalInformation',
+            'accessibility',
+            'accessibilityNeeds',
+          ]) || asRecord(u.accommodation)?.required === true
       ).length,
     };
+
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const [totalMessages, messagesThisWeek] = await prisma.$transaction([
+      prisma.communicationLog.count({
+        where: { eventId },
+      }),
+      prisma.communicationLog.count({
+        where: {
+          eventId,
+          sentAt: { gte: oneWeekAgo },
+        },
+      }),
+    ]);
 
     const overviewStats = {
       users: {
@@ -2571,8 +2853,8 @@ app.openapi(getEventOverviewStatsRoute, async (c) => {
       communication: communicationPreferences,
       requirements: requirementStats,
       messages: {
-        thisWeek: 0, // TODO: Implement when messaging service exists
-        total: 0,
+        thisWeek: messagesThisWeek,
+        total: totalMessages,
       },
     };
 
@@ -2905,7 +3187,9 @@ app.openapi(toggleEventStatusRoute, async (c) => {
     const { eventId } = c.req.valid('param');
     const { active } = c.req.valid('json');
 
-    const event = await EventService.update(eventId, { active });
+    const event = active
+      ? await EventService.activate(eventId)
+      : await EventService.deactivate(eventId);
 
     return c.json({
       success: true,
@@ -3926,11 +4210,11 @@ const createActivityRoute = createRoute({
             thumbnail: 'https://example.com/gala-dinner.jpg',
             location: {
               name: 'Grand Ballroom',
-              address: '123 Hotel Drive, Monza, Italy',
+              address: '123 Concorde Avenue, Geneva, Switzerland',
               mapLink: 'https://maps.google.com/place/grand-ballroom',
             },
             content: {
-              html: '<h1>Welcome to F1 Italian Grand Prix</h1><p>Join us for an elegant gala dinner featuring <strong>local Italian cuisine</strong> and networking opportunities.</p><ul><li>Cocktail reception: 7:00 PM</li><li>Dinner service: 8:00 PM</li><li>Networking: 9:30 PM</li></ul>',
+              html: '<h1>Welcome to Concorde Showcase Summit</h1><p>Join us for an elegant gala dinner featuring <strong>regional cuisine</strong> and networking opportunities.</p><ul><li>Cocktail reception: 7:00 PM</li><li>Dinner service: 8:00 PM</li><li>Networking: 9:30 PM</li></ul>',
             },
           },
         },
@@ -4173,11 +4457,43 @@ const createTemplateRoute = createRoute({
 
 app.openapi(createTemplateRoute, async (c) => {
   try {
-    const data = c.req.valid('json');
+    const parsedBody = CreateTemplateSchema.safeParse(await c.req.json());
+    if (!parsedBody.success) {
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid template payload',
+          details: parsedBody.error.flatten(),
+        },
+        400
+      );
+    }
+    const data = parsedBody.data;
     const authUser = c.get('user');
+    if (
+      !data.eventId ||
+      !data.name ||
+      !data.type ||
+      !data.category ||
+      !data.subject ||
+      !data.html
+    ) {
+      return c.json(
+        {
+          success: false,
+          error: 'Missing required template fields',
+        },
+        400
+      );
+    }
 
     const template = await TemplateService.create({
-      ...data,
+      eventId: data.eventId,
+      name: data.name,
+      type: data.type,
+      category: data.category,
+      subject: data.subject,
+      html: data.html,
       createdBy: authUser.id,
     });
 
@@ -4550,9 +4866,34 @@ const sendTemplateCommunicationRoute = createRoute({
 
 app.openapi(sendTemplateCommunicationRoute, async (c) => {
   try {
-    const data = c.req.valid('json');
+    const parsedBody = z
+      .object({
+        templateId: z.string().min(1),
+        recipientType: z.enum(['individual', 'group', 'all']),
+        recipientIds: z.array(z.string()).optional(),
+        variables: z.record(z.string()).optional(),
+        adminId: z.string().min(1),
+      })
+      .safeParse(await c.req.json());
+    if (!parsedBody.success) {
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid template communication payload',
+          details: parsedBody.error.flatten(),
+        },
+        400
+      );
+    }
+    const data = parsedBody.data;
 
-    const result = await CommunicationsService.sendTemplateEmail(data);
+    const result = await CommunicationsService.sendTemplateEmail({
+      templateId: data.templateId,
+      recipientType: data.recipientType,
+      recipientIds: data.recipientIds,
+      variables: data.variables,
+      adminId: data.adminId,
+    });
 
     return c.json({
       success: true,
@@ -4624,10 +4965,36 @@ const sendCsvTemplateCommunicationRoute = createRoute({
 
 app.openapi(sendCsvTemplateCommunicationRoute, async (c) => {
   try {
-    const data = c.req.valid('json');
+    const parsedBody = z
+      .object({
+        templateId: z.string(),
+        csvRecipients: z.array(z.record(z.any())),
+        adminId: z.string(),
+        enableTracking: z.boolean().optional().default(false),
+      })
+      .safeParse(await c.req.json());
+    if (!parsedBody.success) {
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid CSV communication payload',
+          details: parsedBody.error.flatten(),
+        },
+        400
+      );
+    }
+    const data = parsedBody.data;
 
     // Start the CSV sending process in the background (fire and forget)
-    CommunicationsService.sendTemplateEmailFromCsv(data).catch((error) => {
+    CommunicationsService.sendTemplateEmailFromCsv({
+      templateId: data.templateId,
+      csvRecipients: data.csvRecipients as Array<{
+        email: string;
+        [key: string]: unknown;
+      }>,
+      adminId: data.adminId,
+      enableTracking: data.enableTracking,
+    }).catch((error) => {
       console.error('CSV email sending failed:', error);
     });
 
@@ -4759,7 +5126,8 @@ app.openapi(getMessageDetailRoute, async (c) => {
             user: {
               select: {
                 id: true,
-                profile: true,
+                email: true,
+                formResponses: true,
                 groupIds: true,
               },
             },
@@ -4796,16 +5164,15 @@ app.openapi(getMessageDetailRoute, async (c) => {
         const tracking = message.emailTracking.find(
           (t) => t.userId === delivery.user
         );
-        const userProfile = tracking?.user.profile as any;
+        const userProfile = getUserProfile(tracking?.user);
 
         return {
           userId: delivery.user,
-          email: delivery.userEmail || userProfile?.email || '',
-          firstName:
-            delivery.userName?.split(' ')[0] || userProfile?.firstName || '',
+          email: delivery.userEmail || userProfile.email || '',
+          firstName: delivery.userName?.split(' ')[0] || userProfile.firstName || '',
           lastName:
             delivery.userName?.split(' ').slice(1).join(' ') ||
-            userProfile?.lastName ||
+            userProfile.lastName ||
             '',
           groupName: null, // TODO: Implement multi-group name resolution if needed
           status: delivery.email?.sent ? 'sent' : 'failed',
@@ -4829,7 +5196,8 @@ app.openapi(getMessageDetailRoute, async (c) => {
           user: {
             select: {
               id: true,
-              profile: true,
+              email: true,
+              formResponses: true,
               groupIds: true,
             },
           },
@@ -4837,16 +5205,16 @@ app.openapi(getMessageDetailRoute, async (c) => {
       });
 
       recipients = communicationLogs.map((log) => {
-        const userProfile = log.user.profile as any;
+        const userProfile = getUserProfile(log.user);
         const tracking = message.emailTracking.find(
           (t) => t.userId === log.userId
         );
 
         return {
           userId: log.userId,
-          email: userProfile?.email || '',
-          firstName: userProfile?.firstName || '',
-          lastName: userProfile?.lastName || '',
+          email: userProfile.email || '',
+          firstName: userProfile.firstName || '',
+          lastName: userProfile.lastName || '',
           groupName: null, // TODO: Implement multi-group name resolution if needed
           status: log.status as 'sent' | 'failed' | 'pending',
           sentAt: log.sentAt.toISOString(),
@@ -4996,7 +5364,7 @@ app.openapi(sendAuthenticationRoute, async (c) => {
       variables: {
         ...variables,
         magicLink: `${
-          process.env.FRONTEND_URL || 'https://chivasregalmonza.com'
+          process.env.FRONTEND_URL || process.env.APP_URL || 'https://demo.savvio.digital'
         }/auth/magic?token=${magicLink.token}&event=${user.eventId}`,
       },
       adminId,
@@ -5185,6 +5553,7 @@ const importUsersRoute = createRoute({
 app.openapi(importUsersRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('query');
+    const authUser = c.get('user'); // [V3: FIXED — Task 2.7.2] importUsers must use authenticated admin context.
     const body = await c.req.parseBody();
     const file = body.file as File;
 
@@ -5199,14 +5568,7 @@ app.openapi(importUsersRoute, async (c) => {
     }
 
     const csvText = await file.text();
-    const lines = csvText.split(/\r?\n/).filter((line) => line.trim());
-    const headers =
-      lines[0]?.split(',').map((h) => h.replace(/"/g, '').trim()) || [];
-    const dataRows = lines
-      .slice(1)
-      .map((line) =>
-        line.split(',').map((cell) => cell.replace(/"/g, '').trim())
-      );
+    const { headers, dataRows } = parseCsvImportRows(csvText);
 
     let imported = 0;
     const errors: string[] = [];
@@ -5342,10 +5704,97 @@ app.openapi(importUsersRoute, async (c) => {
           continue;
         }
 
-        // Create user
+        const formResponses: Array<{ fieldName: string; value: string }> = [];
+        if (userData.profile.firstName) {
+          formResponses.push({
+            fieldName: 'firstName',
+            value: userData.profile.firstName,
+          });
+        }
+        if (userData.profile.lastName) {
+          formResponses.push({
+            fieldName: 'lastName',
+            value: userData.profile.lastName,
+          });
+        }
+        if (userData.profile.phone) {
+          formResponses.push({
+            fieldName: 'phone',
+            value: userData.profile.phone,
+          });
+        }
+        if (userData.requirements.dietary) {
+          formResponses.push({
+            fieldName: 'dietaryRequirements',
+            value: userData.requirements.dietary,
+          });
+        }
+        if (userData.requirements.medical) {
+          formResponses.push({
+            fieldName: 'medicalRequirements',
+            value: userData.requirements.medical,
+          });
+        }
+        if (userData.requirements.accessibility) {
+          formResponses.push({
+            fieldName: 'accessibilityRequirements',
+            value: userData.requirements.accessibility,
+          });
+        }
+        if (userData.requirements.specialRequests) {
+          formResponses.push({
+            fieldName: 'specialRequests',
+            value: userData.requirements.specialRequests,
+          });
+        }
+        if (userData.merchandiseSize.shirt) {
+          formResponses.push({
+            fieldName: 'shirtSize',
+            value: userData.merchandiseSize.shirt,
+          });
+        }
+        if (userData.merchandiseSize.jacket) {
+          formResponses.push({
+            fieldName: 'jacketSize',
+            value: userData.merchandiseSize.jacket,
+          });
+        }
+        if (userData.merchandiseSize.hat) {
+          formResponses.push({
+            fieldName: 'hatSize',
+            value: userData.merchandiseSize.hat,
+          });
+        }
+        if (userData.emergencyContact.name) {
+          formResponses.push({
+            fieldName: 'emergencyContactName',
+            value: userData.emergencyContact.name,
+          });
+        }
+        if (userData.emergencyContact.phone) {
+          formResponses.push({
+            fieldName: 'emergencyContactPhone',
+            value: userData.emergencyContact.phone,
+          });
+        }
+        if (userData.emergencyContact.email) {
+          formResponses.push({
+            fieldName: 'emergencyContactEmail',
+            value: userData.emergencyContact.email,
+          });
+        }
+        if (userData.emergencyContact.relationship) {
+          formResponses.push({
+            fieldName: 'emergencyContactRelationship',
+            value: userData.emergencyContact.relationship,
+          });
+        }
+
+        // [V3: FIXED — Task 2.7.2] Create import payload using current schema.
         const createUserData = {
           eventId,
-          profile: userData.profile,
+          email: userData.profile.email,
+          formResponses,
           communication: userData.communication,
           flight:
             Object.keys(userData.flight).length > 0
@@ -5356,18 +5805,8 @@ app.openapi(importUsersRoute, async (c) => {
               ? userData.accommodation
               : undefined,
           transferRequirements: userData.transferRequirements,
-          requirements:
-            Object.keys(userData.requirements).length > 0
-              ? userData.requirements
-              : undefined,
-          merchandiseSize:
-            Object.keys(userData.merchandiseSize).length > 0
-              ? userData.merchandiseSize
-              : undefined,
-          emergencyContact:
-            Object.keys(userData.emergencyContact).length > 0
-              ? userData.emergencyContact
-              : undefined,
+          gpTransfersRequired: userData.gpTransfersRequired,
+          eventTransfersRequired: userData.eventTransfersRequired,
         };
 
         await UserService.create(createUserData, authUser.id);
@@ -5466,14 +5905,7 @@ app.openapi(importGroupsRoute, async (c) => {
     }
 
     const csvText = await file.text();
-    const lines = csvText.split(/\r?\n/).filter((line) => line.trim());
-    const headers =
-      lines[0]?.split(',').map((h) => h.replace(/"/g, '').trim()) || [];
-    const dataRows = lines
-      .slice(1)
-      .map((line) =>
-        line.split(',').map((cell) => cell.replace(/"/g, '').trim())
-      );
+    const { headers, dataRows } = parseCsvImportRows(csvText);
 
     let imported = 0;
     const errors: string[] = [];
@@ -5605,14 +6037,7 @@ app.openapi(importActivitiesRoute, async (c) => {
     }
 
     const csvText = await file.text();
-    const lines = csvText.split(/\r?\n/).filter((line) => line.trim());
-    const headers =
-      lines[0]?.split(',').map((h) => h.replace(/"/g, '').trim()) || [];
-    const dataRows = lines
-      .slice(1)
-      .map((line) =>
-        line.split(',').map((cell) => cell.replace(/"/g, '').trim())
-      );
+    const { headers, dataRows } = parseCsvImportRows(csvText);
 
     // Get existing groups for lookup
     const groups = await GroupService.findByEventId(eventId, {
@@ -5631,6 +6056,7 @@ app.openapi(importActivitiesRoute, async (c) => {
         const rowData = dataRows[i];
         const activityData: any = {
           location: {},
+          groupIds: [],
         };
 
         headers.forEach((header, index) => {
@@ -5642,13 +6068,29 @@ app.openapi(importActivitiesRoute, async (c) => {
               activityData.title = value;
               break;
             case 'group':
-              const groupId = groupLookup.get(value.toLowerCase());
-              if (groupId) {
-                activityData.groupId = groupId;
-              } else {
+              // [V3: FIXED — Task 2.7.2] Normalize to current groupIds[] contract.
+              const groupNames = value
+                .split(',')
+                .map((g) => g.trim())
+                .filter(Boolean);
+              const resolvedGroupIds = groupNames
+                .map((groupName) => ({
+                  groupName,
+                  groupId: groupLookup.get(groupName.toLowerCase()),
+                }))
+                .filter((entry) => entry.groupId)
+                .map((entry) => entry.groupId as string);
+              if (resolvedGroupIds.length === 0) {
                 errors.push(`Row ${i + 2}: Group "${value}" not found`);
                 return;
               }
+              if (resolvedGroupIds.length !== groupNames.length) {
+                errors.push(
+                  `Row ${i + 2}: One or more groups not found in "${value}"`
+                );
+                return;
+              }
+              activityData.groupIds = [...new Set(resolvedGroupIds)];
               break;
             case 'startDateTime':
               activityData.startDateTime = new Date(value);
@@ -5679,7 +6121,8 @@ app.openapi(importActivitiesRoute, async (c) => {
 
         if (
           !activityData.title ||
-          !activityData.groupId ||
+          !activityData.groupIds ||
+          activityData.groupIds.length === 0 ||
           !activityData.startDateTime ||
           !activityData.endDateTime
         ) {
@@ -5693,7 +6136,7 @@ app.openapi(importActivitiesRoute, async (c) => {
 
         const createActivityData = {
           eventId,
-          groupId: activityData.groupId,
+          groupIds: activityData.groupIds,
           title: activityData.title,
           startDateTime: activityData.startDateTime,
           endDateTime: activityData.endDateTime,
@@ -5869,11 +6312,34 @@ const sendGroupNotificationsRoute = createRoute({
       },
       description: 'Notifications sent successfully',
     },
+    409: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema.extend({
+            code: z.literal('DEFERRED_PHASE2_GROUP_NOTIFICATION'),
+          }),
+        },
+      },
+      description: '[V2] Group notifications are deferred in demo mode',
+    },
   },
 });
 
 app.openapi(sendGroupNotificationsRoute, async (c) => {
   try {
+    if (env.DEMO_MODE) {
+      return c.json(
+        {
+          success: false,
+          code: 'DEFERRED_PHASE2_GROUP_NOTIFICATION',
+          error: 'Group notifications are deferred in Phase 1 demo mode',
+          details:
+            '[V2: FIXED — Task 2.7.3] Group notification sending is intentionally disabled in demo mode.',
+        },
+        409
+      );
+    }
+
     const { groupId } = c.req.valid('param');
     const { userIds, channel, customMessage } = c.req.valid('json');
     const authUser = c.get('user');
@@ -6043,13 +6509,49 @@ const sendCommunicationRoute = createRoute({
 
 app.openapi(sendCommunicationRoute, async (c) => {
   try {
-    const body = c.req.valid('json');
+    const parsedBody = z
+      .object({
+        eventId: z.string().min(1),
+        recipientType: z.enum(['individual', 'group', 'all']),
+        recipientIds: z.array(z.string()).optional(),
+        templateId: z.string().optional(),
+        subject: z.string().optional(),
+        content: z.string().optional(),
+        templateType: z
+          .enum([
+            'welcome',
+            'assignment',
+            'activity_update',
+            'announcement',
+            'custom',
+          ])
+          .optional(),
+        variables: z.record(z.any()).optional(),
+      })
+      .safeParse(await c.req.json());
+    if (!parsedBody.success) {
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid communication payload',
+          details: parsedBody.error.flatten(),
+        },
+        400
+      );
+    }
+    const body = parsedBody.data;
     const authUser = c.get('user');
 
     const request = {
-      ...body,
+      eventId: body.eventId,
       adminId: authUser.id,
+      recipientType: body.recipientType,
+      recipientIds: body.recipientIds,
+      templateId: body.templateId,
+      subject: body.subject,
+      content: body.content,
       channel: 'email' as const,
+      variables: body.variables,
     };
 
     const result = await CommunicationsService.sendCommunication(request);
@@ -6301,9 +6803,9 @@ const generateAdminPreviewTokenRoute = createRoute({
             success: true,
             data: {
               token: 'ml_abc123...',
-              micrositeUrl: 'https://chivasregalmonza.com',
+              micrositeUrl: 'https://demo.savvio.digital',
               previewUrl:
-                'https://chivasregalmonza.com/auth/magic?token=ml_abc123...',
+                'https://demo.savvio.digital/auth/magic?token=ml_abc123...',
               expiresAt: '2025-01-03T10:00:00Z',
             },
             message: 'Admin preview token generated successfully',
@@ -6366,6 +6868,7 @@ app.openapi(generateAdminPreviewTokenRoute, async (c) => {
 
     // Calculate expiration time (24 hours from now)
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const userProfile = getUserProfile(user);
 
     return c.json({
       success: true,
@@ -6376,9 +6879,9 @@ app.openapi(generateAdminPreviewTokenRoute, async (c) => {
         expiresAt: expiresAt.toISOString(),
         user: {
           id: user.id,
-          email: (user.profile as any)?.email,
-          firstName: (user.profile as any)?.firstName,
-          lastName: (user.profile as any)?.lastName,
+          email: userProfile.email,
+          firstName: userProfile.firstName,
+          lastName: userProfile.lastName,
         },
       },
       message: 'Admin preview token generated successfully (no email sent)',
@@ -6746,7 +7249,38 @@ app.openapi(updateActivityCapacityRoute, async (c) => {
     const { updates } = c.req.valid('json');
     const authUser = c.get('user');
 
-    await ActivityService.updateCapacitySettings(updates, authUser.id);
+    const normalizedUpdates = updates
+      .filter(
+        (
+          update
+        ): update is {
+          id: string;
+          capacity?: number;
+          timingTable?: Array<{
+            enabled?: boolean;
+            time?: string;
+            description?: string;
+            location?: string;
+          }>;
+        } => typeof update.id === 'string' && update.id.length > 0
+      )
+      .map((update) => ({
+        id: update.id,
+        capacity: update.capacity,
+        timingTable: update.timingTable,
+      }));
+
+    if (normalizedUpdates.length !== updates.length) {
+      return c.json(
+        {
+          success: false,
+          error: 'Each activity capacity update must include a valid id',
+        },
+        400
+      );
+    }
+
+    await ActivityService.updateCapacitySettings(normalizedUpdates, authUser.id);
 
     return c.json({
       success: true,
@@ -6843,10 +7377,43 @@ const exportReportRoute = createRoute({
   },
 });
 
-app.openapi(exportReportRoute, async (c) => {
+app.get('/reports/:reportType/export', async (c) => {
   try {
-    const { reportType } = c.req.valid('param');
-    const { eventId, activityId, dateFrom, dateTo } = c.req.valid('query');
+    const parsedParams = z
+      .object({ reportType: ReportType })
+      .safeParse(c.req.param());
+    if (!parsedParams.success) {
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid report type',
+          details: parsedParams.error.flatten(),
+        },
+        400
+      );
+    }
+
+    const parsedQuery = z
+      .object({
+        eventId: z.string(),
+        activityId: z.string().optional(),
+        dateFrom: z.string().datetime().optional(),
+        dateTo: z.string().datetime().optional(),
+      })
+      .safeParse(c.req.query());
+    if (!parsedQuery.success) {
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid report export query',
+          details: parsedQuery.error.flatten(),
+        },
+        400
+      );
+    }
+
+    const { reportType } = parsedParams.data;
+    const { eventId, activityId, dateFrom, dateTo } = parsedQuery.data;
     const authUser = c.get('user');
 
     // Check if admin has access to this event
@@ -6968,30 +7535,42 @@ app.openapi(exportReportRoute, async (c) => {
     // Excel generation for activity attendance reports
     // Single activity: Multi-tab format
     // All activities: Single tab with Y/N columns (no multi-tab needed)
+    const maybeMultiTabReport = reportData as {
+      isMultiTab?: boolean;
+      activityTabs?: unknown[];
+      headers: string[];
+      rows: unknown[][];
+    };
     const excelBuffer =
-      reportType === 'activity-attendance' && (reportData as any).isMultiTab
-        ? await ReportsService.generateMultiTabExcelFile(reportData)
+      reportType === 'activity-attendance' && maybeMultiTabReport.isMultiTab
+        ? await ReportsService.generateMultiTabExcelFile(
+            reportData as {
+              headers: string[];
+              rows: unknown[][];
+              activityTabs?: unknown[];
+            }
+          )
         : await ReportsService.generateExcelFile(reportData);
 
     // Log export operation
     await AuditTrailService.logExport(
-      'Report',
+      'BulkOperation',
       reportData.rows.length,
       'excel',
       authUser.id,
       eventId
     );
 
-    c.header(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    );
-    c.header(
-      'Content-Disposition',
-      `attachment; filename="${reportType}-${eventId}-${new Date().toISOString().split('T')[0]}.xlsx"`
-    );
-
-    return c.body(excelBuffer);
+    const excelBody = new Uint8Array(excelBuffer);
+    return new Response(excelBody, {
+      headers: {
+        'Content-Type':
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename="${reportType}-${eventId}-${
+          new Date().toISOString().split('T')[0]
+        }.xlsx"`,
+      },
+    });
   } catch (error: any) {
     return c.json(
       {
@@ -7231,9 +7810,21 @@ const bulkExportReportsRoute = createRoute({
   },
 });
 
-app.openapi(bulkExportReportsRoute, async (c) => {
+app.post('/reports/bulk-export', async (c) => {
   try {
-    const { eventId, reportTypes, format } = c.req.valid('json');
+    const parsedBody = BulkExportRequestSchema.safeParse(await c.req.json());
+    if (!parsedBody.success) {
+      return c.json(
+        {
+          success: false,
+          error: 'Invalid bulk export payload',
+          details: parsedBody.error.flatten(),
+        },
+        400
+      );
+    }
+
+    const { eventId, reportTypes, format } = parsedBody.data;
     const authUser = c.get('user');
 
     // Check if admin has access to this event
@@ -7366,20 +7957,22 @@ app.openapi(bulkExportReportsRoute, async (c) => {
 
       // Log bulk export operation
       await AuditTrailService.logExport(
-        'BulkReport',
+        'BulkOperation',
         reports.length,
         'zip',
         authUser.id,
         eventId
       );
 
-      c.header('Content-Type', 'application/zip');
-      c.header(
-        'Content-Disposition',
-        `attachment; filename="reports-${eventId}-${new Date().toISOString().split('T')[0]}.zip"`
-      );
-
-      return c.body(zipBuffer);
+      const zipBody = new Uint8Array(zipBuffer);
+      return new Response(zipBody, {
+        headers: {
+          'Content-Type': 'application/zip',
+          'Content-Disposition': `attachment; filename="reports-${eventId}-${
+            new Date().toISOString().split('T')[0]
+          }.zip"`,
+        },
+      });
     }
 
     return c.json({
@@ -7509,7 +8102,19 @@ app.openapi(createHotelRoute, async (c) => {
     }
 
     const hotel = await prisma.hotel.create({
-      data: validatedData,
+      data: {
+        event: {
+          connect: { id: validatedData.eventId },
+        },
+        name: validatedData.name,
+        isDefault: validatedData.isDefault,
+        checkInTime: validatedData.checkInTime,
+        checkOutTime: validatedData.checkOutTime,
+        address: validatedData.address,
+        phone: validatedData.phone,
+        email: validatedData.email,
+        website: validatedData.website,
+      },
       include: {
         roomTypes: {
           where: { active: true },
@@ -7771,7 +8376,19 @@ app.openapi(createRoomTypeRoute, async (c) => {
     }
 
     const roomType = await prisma.roomType.create({
-      data: validatedData,
+      data: {
+        event: {
+          connect: { id: validatedData.eventId },
+        },
+        hotel: {
+          connect: { id: validatedData.hotelId },
+        },
+        name: validatedData.name,
+        description: validatedData.description,
+        maxOccupancy: validatedData.maxOccupancy,
+        amenities: validatedData.amenities,
+        basePrice: validatedData.basePrice,
+      },
       include: {
         hotel: {
           select: {
@@ -7877,13 +8494,14 @@ app.get('/transport/assignments/:eventId', async (c) => {
         const user = await prisma.user.findUnique({
           where: { id: assignment.userId },
           select: {
-            profile: true,
+            email: true,
+            formResponses: true,
             flight: true,
             accommodation: true,
           },
         });
 
-        const profile = user?.profile as any;
+        const profile = getUserProfile(user);
         const flight = user?.flight as any;
         const accommodation = user?.accommodation as any;
 
