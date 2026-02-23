@@ -1008,12 +1008,15 @@ app.openapi(getUserStatsRoute, async (c) => {
 
     const { prisma } = await import('../config/database.js');
 
-    const [totalUsers, assignedUsers, unassignedUsers] =
+    const [totalUsers, assignedUsers, unassignedUsers, checkedInUsers] =
       await prisma.$transaction([
         prisma.user.count({ where: { eventId, active: true } }),
         prisma.user.count({ where: { eventId, active: true, assigned: true } }),
         prisma.user.count({
           where: { eventId, active: true, assigned: false },
+        }),
+        prisma.user.count({
+          where: { eventId, active: true, checkedIn: true },
         }),
       ]);
 
@@ -2715,12 +2718,15 @@ app.openapi(getEventOverviewStatsRoute, async (c) => {
     const { prisma } = await import('../config/database.js');
 
     // Get user statistics
-    const [totalUsers, assignedUsers, unassignedUsers] =
+    const [totalUsers, assignedUsers, unassignedUsers, checkedInUsers] =
       await prisma.$transaction([
         prisma.user.count({ where: { eventId, active: true } }),
         prisma.user.count({ where: { eventId, active: true, assigned: true } }),
         prisma.user.count({
           where: { eventId, active: true, assigned: false },
+        }),
+        prisma.user.count({
+          where: { eventId, active: true, checkedIn: true },
         }),
       ]);
 
@@ -2843,8 +2849,11 @@ app.openapi(getEventOverviewStatsRoute, async (c) => {
         total: totalUsers,
         assigned: assignedUsers,
         unassigned: unassignedUsers,
+        checkedIn: checkedInUsers,
         assignmentPercentage:
           totalUsers > 0 ? Math.round((assignedUsers / totalUsers) * 100) : 0,
+        checkedInPercentage:
+          totalUsers > 0 ? Math.round((checkedInUsers / totalUsers) * 100) : 0,
       },
       groups: {
         total: groupsWithCounts.length,

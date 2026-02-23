@@ -53,20 +53,42 @@ const eventRegisterRoute = createRoute({
             success: true,
             data: {
               id: '60f7b3b3b3b3b3b3b3b3b3b3',
-              profile: {
-                email: 'john.doe@example.com',
-                firstName: 'John',
-                lastName: 'Doe',
-                phone: '+1-555-0123',
-              },
+              email: 'john.doe@example.com',
               assigned: false,
               eventId: '60f7b3b3b3b3b3b3b3b3b3b3',
+              wallet: {
+                googleWalletUrl:
+                  'https://pay.google.com/gp/v/save/example-wallet-token',
+                passReferenceId:
+                  'user-60f7b3b3b3b3b3b3b3b3b3b3-event-60f7b3b3b3b3b3b3b3b3b3b3',
+                expiresAt: '2026-01-10T15:00:00.000Z',
+              },
+              checkIn: {
+                qrPayloadUrl:
+                  'https://demo.savvio.digital/api/v1/public/check-in/consume?token=eyJ...',
+                token: 'eyJ...',
+                expiresAt: '2026-01-10T15:00:00.000Z',
+              },
             },
             message: 'Registration completed successfully',
           },
         },
       },
       description: 'User registered successfully',
+    },
+    502: {
+      content: {
+        'application/json': {
+          schema: ApiErrorSchema,
+          example: {
+            success: false,
+            error: 'Registration pass generation failed',
+            message:
+              'Your registration could not be completed because pass generation failed. Please try again.',
+          },
+        },
+      },
+      description: 'Registration pass generation failed',
     },
     400: {
       content: {
@@ -186,6 +208,49 @@ app.openapi(eventRegisterRoute, async (c) => {
 
     // TODO: Send welcome message via opted-in channels
 
+    const { WalletService } = await import('../../services/wallet.js');
+    let walletPayload: Awaited<
+      ReturnType<typeof WalletService.getOrCreateWalletPass>
+    >;
+    try {
+      walletPayload = await WalletService.getOrCreateWalletPass({
+        userId: finalUser.id,
+        eventId: finalUser.eventId,
+        email: finalUser.email,
+        formResponses: finalUser.formResponses,
+      });
+    } catch (walletError: unknown) {
+      const walletErrorMessage =
+        walletError instanceof Error
+          ? walletError.message
+          : 'Unknown wallet generation error';
+
+      try {
+        await UserService.deactivate(finalUser.id);
+      } catch (deactivateError) {
+        console.error(
+          'Failed to deactivate user after wallet generation failure:',
+          deactivateError
+        );
+      }
+
+      return c.json(
+        {
+          success: false,
+          error: 'Registration pass generation failed',
+          message:
+            'Your registration could not be completed because pass generation failed. Please try again.',
+          details: walletErrorMessage,
+        },
+        502
+      );
+    }
+
+    const checkInPayload = await WalletService.generateCheckInQr({
+      userId: finalUser.id,
+      eventId: finalUser.eventId,
+    });
+
     return c.json(
       {
         success: true,
@@ -194,6 +259,8 @@ app.openapi(eventRegisterRoute, async (c) => {
           email: finalUser.email,
           assigned: finalUser.assigned,
           eventId: finalUser.eventId,
+          wallet: walletPayload,
+          checkIn: checkInPayload,
         },
         message: 'Registration completed successfully',
       },

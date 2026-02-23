@@ -41,6 +41,9 @@ const envSchema = z.object({
 
   // [V1] PassKit contract (Task 2.6.1)
   PASSKIT_API_KEY: z.string().optional(),
+  PASSKIT_API_SECRET: z.string().optional(),
+  PASSKIT_API_BASE: z.string().url().default('https://api.pub1.passkit.io'),
+  PASSKIT_PRODUCTION_ID: z.string().optional(),
   PASSKIT_TEMPLATE_ID: z.string().optional(),
   PASSKIT_ISSUER_ID: z.string().optional(),
   PASSKIT_BASE_URL: z.string().url().default('https://api.passkit.com'),
