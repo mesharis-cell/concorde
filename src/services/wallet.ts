@@ -13,6 +13,7 @@ interface WalletRequestInput {
 interface CheckInQrInput {
   userId: string;
   eventId: string;
+  checkInBaseUrl?: string;
 }
 
 interface CheckInPayload {
@@ -20,6 +21,14 @@ interface CheckInPayload {
   userId: string;
   eventId: string;
   nonce: string;
+}
+
+interface CheckInConsumeResult {
+  success: boolean;
+  alreadyCheckedIn: boolean;
+  checkedInAt: string;
+  userId: string;
+  eventId: string;
 }
 
 interface NameParts {
@@ -58,6 +67,86 @@ export class WalletService {
 
   private static getCheckInSignerSecret(): string {
     return env.JWT_SECRET;
+  }
+
+  private static resolveCheckInBaseUrl(checkInBaseUrl?: string): string {
+    const fallback = env.APP_URL.replace(/\/$/, '');
+    const candidate = (checkInBaseUrl || fallback).trim();
+
+    try {
+      return new URL(candidate).origin;
+    } catch {
+      return fallback;
+    }
+  }
+
+  private static parsePassReferenceId(reference: string): {
+    userId: string;
+    eventId: string;
+  } | null {
+    const trimmedReference = reference.trim();
+    const match = trimmedReference.match(
+      /^user-([a-fA-F0-9]{24})-event-([a-fA-F0-9]{24})$/
+    );
+
+    if (!match) {
+      return null;
+    }
+
+    return {
+      userId: match[1],
+      eventId: match[2],
+    };
+  }
+
+  private static async markUserCheckedIn(
+    userId: string,
+    eventId: string
+  ): Promise<CheckInConsumeResult> {
+    const user = await prisma.user.findFirst({
+      where: {
+        id: userId,
+        eventId,
+        active: true,
+      },
+      select: {
+        id: true,
+        eventId: true,
+        checkedIn: true,
+        checkedInAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new Error('User not found for check-in payload');
+    }
+
+    if (user.checkedIn) {
+      return {
+        success: true,
+        alreadyCheckedIn: true,
+        checkedInAt: (user.checkedInAt || new Date()).toISOString(),
+        userId: user.id,
+        eventId: user.eventId,
+      };
+    }
+
+    const now = new Date();
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        checkedIn: true,
+        checkedInAt: now,
+      },
+    });
+
+    return {
+      success: true,
+      alreadyCheckedIn: false,
+      checkedInAt: now.toISOString(),
+      userId: user.id,
+      eventId: user.eventId,
+    };
   }
 
   private static isRecord(value: unknown): value is JsonRecord {
@@ -614,7 +703,8 @@ export class WalletService {
       audience: 'savvio-concorde-demo',
     });
 
-    const qrPayloadUrl = `${env.APP_URL.replace(/\/$/, '')}/api/v1/public/check-in/consume?token=${encodeURIComponent(token)}`;
+    const checkInBaseUrl = this.resolveCheckInBaseUrl(input.checkInBaseUrl);
+    const qrPayloadUrl = `${checkInBaseUrl}/api/v1/public/check-in/consume?token=${encodeURIComponent(token)}`;
 
     return {
       qrPayloadUrl,
@@ -623,13 +713,7 @@ export class WalletService {
     };
   }
 
-  static async consumeCheckInToken(token: string): Promise<{
-    success: boolean;
-    alreadyCheckedIn: boolean;
-    checkedInAt: string;
-    userId: string;
-    eventId: string;
-  }> {
+  static async consumeCheckInToken(token: string): Promise<CheckInConsumeResult> {
     const payload = jwt.verify(token, this.getCheckInSignerSecret(), {
       issuer: 'savvio-concorde-checkin',
       audience: 'savvio-concorde-demo',
@@ -639,49 +723,20 @@ export class WalletService {
       throw new Error('Invalid check-in payload type');
     }
 
-    const user = await prisma.user.findFirst({
-      where: {
-        id: payload.userId,
-        eventId: payload.eventId,
-        active: true,
-      },
-      select: {
-        id: true,
-        eventId: true,
-        checkedIn: true,
-        checkedInAt: true,
-      },
-    });
+    return this.markUserCheckedIn(payload.userId, payload.eventId);
+  }
 
-    if (!user) {
-      throw new Error('User not found for check-in payload');
+  static async consumeCheckInReference(
+    reference: string
+  ): Promise<CheckInConsumeResult> {
+    const parsedReference = this.parsePassReferenceId(reference);
+    if (!parsedReference) {
+      throw new Error('Invalid check-in pass reference');
     }
 
-    if (user.checkedIn) {
-      return {
-        success: true,
-        alreadyCheckedIn: true,
-        checkedInAt: (user.checkedInAt || new Date()).toISOString(),
-        userId: user.id,
-        eventId: user.eventId,
-      };
-    }
-
-    const now = new Date();
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        checkedIn: true,
-        checkedInAt: now,
-      },
-    });
-
-    return {
-      success: true,
-      alreadyCheckedIn: false,
-      checkedInAt: now.toISOString(),
-      userId: user.id,
-      eventId: user.eventId,
-    };
+    return this.markUserCheckedIn(
+      parsedReference.userId,
+      parsedReference.eventId
+    );
   }
 }

@@ -133,6 +133,13 @@ app.openapi(eventRegisterRoute, async (c) => {
   try {
     const { eventId } = c.req.valid('param');
     const data = c.req.valid('json');
+    const requestOrigin = (() => {
+      try {
+        return new URL(c.req.url).origin;
+      } catch {
+        return undefined;
+      }
+    })();
 
     // Check if event exists and registration is open
     const event = await EventService.findById(eventId);
@@ -249,6 +256,7 @@ app.openapi(eventRegisterRoute, async (c) => {
     const checkInPayload = await WalletService.generateCheckInQr({
       userId: finalUser.id,
       eventId: finalUser.eventId,
+      checkInBaseUrl: requestOrigin,
     });
 
     return c.json(
@@ -941,6 +949,8 @@ const consumeCheckInRoute = createRoute({
         'application/json': {
           schema: z.object({
             token: z.string().optional(),
+            reference: z.string().optional(),
+            passReferenceId: z.string().optional(),
           }),
         },
       },
@@ -970,20 +980,26 @@ app.openapi(consumeCheckInRoute, async (c) => {
   try {
     const body = await c.req.json().catch(() => ({}));
     const queryToken = c.req.query('token');
+    const queryReference =
+      c.req.query('reference') || c.req.query('passReferenceId');
     const token = body?.token || queryToken;
+    const reference =
+      body?.reference || body?.passReferenceId || queryReference;
 
-    if (!token) {
+    if (!token && !reference) {
       return c.json(
         {
           success: false,
-          error: 'Missing check-in token',
+          error: 'Missing check-in token or pass reference',
         },
         400
       );
     }
 
     const { WalletService } = await import('../../services/wallet.js');
-    const result = await WalletService.consumeCheckInToken(token);
+    const result = token
+      ? await WalletService.consumeCheckInToken(token)
+      : await WalletService.consumeCheckInReference(reference);
 
     return c.json({
       success: true,
