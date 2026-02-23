@@ -154,7 +154,7 @@ const description = process.argv[2];
 
 if (!description) {
   console.log(`
-🎯 Event Concierge Migration Generator
+🎯 Savvio Concorde Migration Generator
 
 Usage:
   bun run make:migration "Description of your migration"

@@ -186,7 +186,7 @@ switch (command) {
     break;
   default:
     console.log(`
-🎯 Event Concierge Migration Tool
+🎯 Savvio Concorde Migration Tool
 
 Usage:
   bun scripts/migrate.ts [command] [options]

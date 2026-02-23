@@ -2,6 +2,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as bcrypt from 'bcryptjs';
 import {
   PrismaClient,
@@ -125,15 +126,46 @@ type DemoContract = {
 };
 
 const prisma = new PrismaClient();
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 
 function readDemoContract(): DemoContract {
-  const contractPath = path.resolve(process.cwd(), 'scripts/demo-data-contract.json');
+  const contractPath = path.resolve(scriptDir, 'demo-data-contract.json');
   if (!fs.existsSync(contractPath)) {
     throw new Error(`Missing demo contract at ${contractPath}`);
   }
 
   const raw = fs.readFileSync(contractPath, 'utf8');
   return JSON.parse(raw) as DemoContract;
+}
+
+function extractMongoDatabaseName(databaseUrl: string): string | null {
+  try {
+    const parsed = new URL(databaseUrl);
+    if (parsed.protocol !== 'mongodb:' && parsed.protocol !== 'mongodb+srv:') {
+      return null;
+    }
+
+    const databaseName = parsed.pathname.replace(/^\/+/, '').trim();
+    return databaseName.length > 0 ? databaseName : null;
+  } catch {
+    return null;
+  }
+}
+
+function validateDatabaseUrl(): void {
+  const databaseUrl = process.env.DATABASE_URL?.trim();
+  if (!databaseUrl) {
+    throw new Error(
+      'Missing DATABASE_URL. Add it to backend/.env before running demo seed.'
+    );
+  }
+
+  const databaseName = extractMongoDatabaseName(databaseUrl);
+  if (!databaseName) {
+    throw new Error(
+      'Invalid DATABASE_URL: MongoDB URL must include a database name in the path. Example: mongodb+srv://user:pass@host/savvio-concorde-demo?appName=staging'
+    );
+  }
 }
 
 function envOrFallback(name: string, fallback: string): string {
@@ -184,6 +216,8 @@ async function fullForceReset(): Promise<void> {
 }
 
 async function seedDemo(): Promise<void> {
+  validateDatabaseUrl();
+
   const forceReset = process.argv.includes('--force-reset');
   const contract = readDemoContract();
 

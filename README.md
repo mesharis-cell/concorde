@@ -121,7 +121,7 @@ AWS_SECRET_ACCESS_KEY="your-aws-secret-key"
 AWS_REGION="us-east-1"
 AWS_S3_BUCKET="event-concierge-assets"
 SES_FROM_EMAIL="noreply@yourdomain.com"
-SES_FROM_NAME="Event Concierge"
+SES_FROM_NAME="Savvio Concorde"
 ```
 
 ### WhatsApp (Twilio)
