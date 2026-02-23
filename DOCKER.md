@@ -2,7 +2,7 @@
 
 This guide explains how to run the Event Concierge Backend using Docker with Bun runtime.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Environment Setup
 
