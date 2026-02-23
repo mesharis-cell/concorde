@@ -15,7 +15,7 @@ Edit `.env` with your actual configuration values:
 - AWS credentials for S3 and SES
 - Twilio credentials for WhatsApp
 - JWT secret (make it long and random for production)
-- Other service configurations
+- Other service configs
 
 ### 2. Build and Run
 
