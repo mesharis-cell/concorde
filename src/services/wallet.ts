@@ -1,7 +1,7 @@
-import jwt from 'jsonwebtoken';
-import { createHash, randomUUID } from 'node:crypto';
-import { prisma } from '../config/database.js';
-import { env } from '../config/env.js';
+import jwt from "jsonwebtoken";
+import { createHash, randomUUID } from "node:crypto";
+import { prisma } from "../config/database.js";
+import { env } from "../config/env.js";
 
 interface WalletRequestInput {
   userId: string;
@@ -17,10 +17,17 @@ interface CheckInQrInput {
 }
 
 interface CheckInPayload {
-  type: 'checkin';
+  type: "checkin";
   userId: string;
   eventId: string;
   nonce: string;
+}
+
+export interface ResolvedCheckInToken {
+  userId: string;
+  eventId: string;
+  expiresAt: string;
+  passReferenceId: string;
 }
 
 interface CheckInConsumeResult {
@@ -70,7 +77,7 @@ export class WalletService {
   }
 
   private static resolveCheckInBaseUrl(checkInBaseUrl?: string): string {
-    const fallback = env.APP_URL.replace(/\/$/, '');
+    const fallback = env.APP_URL.replace(/\/$/, "");
     const candidate = (checkInBaseUrl || fallback).trim();
 
     try {
@@ -86,7 +93,7 @@ export class WalletService {
   } | null {
     const trimmedReference = reference.trim();
     const match = trimmedReference.match(
-      /^user-([a-fA-F0-9]{24})-event-([a-fA-F0-9]{24})$/
+      /^user-([a-fA-F0-9]{24})-event-([a-fA-F0-9]{24})$/,
     );
 
     if (!match) {
@@ -101,7 +108,7 @@ export class WalletService {
 
   private static async markUserCheckedIn(
     userId: string,
-    eventId: string
+    eventId: string,
   ): Promise<CheckInConsumeResult> {
     const user = await prisma.user.findFirst({
       where: {
@@ -118,7 +125,7 @@ export class WalletService {
     });
 
     if (!user) {
-      throw new Error('User not found for check-in payload');
+      throw new Error("User not found for check-in payload");
     }
 
     if (user.checkedIn) {
@@ -150,12 +157,12 @@ export class WalletService {
   }
 
   private static isRecord(value: unknown): value is JsonRecord {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
+    return typeof value === "object" && value !== null && !Array.isArray(value);
   }
 
   private static extractResponseLines(text: string): unknown[] {
     const lines = text
-      .split('\n')
+      .split("\n")
       .map((line) => line.trim())
       .filter(Boolean);
 
@@ -190,23 +197,23 @@ export class WalletService {
     return {
       apiKey: env.PASSKIT_API_KEY,
       apiSecret: env.PASSKIT_API_SECRET,
-      apiBase: (env.PASSKIT_API_BASE || 'https://api.pub1.passkit.io').replace(
+      apiBase: (env.PASSKIT_API_BASE || "https://api.pub1.passkit.io").replace(
         /\/$/,
-        ''
+        "",
       ),
       productionId: env.PASSKIT_PRODUCTION_ID,
       templateId: env.PASSKIT_TEMPLATE_ID,
       issuerId: env.PASSKIT_ISSUER_ID,
-      legacyBaseUrl: env.PASSKIT_BASE_URL.replace(/\/$/, ''),
+      legacyBaseUrl: env.PASSKIT_BASE_URL.replace(/\/$/, ""),
     };
   }
 
   private static getAuthHeaderCandidates(
     requestUrl: string,
-    method: 'POST',
+    method: "POST",
     bodyString: string,
     apiKey: string,
-    apiSecret?: string
+    apiSecret?: string,
   ): Array<Record<string, string>> {
     const headers: Array<Record<string, string>> = [];
     const normalizedPath = (() => {
@@ -217,9 +224,9 @@ export class WalletService {
     if (apiSecret) {
       const now = Math.floor(Date.now() / 1000);
       const issuedAt = now - 5;
-      const requestSignature = createHash('sha256')
+      const requestSignature = createHash("sha256")
         .update(bodyString)
-        .digest('hex');
+        .digest("hex");
 
       const jwtPayload: Record<string, string | number> = {
         uid: apiKey,
@@ -232,7 +239,7 @@ export class WalletService {
       };
 
       const signedToken = jwt.sign(jwtPayload, apiSecret, {
-        algorithm: 'HS256',
+        algorithm: "HS256",
       });
 
       headers.push({ Authorization: signedToken });
@@ -252,15 +259,15 @@ export class WalletService {
 
     const getValue = (fieldName: string): string => {
       const entry = responses.find(
-        (response) => response.fieldName === fieldName
+        (response) => response.fieldName === fieldName,
       );
       const value = entry?.value;
-      return typeof value === 'string' ? value.trim() : '';
+      return typeof value === "string" ? value.trim() : "";
     };
 
-    const firstName = getValue('firstName');
-    const lastName = getValue('lastName');
-    const fallbackName = getValue('name');
+    const firstName = getValue("firstName");
+    const lastName = getValue("lastName");
+    const fallbackName = getValue("name");
     const fullName = `${firstName} ${lastName}`.trim() || fallbackName;
 
     return {
@@ -304,15 +311,15 @@ export class WalletService {
 
     for (const record of records) {
       const directKeys = [
-        'googleWalletUrl',
-        'google_wallet_url',
-        'googlePayURL',
-        'url',
+        "googleWalletUrl",
+        "google_wallet_url",
+        "googlePayURL",
+        "url",
       ] as const;
 
       for (const key of directKeys) {
         const candidate = record[key];
-        if (typeof candidate === 'string' && candidate.trim().length > 0) {
+        if (typeof candidate === "string" && candidate.trim().length > 0) {
           return candidate;
         }
       }
@@ -326,7 +333,7 @@ export class WalletService {
             pass.googleWalletUrl ||
             pass.google_wallet_url ||
             pass.url;
-          if (typeof candidate === 'string' && candidate.trim().length > 0) {
+          if (typeof candidate === "string" && candidate.trim().length > 0) {
             return candidate;
           }
         }
@@ -335,7 +342,7 @@ export class WalletService {
       if (this.isRecord(record.links)) {
         const linksCandidate = record.links.googleWallet;
         if (
-          typeof linksCandidate === 'string' &&
+          typeof linksCandidate === "string" &&
           linksCandidate.trim().length > 0
         ) {
           return linksCandidate;
@@ -345,7 +352,7 @@ export class WalletService {
       if (this.isRecord(record.googleWallet)) {
         const walletCandidate = record.googleWallet.url;
         if (
-          typeof walletCandidate === 'string' &&
+          typeof walletCandidate === "string" &&
           walletCandidate.trim().length > 0
         ) {
           return walletCandidate;
@@ -360,7 +367,7 @@ export class WalletService {
     const records = this.extractPassKitResultRows(data);
     for (const record of records) {
       const candidate = record.id || record.passReferenceId;
-      if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      if (typeof candidate === "string" && candidate.trim().length > 0) {
         return candidate;
       }
     }
@@ -370,7 +377,7 @@ export class WalletService {
   private static extractStreamFirstId(data: unknown): string | null {
     const rows = this.extractPassKitResultRows(data);
     for (const row of rows) {
-      if (typeof row.id === 'string' && row.id.trim().length > 0) {
+      if (typeof row.id === "string" && row.id.trim().length > 0) {
         return row.id;
       }
     }
@@ -382,24 +389,24 @@ export class WalletService {
     body: Record<string, unknown>,
     apiKey: string,
     apiSecret?: string,
-    options: PassKitPostOptions = {}
+    options: PassKitPostOptions = {},
   ): Promise<PassKitPostResult> {
     const bodyString = JSON.stringify(body);
     const authHeaders = this.getAuthHeaderCandidates(
       requestUrl,
-      'POST',
+      "POST",
       bodyString,
       apiKey,
-      apiSecret
+      apiSecret,
     );
     const errors: string[] = [];
 
     for (const authHeader of authHeaders) {
       const response = await fetch(requestUrl, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
+          "Content-Type": "application/json",
+          Accept: "application/json",
           ...authHeader,
         },
         body: bodyString,
@@ -426,24 +433,24 @@ export class WalletService {
         };
       }
 
-      const headerLabel = authHeader.Authorization.startsWith('PKAuth')
-        ? 'PKAuth'
-        : authHeader.Authorization.startsWith('Bearer')
-          ? 'Bearer'
-          : 'Raw';
+      const headerLabel = authHeader.Authorization.startsWith("PKAuth")
+        ? "PKAuth"
+        : authHeader.Authorization.startsWith("Bearer")
+          ? "Bearer"
+          : "Raw";
       errors.push(`${headerLabel} -> ${response.status}: ${bodyText}`);
 
       if (response.status !== 401 && response.status !== 403) {
         throw new Error(
-          `PassKit request failed (${response.status}): ${bodyText}`
+          `PassKit request failed (${response.status}): ${bodyText}`,
         );
       }
     }
 
     throw new Error(
       `PassKit authorization failed after all auth strategies: ${errors.join(
-        ' | '
-      )}`
+        " | ",
+      )}`,
     );
   }
 
@@ -451,11 +458,15 @@ export class WalletService {
     config: PassKitConfig,
     input: WalletRequestInput,
     passReferenceId: string,
-    expiresAt: string
-  ): Promise<{ googleWalletUrl: string; passReferenceId: string; expiresAt: string }> {
+    expiresAt: string,
+  ): Promise<{
+    googleWalletUrl: string;
+    passReferenceId: string;
+    expiresAt: string;
+  }> {
     if (!config.apiKey || !config.templateId || !config.issuerId) {
       throw new Error(
-        'Legacy PassKit flow requires PASSKIT_API_KEY, PASSKIT_TEMPLATE_ID, PASSKIT_ISSUER_ID.'
+        "Legacy PassKit flow requires PASSKIT_API_KEY, PASSKIT_TEMPLATE_ID, PASSKIT_ISSUER_ID.",
       );
     }
 
@@ -480,12 +491,12 @@ export class WalletService {
       requestUrl,
       payload,
       config.apiKey,
-      config.apiSecret
+      config.apiSecret,
     );
 
     const googleWalletUrl = this.extractGoogleWalletUrl(response.data);
     if (!googleWalletUrl) {
-      throw new Error('PassKit legacy response missing Google Wallet URL');
+      throw new Error("PassKit legacy response missing Google Wallet URL");
     }
 
     return {
@@ -496,11 +507,11 @@ export class WalletService {
   }
 
   private static async resolveEventTicketTypeId(
-    config: PassKitConfig
+    config: PassKitConfig,
   ): Promise<string> {
     if (!config.apiKey || !config.productionId) {
       throw new Error(
-        'PASSKIT_API_KEY and PASSKIT_PRODUCTION_ID are required for ticket type resolution.'
+        "PASSKIT_API_KEY and PASSKIT_PRODUCTION_ID are required for ticket type resolution.",
       );
     }
 
@@ -509,13 +520,13 @@ export class WalletService {
       requestUrl,
       {},
       config.apiKey,
-      config.apiSecret
+      config.apiSecret,
     );
 
     const ticketTypeId = this.extractStreamFirstId(response.data);
     if (!ticketTypeId) {
       throw new Error(
-        'PassKit did not return any ticket type for the configured production.'
+        "PassKit did not return any ticket type for the configured production.",
       );
     }
     return ticketTypeId;
@@ -524,7 +535,7 @@ export class WalletService {
   private static async resolveEventId(config: PassKitConfig): Promise<string> {
     if (!config.apiKey || !config.productionId) {
       throw new Error(
-        'PASSKIT_API_KEY and PASSKIT_PRODUCTION_ID are required for event resolution.'
+        "PASSKIT_API_KEY and PASSKIT_PRODUCTION_ID are required for event resolution.",
       );
     }
 
@@ -533,13 +544,13 @@ export class WalletService {
       requestUrl,
       { productionId: config.productionId },
       config.apiKey,
-      config.apiSecret
+      config.apiSecret,
     );
 
     const eventId = this.extractStreamFirstId(response.data);
     if (!eventId) {
       throw new Error(
-        'PassKit did not return any event for the configured production.'
+        "PassKit did not return any event for the configured production.",
       );
     }
     return eventId;
@@ -549,11 +560,15 @@ export class WalletService {
     config: PassKitConfig,
     input: WalletRequestInput,
     passReferenceId: string,
-    expiresAt: string
-  ): Promise<{ googleWalletUrl: string; passReferenceId: string; expiresAt: string }> {
+    expiresAt: string,
+  ): Promise<{
+    googleWalletUrl: string;
+    passReferenceId: string;
+    expiresAt: string;
+  }> {
     if (!config.apiKey || !config.productionId) {
       throw new Error(
-        'PASSKIT_API_KEY and PASSKIT_PRODUCTION_ID are required for Event Tickets integration.'
+        "PASSKIT_API_KEY and PASSKIT_PRODUCTION_ID are required for Event Tickets integration.",
       );
     }
 
@@ -562,7 +577,7 @@ export class WalletService {
         productionId: config.productionId,
         ticketNumber: passReferenceId,
       },
-      format: ['GOOGLE_URL'],
+      format: ["GOOGLE_URL"],
     };
 
     const passRequestUrl = `${config.apiBase}/eventTickets/pass`;
@@ -571,10 +586,12 @@ export class WalletService {
       passRequestBody,
       config.apiKey,
       config.apiSecret,
-      { allowNotFound: true }
+      { allowNotFound: true },
     );
 
-    const existingGoogleWalletUrl = this.extractGoogleWalletUrl(passLookup.data);
+    const existingGoogleWalletUrl = this.extractGoogleWalletUrl(
+      passLookup.data,
+    );
     if (existingGoogleWalletUrl) {
       return {
         googleWalletUrl: existingGoogleWalletUrl,
@@ -585,7 +602,7 @@ export class WalletService {
 
     if (passLookup.status !== 404) {
       throw new Error(
-        `PassKit pass lookup did not return a usable Google Wallet URL: ${passLookup.bodyText}`
+        `PassKit pass lookup did not return a usable Google Wallet URL: ${passLookup.bodyText}`,
       );
     }
 
@@ -616,20 +633,20 @@ export class WalletService {
       issueTicketRequestUrl,
       issueTicketBody,
       config.apiKey,
-      config.apiSecret
+      config.apiSecret,
     );
 
     const postIssueLookup = await this.passKitPost(
       passRequestUrl,
       passRequestBody,
       config.apiKey,
-      config.apiSecret
+      config.apiSecret,
     );
 
     const googleWalletUrl = this.extractGoogleWalletUrl(postIssueLookup.data);
     if (!googleWalletUrl) {
       throw new Error(
-        'PassKit ticket issued but Google Wallet URL was not returned.'
+        "PassKit ticket issued but Google Wallet URL was not returned.",
       );
     }
 
@@ -653,12 +670,12 @@ export class WalletService {
     const hasLegacyConfig = Boolean(
       passKitConfig.apiKey &&
         passKitConfig.templateId &&
-        passKitConfig.issuerId
+        passKitConfig.issuerId,
     );
     const hasEventTicketConfig = Boolean(
       passKitConfig.apiKey &&
         passKitConfig.productionId &&
-        passKitConfig.apiBase
+        passKitConfig.apiBase,
     );
 
     if (hasLegacyConfig) {
@@ -666,7 +683,7 @@ export class WalletService {
         passKitConfig,
         input,
         passReferenceId,
-        expiresAt
+        expiresAt,
       );
     }
 
@@ -675,12 +692,12 @@ export class WalletService {
         passKitConfig,
         input,
         passReferenceId,
-        expiresAt
+        expiresAt,
       );
     }
 
     throw new Error(
-      'PassKit credentials are missing. Configure either legacy PASSKIT_TEMPLATE_ID/PASSKIT_ISSUER_ID or Event Tickets PASSKIT_PRODUCTION_ID credentials.'
+      "PassKit credentials are missing. Configure either legacy PASSKIT_TEMPLATE_ID/PASSKIT_ISSUER_ID or Event Tickets PASSKIT_PRODUCTION_ID credentials.",
     );
   }
 
@@ -691,7 +708,7 @@ export class WalletService {
   }> {
     const expiresAt = this.getCheckInExpiresAt();
     const payload: CheckInPayload = {
-      type: 'checkin',
+      type: "checkin",
       userId: input.userId,
       eventId: input.eventId,
       nonce: randomUUID(),
@@ -699,8 +716,8 @@ export class WalletService {
 
     const token = jwt.sign(payload, this.getCheckInSignerSecret(), {
       expiresIn: `${env.WALLET_PASS_TTL_HOURS}h`,
-      issuer: 'savvio-concorde-checkin',
-      audience: 'savvio-concorde-demo',
+      issuer: "savvio-concorde-checkin",
+      audience: "savvio-concorde-demo",
     });
 
     const checkInBaseUrl = this.resolveCheckInBaseUrl(input.checkInBaseUrl);
@@ -713,30 +730,53 @@ export class WalletService {
     };
   }
 
-  static async consumeCheckInToken(token: string): Promise<CheckInConsumeResult> {
-    const payload = jwt.verify(token, this.getCheckInSignerSecret(), {
-      issuer: 'savvio-concorde-checkin',
-      audience: 'savvio-concorde-demo',
-    }) as CheckInPayload;
+  static async consumeCheckInToken(
+    token: string,
+  ): Promise<CheckInConsumeResult> {
+    const resolvedToken = this.resolveCheckInToken(token);
+    return this.markUserCheckedIn(resolvedToken.userId, resolvedToken.eventId);
+  }
 
-    if (payload.type !== 'checkin') {
-      throw new Error('Invalid check-in payload type');
+  static resolveCheckInToken(token: string): ResolvedCheckInToken {
+    const payload = jwt.verify(token, this.getCheckInSignerSecret(), {
+      issuer: "savvio-concorde-checkin",
+      audience: "savvio-concorde-demo",
+    }) as jwt.JwtPayload & Partial<CheckInPayload>;
+
+    if (payload.type !== "checkin") {
+      throw new Error("Invalid check-in payload type");
     }
 
-    return this.markUserCheckedIn(payload.userId, payload.eventId);
+    if (
+      typeof payload.userId !== "string" ||
+      typeof payload.eventId !== "string"
+    ) {
+      throw new Error("Invalid check-in payload shape");
+    }
+
+    if (typeof payload.exp !== "number") {
+      throw new Error("Check-in payload is missing expiration");
+    }
+
+    return {
+      userId: payload.userId,
+      eventId: payload.eventId,
+      expiresAt: new Date(payload.exp * 1000).toISOString(),
+      passReferenceId: `user-${payload.userId}-event-${payload.eventId}`,
+    };
   }
 
   static async consumeCheckInReference(
-    reference: string
+    reference: string,
   ): Promise<CheckInConsumeResult> {
     const parsedReference = this.parsePassReferenceId(reference);
     if (!parsedReference) {
-      throw new Error('Invalid check-in pass reference');
+      throw new Error("Invalid check-in pass reference");
     }
 
     return this.markUserCheckedIn(
       parsedReference.userId,
-      parsedReference.eventId
+      parsedReference.eventId,
     );
   }
 }

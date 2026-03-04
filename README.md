@@ -29,6 +29,7 @@ A comprehensive multi-event management system with personalized itinerary manage
 - **Runtime**: Bun
 
 ### Prisma v6 Features
+
 - **Global Omit**: Automatically exclude sensitive fields like `passwordHash`
 - **Enhanced Performance**: Optimized query engine with advanced indexing
 - **Better TypeScript Support**: Improved type inference and safety
@@ -46,27 +47,32 @@ A comprehensive multi-event management system with personalized itinerary manage
 ### Installation
 
 1. Install dependencies:
+
 ```bash
 bun install
 ```
 
 2. Set up environment variables:
+
 ```bash
 cp .env.example .env
 # Edit .env with your configuration
 ```
 
 3. Generate Prisma client:
+
 ```bash
 bun run prisma:generate
 ```
 
 4. Push database schema:
+
 ```bash
 bun run prisma:push
 ```
 
 5. Start development server:
+
 ```bash
 bun run dev
 ```
@@ -76,6 +82,7 @@ The API will be available at `http://localhost:3001` and the documentation at `h
 ## 🏗️ Architecture Overview
 
 ### Frontend (Admin Dashboard)
+
 - **Next.js 15**: React framework with App Router and TypeScript
 - **Tailwind CSS**: Styling with shadcn/ui components
 - **Rich Text Editor**: Tiptap with S3 image uploads
@@ -84,6 +91,7 @@ The API will be available at `http://localhost:3001` and the documentation at `h
 - **Theme Support**: Light/dark mode with system preference detection
 
 ### Backend (API Server)
+
 - **Hono Framework**: Fast web framework with OpenAPI integration
 - **Prisma v6**: Advanced ORM with MongoDB optimizations
 - **JWT Authentication**: Secure token-based authentication
@@ -91,6 +99,7 @@ The API will be available at `http://localhost:3001` and the documentation at `h
 - **Email/SMS**: AWS SES and Twilio integration
 
 ### Database Schema
+
 ```
 Events
 ├── Groups (event-specific containers)
@@ -103,11 +112,13 @@ Events
 ## Environment Configuration
 
 ### Database
+
 ```env
 DATABASE_URL="mongodb://localhost:27017/event-concierge"
 ```
 
 ### Authentication
+
 ```env
 JWT_SECRET="your-super-secret-jwt-key-change-in-production"
 JWT_EXPIRES_IN="7d"
@@ -115,6 +126,7 @@ MAGIC_LINK_EXPIRES_IN="24h"
 ```
 
 ### AWS Services
+
 ```env
 AWS_ACCESS_KEY_ID="your-aws-access-key"
 AWS_SECRET_ACCESS_KEY="your-aws-secret-key"
@@ -125,6 +137,7 @@ SES_FROM_NAME="Savvio Concorde"
 ```
 
 ### WhatsApp (Twilio)
+
 ```env
 TWILIO_ACCOUNT_SID="your-twilio-account-sid"
 TWILIO_AUTH_TOKEN="your-twilio-auth-token"
@@ -132,6 +145,7 @@ TWILIO_WHATSAPP_FROM="whatsapp:+1234567890"
 ```
 
 ### Application
+
 ```env
 APP_URL="http://localhost:3000"
 PORT="3000"
@@ -141,9 +155,11 @@ NODE_ENV="development"
 ## 📚 API Documentation
 
 ### Interactive Documentation
+
 Visit `http://localhost:3001/docs` for complete interactive Swagger documentation with request/response examples.
 
 ### 🌐 Public Endpoints (User Microsite)
+
 ```http
 POST   /api/events/{eventId}/register          # Event registration
 GET    /api/events/{eventId}/info              # Public event information
@@ -152,6 +168,7 @@ POST   /api/auth/validate-magic-link           # Validate magic link token
 ```
 
 ### 🔐 User Authenticated Endpoints
+
 ```http
 GET    /api/user/profile                       # User profile with group assignment
 GET    /api/user/itinerary                     # User's group activities timeline
@@ -160,6 +177,7 @@ GET    /api/activities/{activityId}            # Single activity details
 ```
 
 ### 🛡️ Admin Endpoints
+
 ```http
 # Authentication
 POST   /api/v1/admin/login                     # Admin login
@@ -204,11 +222,13 @@ PATCH  /api/v1/admin/administrators/{id}       # Update admin role/status
 ## Core Concepts
 
 ### Entity Hierarchy
+
 ```
 Event → Groups → Activities → Users
 ```
 
 ### Key Principles
+
 1. **One User, One Group**: Users can only belong to one group per event
 2. **One Activity, One Group**: Activities are created specifically for one group
 3. **Event Isolation**: All data is scoped to a specific event
@@ -218,6 +238,7 @@ Event → Groups → Activities → Users
 ## 🛠️ Development Scripts
 
 ### Backend Server
+
 ```bash
 bun run dev             # Start development server (auto-reload)
 bun run build           # Build for production
@@ -226,6 +247,7 @@ bun run type-check      # TypeScript type checking
 ```
 
 ### Database Management (Prisma v6)
+
 ```bash
 bun run prisma:generate    # Generate Prisma client
 bun run prisma:push        # Push schema to database
@@ -236,6 +258,7 @@ bun run reset-db           # Reset database (development)
 ```
 
 ### Setup & Utilities
+
 ```bash
 bun run setup              # Ensure demo super admin + run demo seeding
 bun run seed:demo          # Seed deterministic demo dataset
@@ -245,6 +268,7 @@ bun run create-dummy-users # Generate test users
 ```
 
 ### Demo Reset
+
 Use this sequence before recording to guarantee deterministic state:
 
 ```bash
@@ -259,20 +283,20 @@ If you need full setup (admin bootstrap + seed) in one command:
 bun run demo:setup
 ```
 
-### [V1] Demo Mode & OTP Fallback
-Use these values in `backend/.env` for local recording reliability:
+### Email Sender Configuration
+
+Set a real sender identity for outbound transactional email:
 
 ```bash
-DEMO_MODE=true
-DEMO_OTP_MODE=true
-DEMO_OTP_FIXED_CODE=1234
 EMAIL_PROVIDER=resend
+EMAIL_FROM_ADDRESS=no-reply@notifications.concorde.savvio.digital
+EMAIL_FROM_NAME=Savvio Concorde
 ```
 
-With `DEMO_MODE=true`, backend boot does not require unused provider credentials.  
-With `DEMO_OTP_MODE=true`, `/api/v1/auth/request-email-otp` succeeds without outbound delivery and `/api/v1/auth/validate-otp` accepts only `DEMO_OTP_FIXED_CODE`.
+Event-level sender settings (`fromEmail`, `fromName`) override these defaults when provided.
 
 ### [V1] PassKit Setup (Google Wallet)
+
 Required env vars:
 
 ```bash
@@ -286,6 +310,7 @@ WALLET_PASS_TTL_HOURS=24
 When configured, attendee endpoint `GET /api/v1/user/wallet-pass` calls PassKit to return `googleWalletUrl`.
 
 ### [V1] Smoke Check
+
 From repo root:
 
 ```bash
@@ -295,6 +320,7 @@ From repo root:
 The script checks backend health/docs, dashboard login route, public event info, OTP request/validate, and wallet endpoint readiness.
 
 ### Frontend Admin Dashboard
+
 ```bash
 cd admin-frontend
 bun run dev                # Start Next.js development server
@@ -315,6 +341,7 @@ bun run format             # Prettier formatting
 ## 📋 Advanced Data Management
 
 ### Smart CSV Import/Export System
+
 - **Auto-Mapping Templates**: Download pre-formatted CSV templates with sample data
 - **Intelligent Field Detection**: Automatic field mapping when using templates
 - **Fuzzy Matching**: Smart detection of field name variations (e.g., `first_name` → `firstName`)
@@ -322,7 +349,9 @@ bun run format             # Prettier formatting
 - **Comprehensive Validation**: Real-time error reporting with row-specific feedback
 
 ### Template Structure
+
 **Users Template (16+ fields)**:
+
 ```csv
 firstName, lastName, email, phone, dietaryRequirements,
 medicalRequirements, accessibilityRequirements, accommodationRequired,
@@ -331,11 +360,13 @@ emergencyContactName, emergencyContactPhone
 ```
 
 **Groups Template (5 fields)**:
-```csv  
+
+```csv
 name, description, capacity, category, assignedMembers
 ```
 
 **Activities Template (10 fields)**:
+
 ```csv
 title, group, startDateTime, endDateTime, location, address,
 category, description, thumbnail, mapLink
@@ -344,18 +375,21 @@ category, description, thumbnail, mapLink
 ## 🔒 Security & Authentication
 
 ### User Authentication (Microsite)
+
 - **Passwordless Magic Links**: 24-hour expiring email-based authentication
 - **JWT Sessions**: Secure token-based sessions lasting event duration
 - **Single-Use Tokens**: Magic links can only be used once
 - **Group-Based Access**: Users only see activities from their assigned group
 
 ### Admin Authentication (Dashboard)
+
 - **Password-Based**: Traditional email/password for admin accounts
 - **Role-Based Access Control**: Super Admin vs Standard Admin permissions
 - **JWT Tokens**: Secure API authentication with automatic refresh
 - **Self-Edit Protection**: Admins cannot modify their own accounts
 
 ### Data Security
+
 - **Event Isolation**: Complete data scoping per event
 - **Input Validation**: Comprehensive Zod schema validation
 - **S3 Presigned URLs**: Secure file uploads without direct S3 access
@@ -373,6 +407,7 @@ category, description, thumbnail, mapLink
 ## WhatsApp Setup
 
 Before production launch, submit message templates to Twilio for approval:
+
 - Welcome messages
 - Group assignment notifications
 - Activity updates
@@ -381,6 +416,7 @@ Before production launch, submit message templates to Twilio for approval:
 ## 🎨 Frontend Features (Admin Dashboard)
 
 ### Rich Text Activity Editor
+
 - **Tiptap Integration**: Professional rich text editor with full toolbar
 - **S3 Image Uploads**: Direct image upload with presigned URLs
 - **Edit/Preview Modes**: Real-time content preview for activities
@@ -388,6 +424,7 @@ Before production launch, submit message templates to Twilio for approval:
 - **Professional Typography**: Custom Google Fonts (Plus Jakarta Sans, Lora, IBM Plex Mono)
 
 ### Advanced User Interface
+
 - **Card-Based Design**: Modern card layouts for groups, activities, and admins
 - **Responsive Design**: Mobile-friendly admin dashboard
 - **Timezone Management**: Event-based timezone display with clear indicators
@@ -395,6 +432,7 @@ Before production launch, submit message templates to Twilio for approval:
 - **Smart Search**: Enhanced search with visual feedback
 
 ### Data Management Tools
+
 - **Template System**: Downloadable CSV templates with sample data
 - **Auto-Mapping**: Intelligent field detection for imports
 - **Export Compatibility**: Exported data can be immediately re-imported
@@ -403,6 +441,7 @@ Before production launch, submit message templates to Twilio for approval:
 ## 🚀 Getting Started
 
 ### Quick Setup (Development)
+
 ```bash
 # 1. Clone and install dependencies
 git clone <repository>
@@ -431,6 +470,7 @@ bun run dev
 ```
 
 ### Production Deployment Checklist
+
 - [ ] Configure production MongoDB (Atlas recommended)
 - [ ] Set up AWS services (S3, SES, CloudFront)
 - [ ] Submit WhatsApp templates to Twilio for approval

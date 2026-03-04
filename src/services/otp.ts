@@ -1,13 +1,12 @@
-import { prisma } from '../config/database.js';
-import { EmailService } from './email.js';
-import { JwtService } from '../utils/jwt.js';
-import { env } from '../config/env.js';
+import { prisma } from "../config/database.js";
+import { EmailService } from "./email.js";
+import { JwtService } from "../utils/jwt.js";
 
 export interface OTPRequest {
   userId: string;
   eventId: string;
   userEmail: string;
-  channel: 'email' | 'sms';
+  channel: "email" | "sms";
 }
 
 export interface OTPValidation {
@@ -32,25 +31,31 @@ export interface ValidationResult {
 }
 
 interface ChannelProvider {
-  send(userEmail: string, otpCode: string, eventId: string): Promise<{ success: boolean; error?: string }>;
+  send(
+    userEmail: string,
+    otpCode: string,
+    eventId: string,
+  ): Promise<{ success: boolean; error?: string }>;
 }
 
 class EmailChannelProvider implements ChannelProvider {
-  async send(userEmail: string, otpCode: string, eventId: string): Promise<{ success: boolean; error?: string }> {
+  async send(
+    userEmail: string,
+    otpCode: string,
+    eventId: string,
+  ): Promise<{ success: boolean; error?: string }> {
     try {
       // Get event details for branding
       const event = await prisma.event.findUnique({
         where: { id: eventId },
-        select: { name: true, shortName: true }
+        select: { name: true, shortName: true },
       });
 
-      const eventName = event?.name || 'Event';
-      
-      const result = await EmailService.sendEmail(
-        userEmail,
-        {
-          subject: `Your ${eventName} verification code: ${otpCode}`,
-          html: `
+      const eventName = event?.name || "Event";
+
+      const result = await EmailService.sendEmail(userEmail, {
+        subject: `Your ${eventName} verification code: ${otpCode}`,
+        html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2>Your Verification Code</h2>
               <p>Hello,</p>
@@ -64,8 +69,7 @@ class EmailChannelProvider implements ChannelProvider {
               <p style="color: #666; font-size: 12px;">This is an automated message. Please do not reply to this email.</p>
             </div>
           `,
-        }
-      );
+      });
 
       return result;
     } catch (error: any) {
@@ -75,12 +79,16 @@ class EmailChannelProvider implements ChannelProvider {
 }
 
 class SMSChannelProvider implements ChannelProvider {
-  async send(userEmail: string, otpCode: string, eventId: string): Promise<{ success: boolean; error?: string }> {
+  async send(
+    userEmail: string,
+    otpCode: string,
+    eventId: string,
+  ): Promise<{ success: boolean; error?: string }> {
     // TODO: Implement SMS provider (Twilio, AWS SNS, etc.)
     // For now, return not implemented
-    return { 
-      success: false, 
-      error: 'SMS channel not implemented yet. Please use email for now.' 
+    return {
+      success: false,
+      error: "SMS channel not implemented yet. Please use email for now.",
     };
   }
 }
@@ -102,14 +110,16 @@ export class OTPService {
    * Check rate limiting for OTP requests
    * Max 3 requests in 5 minutes per email
    */
-  private static async checkRateLimit(userEmail: string): Promise<{ allowed: boolean; retryAfter?: number }> {
+  private static async checkRateLimit(
+    userEmail: string,
+  ): Promise<{ allowed: boolean; retryAfter?: number }> {
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-    
+
     const recentOTPs = await prisma.userOTP.count({
       where: {
         userEmail,
-        createdAt: { gte: fiveMinutesAgo }
-      }
+        createdAt: { gte: fiveMinutesAgo },
+      },
     });
 
     if (recentOTPs >= 3) {
@@ -117,13 +127,15 @@ export class OTPService {
       const oldestOTP = await prisma.userOTP.findFirst({
         where: {
           userEmail,
-          createdAt: { gte: fiveMinutesAgo }
+          createdAt: { gte: fiveMinutesAgo },
         },
-        orderBy: { createdAt: 'asc' }
+        orderBy: { createdAt: "asc" },
       });
 
       if (oldestOTP) {
-        const retryAfter = Math.ceil((oldestOTP.createdAt.getTime() + 5 * 60 * 1000 - Date.now()) / 1000);
+        const retryAfter = Math.ceil(
+          (oldestOTP.createdAt.getTime() + 5 * 60 * 1000 - Date.now()) / 1000,
+        );
         return { allowed: false, retryAfter: Math.max(0, retryAfter) };
       }
     }
@@ -137,8 +149,8 @@ export class OTPService {
   private static async cleanupExpiredOTPs(): Promise<void> {
     await prisma.userOTP.deleteMany({
       where: {
-        expiresAt: { lt: new Date() }
-      }
+        expiresAt: { lt: new Date() },
+      },
     });
   }
 
@@ -155,8 +167,8 @@ export class OTPService {
       if (!rateLimitCheck.allowed) {
         return {
           success: false,
-          error: 'Too many OTP requests. Please try again later.',
-          retryAfter: rateLimitCheck.retryAfter
+          error: "Too many OTP requests. Please try again later.",
+          retryAfter: rateLimitCheck.retryAfter,
         };
       }
 
@@ -165,13 +177,11 @@ export class OTPService {
       if (!channelProvider) {
         return {
           success: false,
-          error: `Unsupported channel: ${request.channel}`
+          error: `Unsupported channel: ${request.channel}`,
         };
       }
 
-      // [V1] Deterministic OTP fallback in demo mode (Task 2.5.6)
-      const isDemoOtpMode = env.DEMO_OTP_MODE && env.NODE_ENV !== 'production';
-      const otpCode = isDemoOtpMode ? env.DEMO_OTP_FIXED_CODE : this.generateOTPCode();
+      const otpCode = this.generateOTPCode();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
       // Create OTP record
@@ -182,38 +192,36 @@ export class OTPService {
           userEmail: request.userEmail,
           channel: request.channel,
           otpCode,
-          expiresAt
-        }
+          expiresAt,
+        },
       });
 
-      // [V1] In demo OTP mode we intentionally skip provider delivery.
-      if (!isDemoOtpMode) {
-        // Send OTP via channel
-        const sendResult = await channelProvider.send(request.userEmail, otpCode, request.eventId);
-        
-        if (!sendResult.success) {
-          // Clean up the OTP record if sending failed
-          await prisma.userOTP.delete({ where: { id: otpRecord.id } });
-          return {
-            success: false,
-            error: sendResult.error || 'Failed to send OTP'
-          };
-        }
+      // Send OTP via channel
+      const sendResult = await channelProvider.send(
+        request.userEmail,
+        otpCode,
+        request.eventId,
+      );
+
+      if (!sendResult.success) {
+        // Clean up the OTP record if sending failed
+        await prisma.userOTP.delete({ where: { id: otpRecord.id } });
+        return {
+          success: false,
+          error: sendResult.error || "Failed to send OTP",
+        };
       }
 
       return {
         success: true,
         otpId: otpRecord.id,
-        message: isDemoOtpMode
-          ? 'OTP generated in demo mode'
-          : `OTP sent via ${request.channel}`
+        message: `OTP sent via ${request.channel}`,
       };
-
     } catch (error: any) {
-      console.error('OTP request failed:', error);
+      console.error("OTP request failed:", error);
       return {
         success: false,
-        error: 'Failed to process OTP request'
+        error: "Failed to process OTP request",
       };
     }
   }
@@ -221,7 +229,9 @@ export class OTPService {
   /**
    * Validate OTP and return JWT token
    */
-  static async validateOTP(validation: OTPValidation): Promise<ValidationResult> {
+  static async validateOTP(
+    validation: OTPValidation,
+  ): Promise<ValidationResult> {
     try {
       // Find the OTP record
       const otpRecord = await prisma.userOTP.findUnique({
@@ -230,15 +240,15 @@ export class OTPService {
           user: {
             include: {
               event: true,
-            }
-          }
-        }
+            },
+          },
+        },
       });
 
       if (!otpRecord) {
         return {
           success: false,
-          error: 'Invalid OTP ID'
+          error: "Invalid OTP ID",
         };
       }
 
@@ -246,7 +256,7 @@ export class OTPService {
       if (otpRecord.verified) {
         return {
           success: false,
-          error: 'OTP already used'
+          error: "OTP already used",
         };
       }
 
@@ -254,7 +264,7 @@ export class OTPService {
       if (otpRecord.expiresAt < new Date()) {
         return {
           success: false,
-          error: 'OTP expired'
+          error: "OTP expired",
         };
       }
 
@@ -262,59 +272,61 @@ export class OTPService {
       if (otpRecord.attempts >= 3) {
         return {
           success: false,
-          error: 'Too many failed attempts'
+          error: "Too many failed attempts",
         };
       }
 
-      const isDemoOtpMode = env.DEMO_OTP_MODE && env.NODE_ENV !== 'production';
-      const expectedCode = isDemoOtpMode ? env.DEMO_OTP_FIXED_CODE : otpRecord.otpCode;
-
       // Validate OTP code
-      if (expectedCode !== validation.otpCode) {
+      if (otpRecord.otpCode !== validation.otpCode) {
         // Increment attempts
         await prisma.userOTP.update({
           where: { id: validation.otpId },
-          data: { attempts: otpRecord.attempts + 1 }
+          data: { attempts: otpRecord.attempts + 1 },
         });
 
         const attemptsRemaining = 3 - (otpRecord.attempts + 1);
         return {
           success: false,
-          error: 'Invalid OTP code',
-          attemptsRemaining
+          error: "Invalid OTP code",
+          attemptsRemaining,
         };
       }
 
       // Mark OTP as verified
       await prisma.userOTP.update({
         where: { id: validation.otpId },
-        data: { 
+        data: {
           verified: true,
-          verifiedAt: new Date()
-        }
+          verifiedAt: new Date(),
+        },
       });
 
       // Update user's last login
       await prisma.user.update({
         where: { id: otpRecord.userId },
-        data: { lastLoginAt: new Date() }
+        data: { lastLoginAt: new Date() },
       });
 
       // Generate 7-day JWT token
-      const token = JwtService.generateGuestAccessToken(otpRecord.userId, otpRecord.eventId);
+      const token = JwtService.generateGuestAccessToken(
+        otpRecord.userId,
+        otpRecord.eventId,
+      );
 
       // Prepare user data for response
       const formResponses = (otpRecord.user.formResponses as any[]) || [];
       const profileFromForm = {
         email: otpRecord.user.email,
         firstName:
-          formResponses.find((entry: any) => entry?.fieldName === 'firstName')?.value || '',
+          formResponses.find((entry: any) => entry?.fieldName === "firstName")
+            ?.value || "",
         lastName:
-          formResponses.find((entry: any) => entry?.fieldName === 'lastName')?.value || '',
+          formResponses.find((entry: any) => entry?.fieldName === "lastName")
+            ?.value || "",
         phone:
           formResponses.find((entry: any) =>
-            ['phone', 'phoneNumber', 'mobile'].includes(entry?.fieldName)
-          )?.value || '',
+            ["phone", "phoneNumber", "mobile"].includes(entry?.fieldName),
+          )?.value || "",
       };
 
       const userData = {
@@ -331,21 +343,20 @@ export class OTPService {
         event: {
           id: otpRecord.user.event.id,
           name: otpRecord.user.event.name,
-          shortName: otpRecord.user.event.shortName
-        }
+          shortName: otpRecord.user.event.shortName,
+        },
       };
 
       return {
         success: true,
         token,
-        userData
+        userData,
       };
-
     } catch (error: any) {
-      console.error('OTP validation failed:', error);
+      console.error("OTP validation failed:", error);
       return {
         success: false,
-        error: 'Failed to validate OTP'
+        error: "Failed to validate OTP",
       };
     }
   }
@@ -369,15 +380,15 @@ export class OTPService {
    */
   static async cleanupOldOTPs(): Promise<void> {
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    
+
     await prisma.userOTP.deleteMany({
       where: {
         OR: [
           { expiresAt: { lt: new Date() } }, // Expired
           { verified: true, verifiedAt: { lt: oneDayAgo } }, // Verified and old
-          { createdAt: { lt: oneDayAgo } } // Very old
-        ]
-      }
+          { createdAt: { lt: oneDayAgo } }, // Very old
+        ],
+      },
     });
   }
 }

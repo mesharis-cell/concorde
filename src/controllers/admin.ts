@@ -1,20 +1,20 @@
-import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
-import { prisma } from '../config/database.js';
-import { AdminService } from '../services/admins.js';
-import { UserService } from '../services/users.js';
-import type { AuthContext } from '../middleware/auth.js';
-import { EventService } from '../services/events.js';
-import { GroupService } from '../services/groups.js';
-import { ActivityService } from '../services/activities.js';
-import { UserActivityExclusionService } from '../services/user-activity-exclusions.js';
-import { TemplateService } from '../services/templates.js';
-import { CommunicationLogService } from '../services/communication-logs.js';
-import { CommunicationsService } from '../services/communications.js';
-import { S3Service } from '../services/s3.js';
-import { RoomMatrixDetailedService } from '../services/room-matrix-detailed.js';
-import { JwtService } from '../utils/jwt.js';
-import { TransportService } from '../services/transport.js';
-import { ImprovedTransportConflictService } from '../services/transport-conflicts-improved.js';
+import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import { prisma } from "../config/database.js";
+import { AdminService } from "../services/admins.js";
+import { UserService } from "../services/users.js";
+import type { AuthContext } from "../middleware/auth.js";
+import { EventService } from "../services/events.js";
+import { GroupService } from "../services/groups.js";
+import { ActivityService } from "../services/activities.js";
+import { UserActivityExclusionService } from "../services/user-activity-exclusions.js";
+import { TemplateService } from "../services/templates.js";
+import { CommunicationLogService } from "../services/communication-logs.js";
+import { CommunicationsService } from "../services/communications.js";
+import { S3Service } from "../services/s3.js";
+import { RoomMatrixDetailedService } from "../services/room-matrix-detailed.js";
+import { JwtService } from "../utils/jwt.js";
+import { TransportService } from "../services/transport.js";
+import { ImprovedTransportConflictService } from "../services/transport-conflicts-improved.js";
 import {
   AdminLoginSchema,
   CreateGroupSchema,
@@ -44,13 +44,12 @@ import {
   UpdateRoomTypeSchema,
   CreateRoomAssignmentSchema,
   UpdateRoomAssignmentSchema,
-} from '../types/index.js';
-import { AuditTrailService } from '../services/audit-trail.js';
-import { ConflictDetectionService } from '../services/conflict-detection.js';
-import { RoomAssignmentService } from '../services/room-assignments.js';
-import { ReportsService } from '../services/reports.js';
-import { env } from '../config/env.js';
-import { parse as parseCsv } from 'csv-parse/sync';
+} from "../types/index.js";
+import { AuditTrailService } from "../services/audit-trail.js";
+import { ConflictDetectionService } from "../services/conflict-detection.js";
+import { RoomAssignmentService } from "../services/room-assignments.js";
+import { ReportsService } from "../services/reports.js";
+import { parse as parseCsv } from "csv-parse/sync";
 
 const app = new OpenAPIHono<{ Variables: AuthContext }>();
 
@@ -58,9 +57,9 @@ const app = new OpenAPIHono<{ Variables: AuthContext }>();
 const parseAccommodationDate = (dateInput: any): Date | null => {
   if (!dateInput) return null;
 
-  if (typeof dateInput === 'string' && dateInput.includes('/')) {
+  if (typeof dateInput === "string" && dateInput.includes("/")) {
     // DD/MM/YYYY format
-    const [day, month, year] = dateInput.split('/').map((n) => parseInt(n));
+    const [day, month, year] = dateInput.split("/").map((n) => parseInt(n));
     return new Date(year, month - 1, day, 12, 0, 0); // Noon to avoid timezone issues
   } else {
     // ISO string or Date object (backward compatibility)
@@ -69,7 +68,7 @@ const parseAccommodationDate = (dateInput: any): Date | null => {
 };
 
 const asRecord = (value: unknown): Record<string, unknown> | undefined =>
-  value && typeof value === 'object'
+  value && typeof value === "object"
     ? (value as Record<string, unknown>)
     : undefined;
 
@@ -85,17 +84,14 @@ const getFormResponses = (user: unknown): Array<Record<string, unknown>> => {
     .filter((entry): entry is Record<string, unknown> => !!entry);
 };
 
-const getFormResponseString = (
-  user: unknown,
-  fieldNames: string[]
-): string => {
+const getFormResponseString = (user: unknown, fieldNames: string[]): string => {
   const normalizedTargets = new Set(
-    fieldNames.map((fieldName) => fieldName.toLowerCase())
+    fieldNames.map((fieldName) => fieldName.toLowerCase()),
   );
 
   for (const entry of getFormResponses(user)) {
     const fieldName = entry.fieldName;
-    if (typeof fieldName !== 'string') {
+    if (typeof fieldName !== "string") {
       continue;
     }
     if (!normalizedTargets.has(fieldName.toLowerCase())) {
@@ -103,15 +99,15 @@ const getFormResponseString = (
     }
 
     const value = entry.value;
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       return value.trim();
     }
-    if (typeof value === 'number' || typeof value === 'boolean') {
+    if (typeof value === "number" || typeof value === "boolean") {
       return String(value);
     }
   }
 
-  return '';
+  return "";
 };
 
 const hasFormResponseValue = (user: unknown, fieldNames: string[]): boolean =>
@@ -120,52 +116,52 @@ const hasFormResponseValue = (user: unknown, fieldNames: string[]): boolean =>
 const getUserProfile = (user: unknown) => {
   const userRecord = asRecord(user);
   const fallbackEmail =
-    typeof userRecord?.email === 'string' ? userRecord.email : '';
+    typeof userRecord?.email === "string" ? userRecord.email : "";
   const firstName = getFormResponseString(user, [
-    'firstName',
-    'preferredFirstName',
+    "firstName",
+    "preferredFirstName",
   ]);
-  const lastName = getFormResponseString(user, ['lastName', 'surname']);
+  const lastName = getFormResponseString(user, ["lastName", "surname"]);
 
   return {
-    email: getFormResponseString(user, ['email']) || fallbackEmail,
+    email: getFormResponseString(user, ["email"]) || fallbackEmail,
     firstName,
     lastName,
-    phone: getFormResponseString(user, ['phone', 'phoneNumber', 'mobile']),
-    fullName: [firstName, lastName].filter(Boolean).join(' ').trim(),
+    phone: getFormResponseString(user, ["phone", "phoneNumber", "mobile"]),
+    fullName: [firstName, lastName].filter(Boolean).join(" ").trim(),
   };
 };
 
 const getEmergencyContactFromResponses = (user: unknown) => ({
-  name: getFormResponseString(user, ['emergencyContactName']),
-  phone: getFormResponseString(user, ['emergencyContactPhone']),
-  email: getFormResponseString(user, ['emergencyContactEmail']),
-  relationship: getFormResponseString(user, ['emergencyContactRelationship']),
+  name: getFormResponseString(user, ["emergencyContactName"]),
+  phone: getFormResponseString(user, ["emergencyContactPhone"]),
+  email: getFormResponseString(user, ["emergencyContactEmail"]),
+  relationship: getFormResponseString(user, ["emergencyContactRelationship"]),
 });
 
 const getRequirementsFromResponses = (user: unknown) => {
   const dietary = getFormResponseString(user, [
-    'dietary',
-    'dietaryRequirements',
-    'specialDietaryRequirements',
+    "dietary",
+    "dietaryRequirements",
+    "specialDietaryRequirements",
   ]);
   const medical = getFormResponseString(user, [
-    'medical',
-    'medicalConditions',
-    'medicalInformation',
+    "medical",
+    "medicalConditions",
+    "medicalInformation",
   ]);
   const accessibility = getFormResponseString(user, [
-    'accessibility',
-    'accessibilityNeeds',
+    "accessibility",
+    "accessibilityNeeds",
   ]);
   const allergies = getFormResponseString(user, [
-    'allergies',
-    'allergiesIntolerances',
-    'allergiesAndIntolerances',
+    "allergies",
+    "allergiesIntolerances",
+    "allergiesAndIntolerances",
   ]);
   const merchandiseSize = getFormResponseString(user, [
-    'merchandiseSize',
-    'shirtSize',
+    "merchandiseSize",
+    "shirtSize",
   ]);
 
   return {
@@ -178,7 +174,7 @@ const getRequirementsFromResponses = (user: unknown) => {
 };
 
 const parseCsvImportRows = (
-  csvText: string
+  csvText: string,
 ): { headers: string[]; dataRows: string[][] } => {
   // [V2: FIXED — Task 2.7.2] Replace naive split(',') parsing with RFC-aware CSV parsing.
   const records = parseCsv(csvText, {
@@ -195,11 +191,13 @@ const parseCsvImportRows = (
 
   const normalizedRows = records.map((row) =>
     (Array.isArray(row) ? row : []).map((cell) =>
-      typeof cell === 'string' ? cell.trim() : String(cell ?? '').trim()
-    )
+      typeof cell === "string" ? cell.trim() : String(cell ?? "").trim(),
+    ),
   );
 
-  const headers = normalizedRows[0].map((header) => header.replace(/"/g, '').trim());
+  const headers = normalizedRows[0].map((header) =>
+    header.replace(/"/g, "").trim(),
+  );
   const dataRows = normalizedRows.slice(1);
 
   return { headers, dataRows };
@@ -210,14 +208,14 @@ const parseCsvImportRows = (
 // =============================================================================
 
 const adminLoginRoute = createRoute({
-  method: 'post',
-  path: '/login',
-  tags: ['Admin - Authentication'],
-  summary: 'Admin login',
+  method: "post",
+  path: "/login",
+  tags: ["Admin - Authentication"],
+  summary: "Admin login",
   request: {
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: AdminLoginSchema,
         },
       },
@@ -226,41 +224,41 @@ const adminLoginRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Login successful',
+      description: "Login successful",
     },
     401: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Invalid credentials',
+      description: "Invalid credentials",
     },
   },
 });
 
 app.openapi(adminLoginRoute, async (c) => {
   try {
-    const credentials = c.req.valid('json');
+    const credentials = c.req.valid("json");
     const admin = await AdminService.authenticate(credentials);
 
     if (!admin) {
       return c.json(
         {
           success: false,
-          error: 'Invalid email or password',
+          error: "Invalid email or password",
         },
-        401
+        401,
       );
     }
 
     const accessToken = JwtService.generateAdminAccessToken(
       admin.id,
-      admin.role
+      admin.role,
     );
 
     // Get admin's assigned events for frontend
@@ -275,23 +273,23 @@ app.openapi(adminLoginRoute, async (c) => {
           email: admin.email,
           firstName: admin.firstName,
           lastName: admin.lastName,
-          role: admin.role === 'SUPER' ? 'super' : 'standard',
+          role: admin.role === "SUPER" ? "super" : "standard",
           events: assignedEvents.map((event) => ({
             id: event.id,
             name: event.name,
           })),
         },
       },
-      message: 'Login successful',
+      message: "Login successful",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Login failed',
+        error: "Login failed",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
@@ -302,14 +300,14 @@ app.openapi(adminLoginRoute, async (c) => {
 
 // Admin User Registration - used by admin dashboard to create users
 const adminRegisterUserRoute = createRoute({
-  method: 'post',
-  path: '/users/register',
-  tags: ['Admin - Users'],
-  summary: 'Register a new user for an event (Admin Only)',
+  method: "post",
+  path: "/users/register",
+  tags: ["Admin - Users"],
+  summary: "Register a new user for an event (Admin Only)",
   request: {
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: CreateUserSchema,
         },
       },
@@ -318,39 +316,39 @@ const adminRegisterUserRoute = createRoute({
   responses: {
     201: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'User registered successfully',
+      description: "User registered successfully",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Registration failed',
+      description: "Registration failed",
     },
   },
 });
 
 app.openapi(adminRegisterUserRoute, async (c) => {
   try {
-    const data = c.req.valid('json');
-    const authUser = c.get('user');
+    const data = c.req.valid("json");
+    const authUser = c.get("user");
 
     // Verify admin has access to this event
-    if (authUser.adminData.role !== 'SUPER') {
+    if (authUser.adminData.role !== "SUPER") {
       // Standard admins can only create users for events they're assigned to
       const hasAccess = authUser.adminData.eventIds?.includes(data.eventId);
       if (!hasAccess) {
         return c.json(
           {
             success: false,
-            error: 'Access denied to this event',
+            error: "Access denied to this event",
           },
-          403
+          403,
         );
       }
     }
@@ -358,15 +356,15 @@ app.openapi(adminRegisterUserRoute, async (c) => {
     // Check if user already exists
     const existingUser = await UserService.findByEmail(
       data.email,
-      data.eventId
+      data.eventId,
     );
     if (existingUser) {
       return c.json(
         {
           success: false,
-          error: 'User with this email already registered for this event',
+          error: "User with this email already registered for this event",
         },
-        400
+        400,
       );
     }
 
@@ -382,64 +380,65 @@ app.openapi(adminRegisterUserRoute, async (c) => {
           communication: user.communication,
           registeredAt: user.registeredAt,
         },
-        message: 'User registered successfully',
+        message: "User registered successfully",
       },
-      201
+      201,
     );
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Registration failed',
+        error: "Registration failed",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 // Export routes MUST come before parameterized routes to avoid conflicts
 const exportUsersRoute = createRoute({
-  method: 'get',
-  path: '/users/export',
-  tags: ['Admin - Data Export'],
-  summary: 'Export users data',
+  method: "get",
+  path: "/users/export",
+  tags: ["Admin - Data Export"],
+  summary: "Export users data",
   request: {
     query: z.object({
       eventId: z.string().min(1),
-      format: z.enum(['csv', 'json']).default('csv'),
+      format: z.enum(["csv", "json"]).default("csv"),
+      type: z.enum(["full", "simple"]).default("full"),
     }),
   },
   responses: {
     200: {
       content: {
-        'text/csv': {
+        "text/csv": {
           schema: z.string(),
         },
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Export completed successfully',
+      description: "Export completed successfully",
     },
   },
 });
 
 app.openapi(exportUsersRoute, async (c) => {
   try {
-    const { eventId, format } = c.req.valid('query');
-    const authUser = c.get('user');
+    const { eventId, format, type } = c.req.valid("query");
+    const authUser = c.get("user");
 
     // [V5] Apply the same event-access guard pattern used by other admin export/list routes.
-    if (authUser.adminData?.role !== 'SUPER') {
+    if (authUser.adminData?.role !== "SUPER") {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
         return c.json(
           {
             success: false,
-            error: 'Access denied to this event',
+            error: "Access denied to this event",
           },
-          403
+          403,
         );
       }
     }
@@ -448,45 +447,10 @@ app.openapi(exportUsersRoute, async (c) => {
     const users = await UserService.findByEventId(
       eventId,
       { page: 1, limit: 10000 },
-      {}
+      {},
     );
 
-    if (format === 'csv') {
-      // CSV headers matching import template exactly
-      const headers = [
-        'firstName',
-        'lastName',
-        'email',
-        'phone',
-        'group',
-        'dietaryRequirements',
-        'medicalRequirements',
-        'accessibilityRequirements',
-        'specialRequests',
-        'accommodationRequired',
-        'hotel',
-        'checkInDate',
-        'checkOutDate',
-        'flightArrival',
-        'flightDeparture',
-        'arrivalAirport',
-        'departureAirport',
-        'airline',
-        'flightNumber',
-        'transferRequirements',
-        'gpTransfersRequired', // NEW: Grand Prix transfers
-        'eventTransfersRequired', // NEW: General event transfers
-        'emergencyContactName',
-        'emergencyContactPhone',
-        'emergencyContactEmail',
-        'emergencyContactRelationship',
-        'shirtSize',
-        'jacketSize',
-        'hatSize',
-        'emailOptIn',
-        'whatsappOptIn',
-      ];
-
+    if (format === "csv") {
       // Get groups for lookup
       const groups = await GroupService.findByEventId(eventId, {
         page: 1,
@@ -494,125 +458,216 @@ app.openapi(exportUsersRoute, async (c) => {
       });
       const groupLookup = new Map(groups.items.map((g) => [g.id, g.name]));
 
-      // Convert users to CSV rows
-      const rows = users.items.map((user) => {
-        const formResponses = (user.formResponses as any[]) || [];
-        const getFieldValue = (fieldName: string) =>
-          formResponses.find((r) => r.fieldName === fieldName)?.value || '';
+      const getFieldValue = (formResponses: any[], fieldName: string) =>
+        formResponses.find((r) => r.fieldName === fieldName)?.value || "";
 
-        const accommodation = (user.accommodation as any) || {};
-        const flight = (user.flight as any) || {};
-        const communication = (user.communication as any) || {};
-        // [V5] Normalize legacy export columns from current schema-backed formResponses/objects.
-        const requirements = {
-          dietary: getFieldValue('dietaryRequirements'),
-          medical: getFieldValue('medicalRequirements'),
-          accessibility: getFieldValue('accessibilityRequirements'),
-          specialRequests: getFieldValue('specialRequests'),
-        };
-        const emergency = {
-          name: getFieldValue('emergencyContactName'),
-          phone: getFieldValue('emergencyContactPhone'),
-          email: getFieldValue('emergencyContactEmail'),
-          relationship: getFieldValue('emergencyContactRelationship'),
-        };
-        const merchandiseSize = {
-          shirt: getFieldValue('shirtSize'),
-          jacket: getFieldValue('jacketSize'),
-          hat: getFieldValue('hatSize'),
-        };
+      const formatDateTime = (value: unknown) => {
+        if (!value) return "";
+        const parsed = new Date(value as string);
+        return Number.isNaN(parsed.getTime())
+          ? ""
+          : parsed.toISOString().slice(0, 16).replace("T", " ");
+      };
 
-        const arrival = (flight.arrival as any) || {};
-        const departure = (flight.departure as any) || {};
-        const arrivalDateTime = arrival.dateTime || flight.arrival || '';
-        const departureDateTime = departure.dateTime || flight.departure || '';
-        const formatDateTime = (value: unknown) => {
-          if (!value) return '';
-          const parsed = new Date(value as string);
-          return Number.isNaN(parsed.getTime())
-            ? ''
-            : parsed.toISOString().slice(0, 16).replace('T', ' ');
-        };
-        const formatDateOnly = (value: unknown) => {
-          if (!value) return '';
-          const parsed = parseAccommodationDate(value);
-          return parsed ? parsed.toISOString().split('T')[0] : '';
-        };
+      const formatDateOnly = (value: unknown) => {
+        if (!value) return "";
+        const parsed = parseAccommodationDate(value);
+        return parsed ? parsed.toISOString().split("T")[0] : "";
+      };
 
-        return [
-          getFieldValue('firstName'),
-          getFieldValue('lastName'),
-          user.email || '',
-          getFieldValue('phone') || getFieldValue('phoneNumber'),
-          user.groupIds.length > 0
-            ? user.groupIds.map((id) => groupLookup.get(id) || id).join(', ')
-            : '',
-          requirements.dietary || '',
-          requirements.medical || '',
-          requirements.accessibility || '',
-          requirements.specialRequests || '',
-          accommodation.required || accommodation.hotelName || accommodation.hotel
-            ? 'Yes'
-            : 'No',
-          accommodation.hotelName || accommodation.hotel || '',
-          formatDateOnly(accommodation.checkIn),
-          formatDateOnly(accommodation.checkOut),
-          formatDateTime(arrivalDateTime),
-          formatDateTime(departureDateTime),
-          arrival.airport || flight.arrivalAirport || '',
-          departure.airport || flight.departureAirport || '',
-          arrival.airline || departure.airline || flight.airline || '',
-          arrival.flightNumber || departure.flightNumber || flight.number || '',
-          user.transferRequirements ? 'Yes' : 'No',
-          user.gpTransfersRequired ? 'Yes' : 'No', // NEW: GP transfers
-          user.eventTransfersRequired ? 'Yes' : 'No', // NEW: Event transfers
-          emergency.name || '',
-          emergency.phone || '',
-          emergency.email || '',
-          emergency.relationship || '',
-          merchandiseSize.shirt || '',
-          merchandiseSize.jacket || '',
-          merchandiseSize.hat || '',
-          communication.emailOptIn ? 'Yes' : 'No',
-          communication.whatsappOptIn ? 'Yes' : 'No',
+      let headers: string[] = [];
+      let rows: (string | number)[][] = [];
+
+      if (type === "simple") {
+        headers = [
+          "firstName",
+          "lastName",
+          "email",
+          "phone",
+          "company",
+          "group",
+          "registeredAt",
+          "checkedIn",
+          "checkedInAt",
         ];
-      });
+
+        rows = users.items.map((user) => {
+          const formResponses = (user.formResponses as any[]) || [];
+
+          return [
+            getFieldValue(formResponses, "firstName"),
+            getFieldValue(formResponses, "lastName"),
+            user.email || "",
+            getFieldValue(formResponses, "phone") ||
+              getFieldValue(formResponses, "phoneNumber"),
+            getFieldValue(formResponses, "company"),
+            user.groupIds.length > 0
+              ? user.groupIds.map((id) => groupLookup.get(id) || id).join(", ")
+              : "",
+            user.registeredAt ? new Date(user.registeredAt).toISOString() : "",
+            user.checkedIn ? "Yes" : "No",
+            user.checkedInAt ? new Date(user.checkedInAt).toISOString() : "",
+          ];
+        });
+      } else {
+        // CSV headers matching import template exactly
+        headers = [
+          "firstName",
+          "lastName",
+          "email",
+          "phone",
+          "group",
+          "dietaryRequirements",
+          "medicalRequirements",
+          "accessibilityRequirements",
+          "specialRequests",
+          "accommodationRequired",
+          "hotel",
+          "checkInDate",
+          "checkOutDate",
+          "flightArrival",
+          "flightDeparture",
+          "arrivalAirport",
+          "departureAirport",
+          "airline",
+          "flightNumber",
+          "transferRequirements",
+          "gpTransfersRequired", // NEW: Grand Prix transfers
+          "eventTransfersRequired", // NEW: General event transfers
+          "emergencyContactName",
+          "emergencyContactPhone",
+          "emergencyContactEmail",
+          "emergencyContactRelationship",
+          "shirtSize",
+          "jacketSize",
+          "hatSize",
+          "emailOptIn",
+          "whatsappOptIn",
+          "checkedIn",
+          "checkedInAt",
+        ];
+
+        // Convert users to CSV rows
+        rows = users.items.map((user) => {
+          const formResponses = (user.formResponses as any[]) || [];
+
+          const accommodation = (user.accommodation as any) || {};
+          const flight = (user.flight as any) || {};
+          const communication = (user.communication as any) || {};
+          // [V5] Normalize legacy export columns from current schema-backed formResponses/objects.
+          const requirements = {
+            dietary: getFieldValue(formResponses, "dietaryRequirements"),
+            medical: getFieldValue(formResponses, "medicalRequirements"),
+            accessibility: getFieldValue(
+              formResponses,
+              "accessibilityRequirements",
+            ),
+            specialRequests: getFieldValue(formResponses, "specialRequests"),
+          };
+          const emergency = {
+            name: getFieldValue(formResponses, "emergencyContactName"),
+            phone: getFieldValue(formResponses, "emergencyContactPhone"),
+            email: getFieldValue(formResponses, "emergencyContactEmail"),
+            relationship: getFieldValue(
+              formResponses,
+              "emergencyContactRelationship",
+            ),
+          };
+          const merchandiseSize = {
+            shirt: getFieldValue(formResponses, "shirtSize"),
+            jacket: getFieldValue(formResponses, "jacketSize"),
+            hat: getFieldValue(formResponses, "hatSize"),
+          };
+
+          const arrival = (flight.arrival as any) || {};
+          const departure = (flight.departure as any) || {};
+          const arrivalDateTime = arrival.dateTime || flight.arrival || "";
+          const departureDateTime =
+            departure.dateTime || flight.departure || "";
+
+          return [
+            getFieldValue(formResponses, "firstName"),
+            getFieldValue(formResponses, "lastName"),
+            user.email || "",
+            getFieldValue(formResponses, "phone") ||
+              getFieldValue(formResponses, "phoneNumber"),
+            user.groupIds.length > 0
+              ? user.groupIds.map((id) => groupLookup.get(id) || id).join(", ")
+              : "",
+            requirements.dietary || "",
+            requirements.medical || "",
+            requirements.accessibility || "",
+            requirements.specialRequests || "",
+            accommodation.required ||
+            accommodation.hotelName ||
+            accommodation.hotel
+              ? "Yes"
+              : "No",
+            accommodation.hotelName || accommodation.hotel || "",
+            formatDateOnly(accommodation.checkIn),
+            formatDateOnly(accommodation.checkOut),
+            formatDateTime(arrivalDateTime),
+            formatDateTime(departureDateTime),
+            arrival.airport || flight.arrivalAirport || "",
+            departure.airport || flight.departureAirport || "",
+            arrival.airline || departure.airline || flight.airline || "",
+            arrival.flightNumber ||
+              departure.flightNumber ||
+              flight.number ||
+              "",
+            user.transferRequirements ? "Yes" : "No",
+            user.gpTransfersRequired ? "Yes" : "No", // NEW: GP transfers
+            user.eventTransfersRequired ? "Yes" : "No", // NEW: Event transfers
+            emergency.name || "",
+            emergency.phone || "",
+            emergency.email || "",
+            emergency.relationship || "",
+            merchandiseSize.shirt || "",
+            merchandiseSize.jacket || "",
+            merchandiseSize.hat || "",
+            communication.emailOptIn ? "Yes" : "No",
+            communication.whatsappOptIn ? "Yes" : "No",
+            user.checkedIn ? "Yes" : "No",
+            user.checkedInAt ? new Date(user.checkedInAt).toISOString() : "",
+          ];
+        });
+      }
 
       const csvContent = [headers, ...rows]
         // [V5] Escape quotes to preserve CSV validity for user-entered values.
         .map((row) =>
           row
-            .map((field) => `"${String(field ?? '').replace(/"/g, '""')}"`)
-            .join(',')
+            .map((field) => `"${String(field ?? "").replace(/"/g, '""')}"`)
+            .join(","),
         )
-        .join('\n');
+        .join("\n");
 
-      c.header('Content-Type', 'text/csv');
+      c.header("Content-Type", "text/csv");
       c.header(
-        'Content-Disposition',
-        `attachment; filename="users-${eventId}-${
-          new Date().toISOString().split('T')[0]
-        }.csv"`
+        "Content-Disposition",
+        `attachment; filename="users-${type}-${eventId}-${
+          new Date().toISOString().split("T")[0]
+        }.csv"`,
       );
 
       // Log export operation
       await AuditTrailService.logExport(
-        'User',
+        "User",
         users.items.length,
         format,
         authUser.id,
-        eventId
+        eventId,
       );
 
       return c.text(csvContent);
     } else {
       // Log export operation
       await AuditTrailService.logExport(
-        'User',
+        "User",
         users.items.length,
         format,
         authUser.id,
-        eventId
+        eventId,
       );
 
       return c.json({
@@ -624,48 +679,48 @@ app.openapi(exportUsersRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Export failed',
+        error: "Export failed",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const getUsersRoute = createRoute({
-  method: 'get',
-  path: '/users',
-  tags: ['Admin - Users'],
-  summary: 'Get users with comprehensive filters',
+  method: "get",
+  path: "/users",
+  tags: ["Admin - Users"],
+  summary: "Get users with comprehensive filters",
   request: {
     query: PaginationSchema.extend({
       eventId: z.string(),
       search: z.string().optional(),
       assigned: z
         .string()
-        .transform((val) => val === 'true' || val === '1')
+        .transform((val) => val === "true" || val === "1")
         .optional(),
       groupId: z.string().optional(),
       requirementType: z
-        .enum(['dietary', 'medical', 'accessibility', 'accommodation', 'any'])
+        .enum(["dietary", "medical", "accessibility", "accommodation", "any"])
         .optional(),
       communicationType: z
-        .enum(['email-only', 'whatsapp-only', 'both', 'none', 'any'])
+        .enum(["email-only", "whatsapp-only", "both", "none", "any"])
         .optional(),
       hasRequirements: z
         .string()
-        .transform((val) => val === 'true' || val === '1')
+        .transform((val) => val === "true" || val === "1")
         .optional(),
     }),
   },
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Users retrieved successfully',
+      description: "Users retrieved successfully",
     },
   },
 });
@@ -682,7 +737,7 @@ app.openapi(getUsersRoute, async (c) => {
       requirementType,
       communicationType,
       hasRequirements,
-    } = c.req.valid('query');
+    } = c.req.valid("query");
 
     const result = await UserService.findByEventId(
       eventId,
@@ -694,7 +749,7 @@ app.openapi(getUsersRoute, async (c) => {
         requirementType,
         communicationType,
         hasRequirements,
-      }
+      },
     );
 
     return c.json({
@@ -705,19 +760,19 @@ app.openapi(getUsersRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve users',
+        error: "Failed to retrieve users",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const getUserByIdRoute = createRoute({
-  method: 'get',
-  path: '/users/{userId}',
-  tags: ['Admin - Users'],
-  summary: 'Get user by ID',
+  method: "get",
+  path: "/users/{userId}",
+  tags: ["Admin - Users"],
+  summary: "Get user by ID",
   request: {
     params: z.object({
       userId: z.string().min(1),
@@ -726,35 +781,35 @@ const getUserByIdRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'User retrieved successfully',
+      description: "User retrieved successfully",
     },
     404: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'User not found',
+      description: "User not found",
     },
   },
 });
 
 app.openapi(getUserByIdRoute, async (c) => {
   try {
-    const { userId } = c.req.valid('param');
+    const { userId } = c.req.valid("param");
     const user = await UserService.findById(userId);
 
     if (!user) {
       return c.json(
         {
           success: false,
-          error: 'User not found',
+          error: "User not found",
         },
-        404
+        404,
       );
     }
 
@@ -766,22 +821,22 @@ app.openapi(getUserByIdRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve user',
+        error: "Failed to retrieve user",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 // Get User Itinerary (Timeline with Exclusions)
 const getUserItineraryRoute = createRoute({
-  method: 'get',
-  path: '/users/{userId}/itinerary',
-  tags: ['Admin - Users'],
-  summary: 'Get user itinerary timeline with exclusions',
+  method: "get",
+  path: "/users/{userId}/itinerary",
+  tags: ["Admin - Users"],
+  summary: "Get user itinerary timeline with exclusions",
   description:
-    'Retrieve the exact timeline and excluded activities that a user sees, including user profile context',
+    "Retrieve the exact timeline and excluded activities that a user sees, including user profile context",
   request: {
     params: z.object({
       userId: z
@@ -789,10 +844,10 @@ const getUserItineraryRoute = createRoute({
         .min(1)
         .openapi({
           param: {
-            name: 'userId',
-            in: 'path',
+            name: "userId",
+            in: "path",
           },
-          example: '60f7b3b3b3b3b3b3b3b3b3b3',
+          example: "60f7b3b3b3b3b3b3b3b3b3b3",
         }),
     }),
     query: z.object({
@@ -802,10 +857,10 @@ const getUserItineraryRoute = createRoute({
         .optional()
         .openapi({
           param: {
-            name: 'dateFrom',
-            in: 'query',
+            name: "dateFrom",
+            in: "query",
           },
-          example: '2025-01-01T00:00:00Z',
+          example: "2025-01-01T00:00:00Z",
         }),
       dateTo: z
         .string()
@@ -813,38 +868,38 @@ const getUserItineraryRoute = createRoute({
         .optional()
         .openapi({
           param: {
-            name: 'dateTo',
-            in: 'query',
+            name: "dateTo",
+            in: "query",
           },
-          example: '2025-01-31T23:59:59Z',
+          example: "2025-01-31T23:59:59Z",
         }),
     }),
   },
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'User itinerary retrieved successfully',
+      description: "User itinerary retrieved successfully",
     },
     404: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'User not found or not assigned to group',
+      description: "User not found or not assigned to group",
     },
   },
 });
 
 app.openapi(getUserItineraryRoute, async (c) => {
   try {
-    const { userId } = c.req.valid('param');
-    const query = c.req.valid('query');
-    const authUser = c.get('user');
+    const { userId } = c.req.valid("param");
+    const query = c.req.valid("query");
+    const authUser = c.get("user");
 
     // Get user details first
     const user = await UserService.findById(userId);
@@ -852,25 +907,25 @@ app.openapi(getUserItineraryRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'User not found',
+          error: "User not found",
         },
-        404
+        404,
       );
     }
 
     // Check if admin has access to this event
-    if (authUser.adminData?.role !== 'SUPER') {
+    if (authUser.adminData?.role !== "SUPER") {
       const hasAccess = await AdminService.hasEventAccess(
         authUser.id,
-        user.eventId
+        user.eventId,
       );
       if (!hasAccess) {
         return c.json(
           {
             success: false,
-            error: 'Access denied to this event',
+            error: "Access denied to this event",
           },
-          403
+          403,
         );
       }
     }
@@ -881,7 +936,7 @@ app.openapi(getUserItineraryRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'User is not assigned to any group yet',
+          error: "User is not assigned to any group yet",
           data: {
             user: {
               id: user.id,
@@ -893,7 +948,7 @@ app.openapi(getUserItineraryRoute, async (c) => {
             },
           },
         },
-        404
+        404,
       );
     }
 
@@ -915,7 +970,7 @@ app.openapi(getUserItineraryRoute, async (c) => {
 
     // Get groups info for context
     const groups = await Promise.all(
-      user.groupIds.map((groupId) => GroupService.findById(groupId))
+      user.groupIds.map((groupId) => GroupService.findById(groupId)),
     );
     const validGroups = groups.filter(Boolean);
 
@@ -925,7 +980,7 @@ app.openapi(getUserItineraryRoute, async (c) => {
       {
         page: 1,
         limit: 1000,
-      }
+      },
     );
 
     return c.json({
@@ -957,19 +1012,19 @@ app.openapi(getUserItineraryRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve user itinerary',
+        error: "Failed to retrieve user itinerary",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const getUserStatsRoute = createRoute({
-  method: 'get',
-  path: '/users/stats/{eventId}',
-  tags: ['Admin - Users'],
-  summary: 'Get user statistics for event',
+  method: "get",
+  path: "/users/stats/{eventId}",
+  tags: ["Admin - Users"],
+  summary: "Get user statistics for event",
   request: {
     params: z.object({
       eventId: z.string().min(1),
@@ -978,35 +1033,35 @@ const getUserStatsRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'User statistics retrieved successfully',
+      description: "User statistics retrieved successfully",
     },
   },
 });
 
 app.openapi(getUserStatsRoute, async (c) => {
   try {
-    const { eventId } = c.req.valid('param');
-    const authUser = c.get('user');
+    const { eventId } = c.req.valid("param");
+    const authUser = c.get("user");
 
     // Check if admin has access to this event
-    if (authUser.adminData?.role !== 'SUPER') {
+    if (authUser.adminData?.role !== "SUPER") {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
         return c.json(
           {
             success: false,
-            error: 'Access denied to this event',
+            error: "Access denied to this event",
           },
-          403
+          403,
         );
       }
     }
 
-    const { prisma } = await import('../config/database.js');
+    const { prisma } = await import("../config/database.js");
 
     const [totalUsers, assignedUsers, unassignedUsers, checkedInUsers] =
       await prisma.$transaction([
@@ -1036,26 +1091,26 @@ app.openapi(getUserStatsRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve user statistics',
+        error: "Failed to retrieve user statistics",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const updateUserRoute = createRoute({
-  method: 'put',
-  path: '/users/{userId}',
-  tags: ['Admin - Users'],
-  summary: 'Update user profile',
+  method: "put",
+  path: "/users/{userId}",
+  tags: ["Admin - Users"],
+  summary: "Update user profile",
   request: {
     params: z.object({
       userId: z.string().min(1),
     }),
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: AdminUpdateUserSchema,
         },
       },
@@ -1064,28 +1119,28 @@ const updateUserRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'User updated successfully',
+      description: "User updated successfully",
     },
     404: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'User not found',
+      description: "User not found",
     },
   },
 });
 
 app.openapi(updateUserRoute, async (c) => {
   try {
-    const { userId } = c.req.valid('param');
-    const updates = c.req.valid('json');
-    const authUser = c.get('user');
+    const { userId } = c.req.valid("param");
+    const updates = c.req.valid("json");
+    const authUser = c.get("user");
 
     // Only forward fields supported by AdminUpdateUserSchema/current User model.
     const updatePayload: Record<string, unknown> = {};
@@ -1095,47 +1150,47 @@ app.openapi(updateUserRoute, async (c) => {
       }
     };
 
-    assignIfDefined('email', updates.email);
-    assignIfDefined('formResponses', updates.formResponses);
-    assignIfDefined('flight', updates.flight);
-    assignIfDefined('accommodation', updates.accommodation);
-    assignIfDefined('transferRequirements', updates.transferRequirements);
-    assignIfDefined('gpTransfersRequired', updates.gpTransfersRequired);
-    assignIfDefined('eventTransfersRequired', updates.eventTransfersRequired);
-    assignIfDefined('guestCategory', updates.guestCategory);
-    assignIfDefined('tickets', updates.tickets);
-    assignIfDefined('carNumbers', updates.carNumbers);
-    assignIfDefined('arrivalNotes', updates.arrivalNotes);
-    assignIfDefined('departureNotes', updates.departureNotes);
-    assignIfDefined('masterGuestNotes', updates.masterGuestNotes);
-    assignIfDefined('hotelId', updates.hotelId);
-    assignIfDefined('roomDropAssigned', updates.roomDropAssigned);
-    assignIfDefined('active', updates.active);
+    assignIfDefined("email", updates.email);
+    assignIfDefined("formResponses", updates.formResponses);
+    assignIfDefined("flight", updates.flight);
+    assignIfDefined("accommodation", updates.accommodation);
+    assignIfDefined("transferRequirements", updates.transferRequirements);
+    assignIfDefined("gpTransfersRequired", updates.gpTransfersRequired);
+    assignIfDefined("eventTransfersRequired", updates.eventTransfersRequired);
+    assignIfDefined("guestCategory", updates.guestCategory);
+    assignIfDefined("tickets", updates.tickets);
+    assignIfDefined("carNumbers", updates.carNumbers);
+    assignIfDefined("arrivalNotes", updates.arrivalNotes);
+    assignIfDefined("departureNotes", updates.departureNotes);
+    assignIfDefined("masterGuestNotes", updates.masterGuestNotes);
+    assignIfDefined("hotelId", updates.hotelId);
+    assignIfDefined("roomDropAssigned", updates.roomDropAssigned);
+    assignIfDefined("active", updates.active);
 
     const user = await UserService.update(userId, updatePayload, authUser.id);
 
     return c.json({
       success: true,
       data: user,
-      message: 'User updated successfully',
+      message: "User updated successfully",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to update user',
+        error: "Failed to update user",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 const deleteUserRoute = createRoute({
-  method: 'delete',
-  path: '/users/{userId}',
-  tags: ['Admin - Users'],
-  summary: 'Soft delete user',
+  method: "delete",
+  path: "/users/{userId}",
+  tags: ["Admin - Users"],
+  summary: "Soft delete user",
   request: {
     params: z.object({
       userId: z.string().min(1),
@@ -1144,59 +1199,59 @@ const deleteUserRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'User deleted successfully',
+      description: "User deleted successfully",
     },
     404: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'User not found',
+      description: "User not found",
     },
   },
 });
 
 app.openapi(deleteUserRoute, async (c) => {
   try {
-    const { userId } = c.req.valid('param');
-    const authUser = c.get('user');
+    const { userId } = c.req.valid("param");
+    const authUser = c.get("user");
     const user = await UserService.softDelete(userId, authUser.id);
 
     return c.json({
       success: true,
       data: user,
-      message: 'User deleted successfully',
+      message: "User deleted successfully",
     });
   } catch (error: any) {
-    const statusCode = error.message.includes('not found') ? 404 : 400;
+    const statusCode = error.message.includes("not found") ? 404 : 400;
     return c.json(
       {
         success: false,
-        error: 'Failed to delete user',
+        error: "Failed to delete user",
         details: error.message,
       },
-      statusCode
+      statusCode,
     );
   }
 });
 
 const assignUserRoute = createRoute({
-  method: 'put',
-  path: '/users/{userId}/assign',
-  tags: ['Admin - Users'],
-  summary: 'Assign user to group',
+  method: "put",
+  path: "/users/{userId}/assign",
+  tags: ["Admin - Users"],
+  summary: "Assign user to group",
   request: {
     params: z.object({
       userId: z.string().min(1),
     }),
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             groupId: z.string(),
           }),
@@ -1207,33 +1262,33 @@ const assignUserRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'User assigned successfully',
+      description: "User assigned successfully",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Assignment failed',
+      description: "Assignment failed",
     },
   },
 });
 
 app.openapi(assignUserRoute, async (c) => {
   try {
-    const { userId } = c.req.valid('param');
-    const { groupId } = c.req.valid('json');
-    const authUser = c.get('user');
+    const { userId } = c.req.valid("param");
+    const { groupId } = c.req.valid("json");
+    const authUser = c.get("user");
 
     const result = await UserService.assignToGroups(
       userId,
       [groupId],
-      authUser.id
+      authUser.id,
     );
 
     return c.json({
@@ -1241,32 +1296,32 @@ app.openapi(assignUserRoute, async (c) => {
       data: result,
       message: result.warnings.hasIssues
         ? `User assigned with ${result.warnings.capacityIssues.length + result.warnings.timingConflicts.length} warnings`
-        : 'User assigned to group successfully',
+        : "User assigned to group successfully",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Assignment failed',
+        error: "Assignment failed",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 const unassignUserRoute = createRoute({
-  method: 'post',
-  path: '/users/{userId}/unassign',
-  tags: ['Admin - Users'],
-  summary: 'Unassign user from group',
+  method: "post",
+  path: "/users/{userId}/unassign",
+  tags: ["Admin - Users"],
+  summary: "Unassign user from group",
   request: {
     params: z.object({
       userId: z.string().min(1),
     }),
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({}),
         },
       },
@@ -1275,78 +1330,78 @@ const unassignUserRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'User unassigned successfully',
+      description: "User unassigned successfully",
     },
   },
 });
 
 app.openapi(unassignUserRoute, async (c) => {
   try {
-    const { userId } = c.req.valid('param');
-    const authUser = c.get('user');
+    const { userId } = c.req.valid("param");
+    const authUser = c.get("user");
 
     const user = await UserService.unassignFromGroup(userId, authUser.id);
 
     return c.json({
       success: true,
       data: user,
-      message: 'User unassigned successfully',
+      message: "User unassigned successfully",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Unassignment failed',
+        error: "Unassignment failed",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 // Get All Event Conflicts Route
 const getEventConflictsRoute = createRoute({
-  method: 'get',
-  path: '/events/{eventId}/conflicts',
-  tags: ['Admin - Conflicts'],
-  summary: 'Get all conflicts and issues for an event',
+  method: "get",
+  path: "/events/{eventId}/conflicts",
+  tags: ["Admin - Conflicts"],
+  summary: "Get all conflicts and issues for an event",
   request: {
     params: z.object({
       eventId: z
         .string()
         .min(1)
         .openapi({
-          param: { name: 'eventId', in: 'path' },
-          example: '60f7b3b3b3b3b3b3b3b3b3b3',
+          param: { name: "eventId", in: "path" },
+          example: "60f7b3b3b3b3b3b3b3b3b3b3",
         }),
     }),
   },
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             success: z.literal(true),
             data: z.object({
               hasIssues: z.boolean(),
               capacityIssues: z.array(
                 z.object({
-                  type: z.enum(['capacity_exceeded', 'capacity_warning']),
+                  type: z.enum(["capacity_exceeded", "capacity_warning"]),
                   activityId: z.string(),
                   activityTitle: z.string(),
                   capacity: z.number(),
                   currentAttendees: z.number(),
                   affectedUserCount: z.number(),
-                  severity: z.enum(['low', 'medium', 'high']),
-                })
+                  severity: z.enum(["low", "medium", "high"]),
+                }),
               ),
               timingConflicts: z.array(
                 z.object({
-                  type: z.enum(['timing_overlap']),
+                  type: z.enum(["timing_overlap"]),
                   userId: z.string(),
                   userEmail: z.string().optional(),
                   activities: z.array(
@@ -1357,11 +1412,11 @@ const getEventConflictsRoute = createRoute({
                       groupName: z.string().optional(),
                       startDateTime: z.string(),
                       endDateTime: z.string(),
-                    })
+                    }),
                   ),
                   overlapDuration: z.number(),
-                  severity: z.enum(['low', 'medium', 'high']),
-                })
+                  severity: z.enum(["low", "medium", "high"]),
+                }),
               ),
               summary: z.object({
                 totalIssues: z.number(),
@@ -1374,22 +1429,22 @@ const getEventConflictsRoute = createRoute({
           }),
         },
       },
-      description: 'Event conflicts retrieved successfully',
+      description: "Event conflicts retrieved successfully",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Failed to analyze event conflicts',
+      description: "Failed to analyze event conflicts",
     },
   },
 });
 
 app.openapi(getEventConflictsRoute, async (c) => {
   try {
-    const { eventId } = c.req.valid('param');
+    const { eventId } = c.req.valid("param");
 
     const conflicts =
       await ConflictDetectionService.getAllEventConflicts(eventId);
@@ -1399,16 +1454,16 @@ app.openapi(getEventConflictsRoute, async (c) => {
       data: conflicts,
       message: conflicts.hasIssues
         ? `Found ${conflicts.summary.totalIssues} issues (${conflicts.summary.highSeverityCount} high priority)`
-        : 'No conflicts detected',
+        : "No conflicts detected",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to analyze conflicts',
+        error: "Failed to analyze conflicts",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
@@ -1419,17 +1474,17 @@ app.openapi(getEventConflictsRoute, async (c) => {
 
 // Assign Room to User
 const assignRoomRoute = createRoute({
-  method: 'post',
-  path: '/users/{userId}/assign-room',
-  tags: ['Admin - Room Management'],
-  summary: 'Assign room to user',
+  method: "post",
+  path: "/users/{userId}/assign-room",
+  tags: ["Admin - Room Management"],
+  summary: "Assign room to user",
   request: {
     params: z.object({
       userId: z.string().min(1),
     }),
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: CreateRoomAssignmentSchema.omit({
             userId: true,
             eventId: true,
@@ -1441,7 +1496,7 @@ const assignRoomRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             success: z.literal(true),
             data: z.any(),
@@ -1449,22 +1504,22 @@ const assignRoomRoute = createRoute({
           }),
         },
       },
-      description: 'Room assigned successfully',
+      description: "Room assigned successfully",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Room assignment failed',
+      description: "Room assignment failed",
     },
   },
 });
 
 app.openapi(assignRoomRoute, async (c) => {
   try {
-    const { userId } = c.req.valid('param');
+    const { userId } = c.req.valid("param");
     const parsedBody = CreateRoomAssignmentSchema.omit({
       userId: true,
       eventId: true,
@@ -1473,14 +1528,14 @@ app.openapi(assignRoomRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Invalid room assignment payload',
+          error: "Invalid room assignment payload",
           details: parsedBody.error.flatten(),
         },
-        400
+        400,
       );
     }
     const data = parsedBody.data;
-    const authUser = c.get('user');
+    const authUser = c.get("user");
 
     // Get eventId from user data or query parameter
     let eventId =
@@ -1496,9 +1551,9 @@ app.openapi(assignRoomRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Unable to determine event ID for room assignment',
+          error: "Unable to determine event ID for room assignment",
         },
-        400
+        400,
       );
     }
 
@@ -1516,26 +1571,26 @@ app.openapi(assignRoomRoute, async (c) => {
     return c.json({
       success: true,
       data: assignment,
-      message: 'Room assigned successfully',
+      message: "Room assigned successfully",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to assign room',
+        error: "Failed to assign room",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 // Get Room Allocation Summary
 const getRoomAllocationSummaryRoute = createRoute({
-  method: 'get',
-  path: '/events/{eventId}/room-allocation-summary',
-  tags: ['Admin - Room Management'],
-  summary: 'Get room allocation summary for event',
+  method: "get",
+  path: "/events/{eventId}/room-allocation-summary",
+  tags: ["Admin - Room Management"],
+  summary: "Get room allocation summary for event",
   request: {
     params: z.object({
       eventId: z.string().min(1),
@@ -1544,19 +1599,19 @@ const getRoomAllocationSummaryRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             success: z.literal(true),
             data: z.any(),
           }),
         },
       },
-      description: 'Room allocation summary retrieved successfully',
+      description: "Room allocation summary retrieved successfully",
     },
   },
 });
 
-app.get('/events/:eventId/room-allocation-summary', async (c) => {
+app.get("/events/:eventId/room-allocation-summary", async (c) => {
   try {
     const parsedParams = z
       .object({ eventId: z.string().min(1) })
@@ -1565,10 +1620,10 @@ app.get('/events/:eventId/room-allocation-summary', async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Invalid event id',
+          error: "Invalid event id",
           details: parsedParams.error.flatten(),
         },
-        400
+        400,
       );
     }
     const { eventId } = parsedParams.data;
@@ -1586,10 +1641,10 @@ app.get('/events/:eventId/room-allocation-summary', async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to get allocation summary',
+        error: "Failed to get allocation summary",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
@@ -1600,11 +1655,11 @@ app.get('/events/:eventId/room-allocation-summary', async (c) => {
 
 // Enhanced Room Matrix with Auto-Sync
 const getRoomMatrixDetailedRoute = createRoute({
-  method: 'get',
-  path: '/events/{eventId}/room-matrix-detailed',
-  tags: ['Admin - Room Management'],
+  method: "get",
+  path: "/events/{eventId}/room-matrix-detailed",
+  tags: ["Admin - Room Management"],
   summary:
-    'Get detailed room matrix with automatic sync and over-allocation detection',
+    "Get detailed room matrix with automatic sync and over-allocation detection",
   request: {
     params: z.object({
       eventId: z.string().min(1),
@@ -1613,19 +1668,19 @@ const getRoomMatrixDetailedRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             success: z.literal(true),
             data: z.any(), // DetailedRoomMatrix interface
           }),
         },
       },
-      description: 'Detailed room matrix retrieved successfully',
+      description: "Detailed room matrix retrieved successfully",
     },
   },
 });
 
-app.get('/events/:eventId/room-matrix-detailed', async (c) => {
+app.get("/events/:eventId/room-matrix-detailed", async (c) => {
   try {
     const parsedParams = z
       .object({ eventId: z.string().min(1) })
@@ -1634,10 +1689,10 @@ app.get('/events/:eventId/room-matrix-detailed', async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Invalid event id',
+          error: "Invalid event id",
           details: parsedParams.error.flatten(),
         },
-        400
+        400,
       );
     }
     const { eventId } = parsedParams.data;
@@ -1653,20 +1708,20 @@ app.get('/events/:eventId/room-matrix-detailed', async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to get detailed room matrix',
+        error: "Failed to get detailed room matrix",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 // Manual Room Allocation Recalculation
 const recalculateRoomAllocationsRoute = createRoute({
-  method: 'post',
-  path: '/events/{eventId}/recalculate-room-allocations',
-  tags: ['Admin - Room Management'],
-  summary: 'Force recalculation of room allocations and detect conflicts',
+  method: "post",
+  path: "/events/{eventId}/recalculate-room-allocations",
+  tags: ["Admin - Room Management"],
+  summary: "Force recalculation of room allocations and detect conflicts",
   request: {
     params: z.object({
       eventId: z.string().min(1),
@@ -1675,7 +1730,7 @@ const recalculateRoomAllocationsRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             success: z.literal(true),
             data: z.object({
@@ -1686,12 +1741,12 @@ const recalculateRoomAllocationsRoute = createRoute({
           }),
         },
       },
-      description: 'Room allocations recalculated successfully',
+      description: "Room allocations recalculated successfully",
     },
   },
 });
 
-app.post('/events/:eventId/recalculate-room-allocations', async (c) => {
+app.post("/events/:eventId/recalculate-room-allocations", async (c) => {
   try {
     const parsedParams = z
       .object({ eventId: z.string().min(1) })
@@ -1700,10 +1755,10 @@ app.post('/events/:eventId/recalculate-room-allocations', async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Invalid event id',
+          error: "Invalid event id",
           details: parsedParams.error.flatten(),
         },
-        400
+        400,
       );
     }
     const { eventId } = parsedParams.data;
@@ -1718,20 +1773,20 @@ app.post('/events/:eventId/recalculate-room-allocations', async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to recalculate room allocations',
+        error: "Failed to recalculate room allocations",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 // Room Matrix Integrity Check
 const checkRoomMatrixIntegrityRoute = createRoute({
-  method: 'get',
-  path: '/events/{eventId}/room-matrix-integrity',
-  tags: ['Admin - Room Management'],
-  summary: 'Check room matrix integrity and get validation report',
+  method: "get",
+  path: "/events/{eventId}/room-matrix-integrity",
+  tags: ["Admin - Room Management"],
+  summary: "Check room matrix integrity and get validation report",
   request: {
     params: z.object({
       eventId: z.string().min(1),
@@ -1740,19 +1795,19 @@ const checkRoomMatrixIntegrityRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             success: z.literal(true),
             data: z.any(),
           }),
         },
       },
-      description: 'Room matrix integrity check completed',
+      description: "Room matrix integrity check completed",
     },
   },
 });
 
-app.get('/events/:eventId/room-matrix-integrity', async (c) => {
+app.get("/events/:eventId/room-matrix-integrity", async (c) => {
   try {
     const parsedParams = z
       .object({ eventId: z.string().min(1) })
@@ -1761,10 +1816,10 @@ app.get('/events/:eventId/room-matrix-integrity', async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Invalid event id',
+          error: "Invalid event id",
           details: parsedParams.error.flatten(),
         },
-        400
+        400,
       );
     }
     const { eventId } = parsedParams.data;
@@ -1782,10 +1837,10 @@ app.get('/events/:eventId/room-matrix-integrity', async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to check matrix integrity',
+        error: "Failed to check matrix integrity",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
@@ -1794,10 +1849,10 @@ app.get('/events/:eventId/room-matrix-integrity', async (c) => {
 
 // Get Users Requiring Rooms
 const getUsersRequiringRoomsRoute = createRoute({
-  method: 'get',
-  path: '/events/{eventId}/users-requiring-rooms',
-  tags: ['Admin - Room Management'],
-  summary: 'Get users requiring room assignments',
+  method: "get",
+  path: "/events/{eventId}/users-requiring-rooms",
+  tags: ["Admin - Room Management"],
+  summary: "Get users requiring room assignments",
   request: {
     params: z.object({
       eventId: z.string().min(1),
@@ -1813,19 +1868,19 @@ const getUsersRequiringRoomsRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             success: z.literal(true),
             data: z.any(),
           }),
         },
       },
-      description: 'Users requiring rooms retrieved successfully',
+      description: "Users requiring rooms retrieved successfully",
     },
   },
 });
 
-app.get('/events/:eventId/users-requiring-rooms', async (c) => {
+app.get("/events/:eventId/users-requiring-rooms", async (c) => {
   try {
     const parsedParams = z
       .object({ eventId: z.string().min(1) })
@@ -1834,10 +1889,10 @@ app.get('/events/:eventId/users-requiring-rooms', async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Invalid event id',
+          error: "Invalid event id",
           details: parsedParams.error.flatten(),
         },
-        400
+        400,
       );
     }
     const { eventId } = parsedParams.data;
@@ -1855,10 +1910,10 @@ app.get('/events/:eventId/users-requiring-rooms', async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Invalid room query filters',
+          error: "Invalid room query filters",
           details: parsedQuery.error.flatten(),
         },
-        400
+        400,
       );
     }
     const query = parsedQuery.data;
@@ -1870,7 +1925,7 @@ app.get('/events/:eventId/users-requiring-rooms', async (c) => {
         assigned: query.assigned,
         roomType: query.roomType,
         guestCategory: query.guestCategory,
-      }
+      },
     );
 
     return c.json({
@@ -1881,20 +1936,20 @@ app.get('/events/:eventId/users-requiring-rooms', async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to get users requiring rooms',
+        error: "Failed to get users requiring rooms",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 // Room Matrix Validation
 const validateRoomMatrixRoute = createRoute({
-  method: 'get',
-  path: '/events/{eventId}/room-matrix/validate',
-  tags: ['Admin - Room Management'],
-  summary: 'Validate room matrix integrity',
+  method: "get",
+  path: "/events/{eventId}/room-matrix/validate",
+  tags: ["Admin - Room Management"],
+  summary: "Validate room matrix integrity",
   request: {
     params: z.object({
       eventId: z.string().min(1),
@@ -1903,30 +1958,30 @@ const validateRoomMatrixRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Room matrix validation completed',
+      description: "Room matrix validation completed",
     },
   },
 });
 
 app.openapi(validateRoomMatrixRoute, async (c) => {
   try {
-    const { eventId } = c.req.valid('param');
-    const authUser = c.get('user');
+    const { eventId } = c.req.valid("param");
+    const authUser = c.get("user");
 
     // Verify admin has access to this event
-    if (authUser.adminData?.role !== 'SUPER') {
+    if (authUser.adminData?.role !== "SUPER") {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
         return c.json(
           {
             success: false,
-            error: 'Access denied to this event',
+            error: "Access denied to this event",
           },
-          403
+          403,
         );
       }
     }
@@ -1937,27 +1992,27 @@ app.openapi(validateRoomMatrixRoute, async (c) => {
       success: true,
       data: validation,
       message: validation.isValid
-        ? 'Room matrix is valid'
-        : 'Room matrix has integrity issues',
+        ? "Room matrix is valid"
+        : "Room matrix has integrity issues",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to validate room matrix',
+        error: "Failed to validate room matrix",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 // Export Rooming List
 const exportRoomingListRoute = createRoute({
-  method: 'get',
-  path: '/events/{eventId}/rooming-list',
-  tags: ['Admin - Room Management'],
-  summary: 'Export rooming list for hotel',
+  method: "get",
+  path: "/events/{eventId}/rooming-list",
+  tags: ["Admin - Room Management"],
+  summary: "Export rooming list for hotel",
   request: {
     params: z.object({
       eventId: z.string().min(1),
@@ -1966,19 +2021,19 @@ const exportRoomingListRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             success: z.literal(true),
             data: z.array(z.any()),
           }),
         },
       },
-      description: 'Rooming list exported successfully',
+      description: "Rooming list exported successfully",
     },
   },
 });
 
-app.get('/events/:eventId/rooming-list', async (c) => {
+app.get("/events/:eventId/rooming-list", async (c) => {
   try {
     const parsedParams = z
       .object({ eventId: z.string().min(1) })
@@ -1987,10 +2042,10 @@ app.get('/events/:eventId/rooming-list', async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Invalid event id',
+          error: "Invalid event id",
           details: parsedParams.error.flatten(),
         },
-        400
+        400,
       );
     }
     const { eventId } = parsedParams.data;
@@ -2005,27 +2060,27 @@ app.get('/events/:eventId/rooming-list', async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to export rooming list',
+        error: "Failed to export rooming list",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 // Assign Guest Category and Room Drop
 const assignGuestCategoryRoute = createRoute({
-  method: 'put',
-  path: '/users/{userId}/guest-category',
-  tags: ['Admin - Room Management'],
-  summary: 'Assign guest category and room drop to user',
+  method: "put",
+  path: "/users/{userId}/guest-category",
+  tags: ["Admin - Room Management"],
+  summary: "Assign guest category and room drop to user",
   request: {
     params: z.object({
       userId: z.string().min(1),
     }),
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             guestCategory: z.string().min(1),
             roomDropId: z.string().optional(),
@@ -2037,29 +2092,29 @@ const assignGuestCategoryRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             success: z.literal(true),
             message: z.string(),
           }),
         },
       },
-      description: 'Guest category assignment updated successfully',
+      description: "Guest category assignment updated successfully",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Guest category assignment failed',
+      description: "Guest category assignment failed",
     },
   },
 });
 
 app.openapi(assignGuestCategoryRoute, async (c) => {
   try {
-    const { userId } = c.req.valid('param');
+    const { userId } = c.req.valid("param");
     const parsedBody = z
       .object({
         guestCategory: z.string().min(1),
@@ -2070,34 +2125,34 @@ app.openapi(assignGuestCategoryRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Invalid guest category payload',
+          error: "Invalid guest category payload",
           details: parsedBody.error.flatten(),
         },
-        400
+        400,
       );
     }
     const { guestCategory, roomDropId } = parsedBody.data;
-    const authUser = c.get('user');
+    const authUser = c.get("user");
 
     await RoomAssignmentService.assignGuestCategoryAndDrop(
       userId,
       guestCategory,
       roomDropId || null,
-      authUser.id
+      authUser.id,
     );
 
     return c.json({
       success: true,
-      message: 'Guest category assigned successfully',
+      message: "Guest category assigned successfully",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to assign guest category',
+        error: "Failed to assign guest category",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
@@ -2106,23 +2161,23 @@ app.openapi(assignGuestCategoryRoute, async (c) => {
 
 // Multi-Group Assignment Route (Enhanced)
 const assignUserToMultipleGroupsRoute = createRoute({
-  method: 'put',
-  path: '/users/{userId}/assign-multiple',
-  tags: ['Admin - Users'],
-  summary: 'Assign user to multiple groups with conflict analysis',
+  method: "put",
+  path: "/users/{userId}/assign-multiple",
+  tags: ["Admin - Users"],
+  summary: "Assign user to multiple groups with conflict analysis",
   request: {
     params: z.object({
       userId: z
         .string()
         .min(1)
         .openapi({
-          param: { name: 'userId', in: 'path' },
-          example: '60f7b3b3b3b3b3b3b3b3b3b3',
+          param: { name: "userId", in: "path" },
+          example: "60f7b3b3b3b3b3b3b3b3b3b3",
         }),
     }),
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             groupIds: z.array(z.string()), // Allow empty array for de-assignment
             allowConflicts: z.boolean().default(true),
@@ -2134,7 +2189,7 @@ const assignUserToMultipleGroupsRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             success: z.literal(true),
             data: z.object({
@@ -2149,30 +2204,30 @@ const assignUserToMultipleGroupsRoute = createRoute({
           }),
         },
       },
-      description: 'User assigned successfully with conflict warnings',
+      description: "User assigned successfully with conflict warnings",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Assignment failed',
+      description: "Assignment failed",
     },
   },
 });
 
 app.openapi(assignUserToMultipleGroupsRoute, async (c) => {
   try {
-    const { userId } = c.req.valid('param');
-    const { groupIds, allowConflicts } = c.req.valid('json');
-    const authUser = c.get('user');
+    const { userId } = c.req.valid("param");
+    const { groupIds, allowConflicts } = c.req.valid("json");
+    const authUser = c.get("user");
 
     const result = await UserService.assignToGroups(
       userId,
       groupIds,
       authUser.id,
-      { allowConflicts }
+      { allowConflicts },
     );
 
     return c.json({
@@ -2187,31 +2242,31 @@ app.openapi(assignUserToMultipleGroupsRoute, async (c) => {
       },
       message: result.warnings.hasIssues
         ? `User assigned with ${result.warnings.capacityIssues.length + result.warnings.timingConflicts.length} warnings`
-        : 'User assigned successfully',
+        : "User assigned successfully",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Assignment failed',
+        error: "Assignment failed",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 // Analyze Assignment Conflicts Route
 const analyzeAssignmentConflictsRoute = createRoute({
-  method: 'post',
-  path: '/users/analyze-conflicts',
-  tags: ['Admin - Users'],
-  summary: 'Analyze potential conflicts before assignment',
-  description: 'Preview capacity and timing conflicts without making changes',
+  method: "post",
+  path: "/users/analyze-conflicts",
+  tags: ["Admin - Users"],
+  summary: "Analyze potential conflicts before assignment",
+  description: "Preview capacity and timing conflicts without making changes",
   request: {
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             userIds: z.array(z.string()).min(1),
             groupIds: z.array(z.string()), // Allow empty array to analyze removal from all groups
@@ -2223,22 +2278,22 @@ const analyzeAssignmentConflictsRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Conflict analysis completed',
+      description: "Conflict analysis completed",
     },
   },
 });
 
 app.openapi(analyzeAssignmentConflictsRoute, async (c) => {
   try {
-    const { userIds, groupIds } = c.req.valid('json');
+    const { userIds, groupIds } = c.req.valid("json");
 
     const analysis = await ConflictDetectionService.analyzeAssignmentConflicts(
       userIds,
-      groupIds
+      groupIds,
     );
 
     return c.json({
@@ -2246,16 +2301,16 @@ app.openapi(analyzeAssignmentConflictsRoute, async (c) => {
       data: analysis,
       message: analysis.hasIssues
         ? `Found ${analysis.summary.totalIssues} potential issues`
-        : 'No conflicts detected',
+        : "No conflicts detected",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Conflict analysis failed',
+        error: "Conflict analysis failed",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
@@ -2265,86 +2320,86 @@ app.openapi(analyzeAssignmentConflictsRoute, async (c) => {
 // =============================================================================
 
 const exportGroupsRoute = createRoute({
-  method: 'get',
-  path: '/groups/export',
-  tags: ['Admin - Data Export'],
-  summary: 'Export groups data',
+  method: "get",
+  path: "/groups/export",
+  tags: ["Admin - Data Export"],
+  summary: "Export groups data",
   request: {
     query: z.object({
       eventId: z.string().min(1),
-      format: z.enum(['csv', 'json']).default('csv'),
+      format: z.enum(["csv", "json"]).default("csv"),
     }),
   },
   responses: {
     200: {
       content: {
-        'text/csv': {
+        "text/csv": {
           schema: z.string(),
         },
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Export completed successfully',
+      description: "Export completed successfully",
     },
   },
 });
 
 app.openapi(exportGroupsRoute, async (c) => {
   try {
-    const { eventId, format } = c.req.valid('query');
+    const { eventId, format } = c.req.valid("query");
 
     const groups = await GroupService.findByEventId(eventId, {
       page: 1,
       limit: 10000,
     });
 
-    if (format === 'csv') {
+    if (format === "csv") {
       // CSV headers matching import template exactly
       const headers = [
-        'name',
-        'description',
-        'capacity',
-        'category',
-        'assignedMembers',
+        "name",
+        "description",
+        "capacity",
+        "category",
+        "assignedMembers",
       ];
 
       // Get users to build member lists
       const users = await UserService.findByEventId(
         eventId,
         { page: 1, limit: 10000 },
-        {}
+        {},
       );
 
       const rows = groups.items.map((group) => {
         // Find users assigned to this group
         const assignedUsers = users.items.filter((u) =>
-          u.groupIds.includes(group.id)
+          u.groupIds.includes(group.id),
         );
         const memberEmails = assignedUsers
           .map((u) => u.email)
           .filter(Boolean)
-          .join(',');
+          .join(",");
 
         return [
           group.name,
-          group.description || '',
+          group.description || "",
           group.memberCount.toString(),
-          'Standard', // category - default value
+          "Standard", // category - default value
           memberEmails,
         ];
       });
 
       const csvContent = [headers, ...rows]
-        .map((row) => row.map((field) => `"${field}"`).join(','))
-        .join('\n');
+        .map((row) => row.map((field) => `"${field}"`).join(","))
+        .join("\n");
 
-      c.header('Content-Type', 'text/csv');
+      c.header("Content-Type", "text/csv");
       c.header(
-        'Content-Disposition',
+        "Content-Disposition",
         `attachment; filename="groups-${eventId}-${
-          new Date().toISOString().split('T')[0]
-        }.csv"`
+          new Date().toISOString().split("T")[0]
+        }.csv"`,
       );
       return c.text(csvContent);
     } else {
@@ -2357,19 +2412,19 @@ app.openapi(exportGroupsRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Export failed',
+        error: "Export failed",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const getGroupsRoute = createRoute({
-  method: 'get',
-  path: '/groups',
-  tags: ['Admin - Groups'],
-  summary: 'Get groups',
+  method: "get",
+  path: "/groups",
+  tags: ["Admin - Groups"],
+  summary: "Get groups",
   request: {
     query: z.object({
       eventId: z.string(),
@@ -2378,18 +2433,18 @@ const getGroupsRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Groups retrieved successfully',
+      description: "Groups retrieved successfully",
     },
   },
 });
 
 app.openapi(getGroupsRoute, async (c) => {
   try {
-    const { eventId } = c.req.valid('query');
+    const { eventId } = c.req.valid("query");
     const result = await GroupService.findByEventId(eventId, {
       page: 1,
       limit: 100,
@@ -2403,19 +2458,19 @@ app.openapi(getGroupsRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve groups',
+        error: "Failed to retrieve groups",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const getGroupByIdRoute = createRoute({
-  method: 'get',
-  path: '/groups/{groupId}',
-  tags: ['Admin - Groups'],
-  summary: 'Get group by ID',
+  method: "get",
+  path: "/groups/{groupId}",
+  tags: ["Admin - Groups"],
+  summary: "Get group by ID",
   request: {
     params: z.object({
       groupId: z.string().min(1),
@@ -2424,35 +2479,35 @@ const getGroupByIdRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Group retrieved successfully',
+      description: "Group retrieved successfully",
     },
     404: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Group not found',
+      description: "Group not found",
     },
   },
 });
 
 app.openapi(getGroupByIdRoute, async (c) => {
   try {
-    const { groupId } = c.req.valid('param');
+    const { groupId } = c.req.valid("param");
     const group = await GroupService.findById(groupId);
 
     if (!group) {
       return c.json(
         {
           success: false,
-          error: 'Group not found',
+          error: "Group not found",
         },
-        404
+        404,
       );
     }
 
@@ -2464,19 +2519,19 @@ app.openapi(getGroupByIdRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve group',
+        error: "Failed to retrieve group",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const getGroupMembersRoute = createRoute({
-  method: 'get',
-  path: '/groups/{groupId}/members',
-  tags: ['Admin - Groups'],
-  summary: 'Get group members',
+  method: "get",
+  path: "/groups/{groupId}/members",
+  tags: ["Admin - Groups"],
+  summary: "Get group members",
   request: {
     params: z.object({
       groupId: z.string().min(1),
@@ -2485,30 +2540,30 @@ const getGroupMembersRoute = createRoute({
       search: z.string().optional(),
       hasRequirements: z
         .string()
-        .transform((val) => val === 'true' || val === '1')
+        .transform((val) => val === "true" || val === "1")
         .optional(),
     }),
   },
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Group members retrieved successfully',
+      description: "Group members retrieved successfully",
     },
   },
 });
 
 app.openapi(getGroupMembersRoute, async (c) => {
   try {
-    const { groupId } = c.req.valid('param');
-    const { page, limit, search, hasRequirements } = c.req.valid('query');
+    const { groupId } = c.req.valid("param");
+    const { page, limit, search, hasRequirements } = c.req.valid("query");
     const result = await GroupService.getMembers(
       groupId,
       { page: page || 1, limit: limit || 20 },
-      { search, hasRequirements }
+      { search, hasRequirements },
     );
 
     return c.json({
@@ -2519,23 +2574,23 @@ app.openapi(getGroupMembersRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve group members',
+        error: "Failed to retrieve group members",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const createGroupRoute = createRoute({
-  method: 'post',
-  path: '/groups',
-  tags: ['Admin - Groups'],
-  summary: 'Create group',
+  method: "post",
+  path: "/groups",
+  tags: ["Admin - Groups"],
+  summary: "Create group",
   request: {
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: CreateGroupSchema,
         },
       },
@@ -2544,52 +2599,52 @@ const createGroupRoute = createRoute({
   responses: {
     201: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Group created successfully',
+      description: "Group created successfully",
     },
   },
 });
 
 app.openapi(createGroupRoute, async (c) => {
   try {
-    const data = c.req.valid('json');
+    const data = c.req.valid("json");
     const group = await GroupService.create(data);
 
     return c.json(
       {
         success: true,
         data: group,
-        message: 'Group created successfully',
+        message: "Group created successfully",
       },
-      201
+      201,
     );
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to create group',
+        error: "Failed to create group",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 const updateGroupRoute = createRoute({
-  method: 'patch',
-  path: '/groups/{groupId}',
-  tags: ['Admin - Groups'],
-  summary: 'Update group',
+  method: "patch",
+  path: "/groups/{groupId}",
+  tags: ["Admin - Groups"],
+  summary: "Update group",
   request: {
     params: z.object({
       groupId: z.string().min(1),
     }),
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: UpdateGroupSchema.partial(),
         },
       },
@@ -2598,43 +2653,43 @@ const updateGroupRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Group updated successfully',
+      description: "Group updated successfully",
     },
   },
 });
 
 app.openapi(updateGroupRoute, async (c) => {
   try {
-    const { groupId } = c.req.valid('param');
-    const data = c.req.valid('json');
+    const { groupId } = c.req.valid("param");
+    const data = c.req.valid("json");
     const group = await GroupService.update(groupId, data);
 
     return c.json({
       success: true,
       data: group,
-      message: 'Group updated successfully',
+      message: "Group updated successfully",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to update group',
+        error: "Failed to update group",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 const deleteGroupRoute = createRoute({
-  method: 'delete',
-  path: '/groups/{groupId}',
-  tags: ['Admin - Groups'],
-  summary: 'Soft delete group',
+  method: "delete",
+  path: "/groups/{groupId}",
+  tags: ["Admin - Groups"],
+  summary: "Soft delete group",
   request: {
     params: z.object({
       groupId: z.string().min(1),
@@ -2643,42 +2698,42 @@ const deleteGroupRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Group deleted successfully',
+      description: "Group deleted successfully",
     },
   },
 });
 
 app.openapi(deleteGroupRoute, async (c) => {
   try {
-    const { groupId } = c.req.valid('param');
+    const { groupId } = c.req.valid("param");
     const group = await GroupService.softDelete(groupId);
 
     return c.json({
       success: true,
       data: group,
-      message: 'Group deleted successfully',
+      message: "Group deleted successfully",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to delete group',
+        error: "Failed to delete group",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 const getEventOverviewStatsRoute = createRoute({
-  method: 'get',
-  path: '/events/{eventId}/overview',
-  tags: ['Admin - Stats'],
-  summary: 'Get comprehensive overview statistics for event',
+  method: "get",
+  path: "/events/{eventId}/overview",
+  tags: ["Admin - Stats"],
+  summary: "Get comprehensive overview statistics for event",
   request: {
     params: z.object({
       eventId: z.string().min(1),
@@ -2687,35 +2742,35 @@ const getEventOverviewStatsRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Overview statistics retrieved successfully',
+      description: "Overview statistics retrieved successfully",
     },
   },
 });
 
 app.openapi(getEventOverviewStatsRoute, async (c) => {
   try {
-    const { eventId } = c.req.valid('param');
-    const authUser = c.get('user');
+    const { eventId } = c.req.valid("param");
+    const authUser = c.get("user");
 
     // Check if admin has access to this event
-    if (authUser.adminData?.role !== 'SUPER') {
+    if (authUser.adminData?.role !== "SUPER") {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
         return c.json(
           {
             success: false,
-            error: 'Access denied to this event',
+            error: "Access denied to this event",
           },
-          403
+          403,
         );
       }
     }
 
-    const { prisma } = await import('../config/database.js');
+    const { prisma } = await import("../config/database.js");
 
     // Get user statistics
     const [totalUsers, assignedUsers, unassignedUsers, checkedInUsers] =
@@ -2749,7 +2804,7 @@ app.openapi(getEventOverviewStatsRoute, async (c) => {
           ...group,
           _count: { users: memberCount },
         };
-      })
+      }),
     );
 
     const groupDistribution = groupsWithCounts.map((group) => ({
@@ -2766,19 +2821,19 @@ app.openapi(getEventOverviewStatsRoute, async (c) => {
     });
 
     const communicationPreferencesData = users.map((u) =>
-      asRecord(u.communication)
+      asRecord(u.communication),
     );
     const emailOptIns = communicationPreferencesData.filter(
-      (prefs) => prefs?.emailOptIn === true
+      (prefs) => prefs?.emailOptIn === true,
     ).length;
     const whatsappOptIns = communicationPreferencesData.filter(
-      (prefs) => prefs?.whatsappOptIn === true
+      (prefs) => prefs?.whatsappOptIn === true,
     ).length;
     const bothChannels = communicationPreferencesData.filter(
-      (prefs) => prefs?.emailOptIn === true && prefs?.whatsappOptIn === true
+      (prefs) => prefs?.emailOptIn === true && prefs?.whatsappOptIn === true,
     ).length;
     const noCommunication = communicationPreferencesData.filter(
-      (prefs) => prefs?.emailOptIn !== true && prefs?.whatsappOptIn !== true
+      (prefs) => prefs?.emailOptIn !== true && prefs?.whatsappOptIn !== true,
     ).length;
 
     const communicationPreferences = {
@@ -2798,36 +2853,36 @@ app.openapi(getEventOverviewStatsRoute, async (c) => {
     const requirementStats = {
       dietary: requirementsUsers.filter((u) =>
         hasFormResponseValue(u, [
-          'dietary',
-          'dietaryRequirements',
-          'specialDietaryRequirements',
-        ])
+          "dietary",
+          "dietaryRequirements",
+          "specialDietaryRequirements",
+        ]),
       ).length,
       medical: requirementsUsers.filter((u) =>
         hasFormResponseValue(u, [
-          'medical',
-          'medicalConditions',
-          'medicalInformation',
-        ])
+          "medical",
+          "medicalConditions",
+          "medicalInformation",
+        ]),
       ).length,
       accessibility: requirementsUsers.filter((u) =>
-        hasFormResponseValue(u, ['accessibility', 'accessibilityNeeds'])
+        hasFormResponseValue(u, ["accessibility", "accessibilityNeeds"]),
       ).length,
       accommodation: requirementsUsers.filter(
-        (u) => asRecord(u.accommodation)?.required === true
+        (u) => asRecord(u.accommodation)?.required === true,
       ).length,
       any: requirementsUsers.filter(
         (u) =>
           hasFormResponseValue(u, [
-            'dietary',
-            'dietaryRequirements',
-            'specialDietaryRequirements',
-            'medical',
-            'medicalConditions',
-            'medicalInformation',
-            'accessibility',
-            'accessibilityNeeds',
-          ]) || asRecord(u.accommodation)?.required === true
+            "dietary",
+            "dietaryRequirements",
+            "specialDietaryRequirements",
+            "medical",
+            "medicalConditions",
+            "medicalInformation",
+            "accessibility",
+            "accessibilityNeeds",
+          ]) || asRecord(u.accommodation)?.required === true,
       ).length,
     };
 
@@ -2875,10 +2930,10 @@ app.openapi(getEventOverviewStatsRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve overview statistics',
+        error: "Failed to retrieve overview statistics",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
@@ -2888,10 +2943,10 @@ app.openapi(getEventOverviewStatsRoute, async (c) => {
 // =============================================================================
 
 const getMessageHistoryRoute = createRoute({
-  method: 'get',
-  path: '/messages/history',
-  tags: ['Admin - Messages'],
-  summary: 'Get message history',
+  method: "get",
+  path: "/messages/history",
+  tags: ["Admin - Messages"],
+  summary: "Get message history",
   request: {
     query: PaginationSchema.extend({
       eventId: z.string().optional(),
@@ -2900,18 +2955,18 @@ const getMessageHistoryRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Message history retrieved successfully',
+      description: "Message history retrieved successfully",
     },
   },
 });
 
 app.openapi(getMessageHistoryRoute, async (c) => {
   try {
-    const { page, limit, eventId } = c.req.valid('query');
+    const { page, limit, eventId } = c.req.valid("query");
 
     // TODO: Implement messaging service - for now return empty data
     const result = {
@@ -2938,10 +2993,10 @@ app.openapi(getMessageHistoryRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve message history',
+        error: "Failed to retrieve message history",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
@@ -2951,14 +3006,14 @@ app.openapi(getMessageHistoryRoute, async (c) => {
 // =============================================================================
 
 const createEventRoute = createRoute({
-  method: 'post',
-  path: '/events',
-  tags: ['Super Admin - Events'],
-  summary: 'Create new event (Super Admin only)',
+  method: "post",
+  path: "/events",
+  tags: ["Super Admin - Events"],
+  summary: "Create new event (Super Admin only)",
   request: {
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: CreateEventSchema,
         },
       },
@@ -2967,81 +3022,81 @@ const createEventRoute = createRoute({
   responses: {
     201: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Event created successfully',
+      description: "Event created successfully",
     },
     403: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Super admin access required',
+      description: "Super admin access required",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Invalid input data',
+      description: "Invalid input data",
     },
   },
 });
 
 app.openapi(createEventRoute, async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
 
     // Check if user is a super admin
-    if (!authUser || authUser.adminData?.role !== 'SUPER') {
+    if (!authUser || authUser.adminData?.role !== "SUPER") {
       return c.json(
         {
           success: false,
-          error: 'Super admin access required to create events',
+          error: "Super admin access required to create events",
         },
-        403
+        403,
       );
     }
 
-    const data = c.req.valid('json');
+    const data = c.req.valid("json");
     const event = await EventService.create(data);
 
     return c.json(
       {
         success: true,
         data: event,
-        message: 'Event created successfully',
+        message: "Event created successfully",
       },
-      201
+      201,
     );
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to create event',
+        error: "Failed to create event",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 const updateEventRoute = createRoute({
-  method: 'patch',
-  path: '/events/{eventId}',
-  tags: ['Admin - Events'],
-  summary: 'Update event (Super Admin or assigned Standard Admin)',
+  method: "patch",
+  path: "/events/{eventId}",
+  tags: ["Admin - Events"],
+  summary: "Update event (Super Admin or assigned Standard Admin)",
   request: {
     params: z.object({
       eventId: z.string().min(1),
     }),
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: CreateEventSchema.partial(),
         },
       },
@@ -3050,60 +3105,60 @@ const updateEventRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Event updated successfully',
+      description: "Event updated successfully",
     },
     403: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Access denied to this event',
+      description: "Access denied to this event",
     },
     404: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Event not found',
+      description: "Event not found",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Invalid input data',
+      description: "Invalid input data",
     },
   },
 });
 
 app.openapi(updateEventRoute, async (c) => {
   try {
-    const authUser = c.get('user');
-    const { eventId } = c.req.valid('param');
+    const authUser = c.get("user");
+    const { eventId } = c.req.valid("param");
 
     // Check if admin has access to this event
-    if (authUser.adminData?.role !== 'SUPER') {
+    if (authUser.adminData?.role !== "SUPER") {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
         return c.json(
           {
             success: false,
-            error: 'Access denied to this event',
+            error: "Access denied to this event",
           },
-          403
+          403,
         );
       }
     }
-    const data = c.req.valid('json');
+    const data = c.req.valid("json");
 
-    console.log('🔵 PATCH /events/{eventId} received data:', {
+    console.log("🔵 PATCH /events/{eventId} received data:", {
       eventId,
       hasRegistrationFormConfig: data.registrationFormConfig !== undefined,
       registrationFormConfigKeys: data.registrationFormConfig
@@ -3117,32 +3172,32 @@ app.openapi(updateEventRoute, async (c) => {
     return c.json({
       success: true,
       data: event,
-      message: 'Event updated successfully',
+      message: "Event updated successfully",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to update event',
+        error: "Failed to update event",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 const toggleEventStatusRoute = createRoute({
-  method: 'patch',
-  path: '/events/{eventId}/toggle',
-  tags: ['Super Admin - Events'],
-  summary: 'Toggle event active status (Super Admin only)',
+  method: "patch",
+  path: "/events/{eventId}/toggle",
+  tags: ["Super Admin - Events"],
+  summary: "Toggle event active status (Super Admin only)",
   request: {
     params: z.object({
       eventId: z.string().min(1),
     }),
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             active: z.boolean(),
           }),
@@ -3153,48 +3208,48 @@ const toggleEventStatusRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Event status updated successfully',
+      description: "Event status updated successfully",
     },
     403: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Super admin access required',
+      description: "Super admin access required",
     },
     404: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Event not found',
+      description: "Event not found",
     },
   },
 });
 
 app.openapi(toggleEventStatusRoute, async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
 
     // Check if user is a super admin
-    if (!authUser || authUser.adminData?.role !== 'SUPER') {
+    if (!authUser || authUser.adminData?.role !== "SUPER") {
       return c.json(
         {
           success: false,
-          error: 'Super admin access required to modify events',
+          error: "Super admin access required to modify events",
         },
-        403
+        403,
       );
     }
 
-    const { eventId } = c.req.valid('param');
-    const { active } = c.req.valid('json');
+    const { eventId } = c.req.valid("param");
+    const { active } = c.req.valid("json");
 
     const event = active
       ? await EventService.activate(eventId)
@@ -3203,43 +3258,43 @@ app.openapi(toggleEventStatusRoute, async (c) => {
     return c.json({
       success: true,
       data: event,
-      message: `Event ${active ? 'activated' : 'deactivated'} successfully`,
+      message: `Event ${active ? "activated" : "deactivated"} successfully`,
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to update event status',
+        error: "Failed to update event status",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 const getEventsRoute = createRoute({
-  method: 'get',
-  path: '/events',
-  tags: ['Super Admin - Events'],
-  summary: 'Get all events',
+  method: "get",
+  path: "/events",
+  tags: ["Super Admin - Events"],
+  summary: "Get all events",
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Events retrieved successfully',
+      description: "Events retrieved successfully",
     },
   },
 });
 
 app.openapi(getEventsRoute, async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
 
     let eventsResult;
-    if (authUser.adminData?.role === 'SUPER') {
+    if (authUser.adminData?.role === "SUPER") {
       // Super admins can see all events
       eventsResult = await EventService.findAll({ page: 1, limit: 100 }, {});
     } else {
@@ -3264,10 +3319,10 @@ app.openapi(getEventsRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve events',
+        error: "Failed to retrieve events",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
@@ -3277,10 +3332,10 @@ app.openapi(getEventsRoute, async (c) => {
 // =============================================================================
 
 const getEventByIdRoute = createRoute({
-  method: 'get',
-  path: '/events/{eventId}',
-  tags: ['Admin - Events'],
-  summary: 'Get event by ID',
+  method: "get",
+  path: "/events/{eventId}",
+  tags: ["Admin - Events"],
+  summary: "Get event by ID",
   request: {
     params: z.object({
       eventId: z.string().min(1),
@@ -3289,47 +3344,47 @@ const getEventByIdRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Event retrieved successfully',
+      description: "Event retrieved successfully",
     },
     404: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Event not found',
+      description: "Event not found",
     },
   },
 });
 
 app.openapi(getEventByIdRoute, async (c) => {
   try {
-    const { eventId } = c.req.valid('param');
-    const authUser = c.get('user');
+    const { eventId } = c.req.valid("param");
+    const authUser = c.get("user");
 
-    console.log('🔵 GET /events/{eventId} called:', { eventId });
+    console.log("🔵 GET /events/{eventId} called:", { eventId });
 
     // Check if admin has access to this event
-    if (authUser.adminData?.role !== 'SUPER') {
+    if (authUser.adminData?.role !== "SUPER") {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
         return c.json(
           {
             success: false,
-            error: 'Access denied to this event',
+            error: "Access denied to this event",
           },
-          403
+          403,
         );
       }
     }
 
     const event = await EventService.findById(eventId);
 
-    console.log('📤 GET /events/{eventId} response:', {
+    console.log("📤 GET /events/{eventId} response:", {
       eventId,
       hasRegistrationFormConfig: event?.registrationFormConfig !== null,
       registrationFormConfigKeys: event?.registrationFormConfig
@@ -3341,9 +3396,9 @@ app.openapi(getEventByIdRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Event not found',
+          error: "Event not found",
         },
-        404
+        404,
       );
     }
 
@@ -3355,19 +3410,19 @@ app.openapi(getEventByIdRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve event',
+        error: "Failed to retrieve event",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const getEventStatsRoute = createRoute({
-  method: 'get',
-  path: '/events/{eventId}/stats',
-  tags: ['Admin - Events'],
-  summary: 'Get event statistics',
+  method: "get",
+  path: "/events/{eventId}/stats",
+  tags: ["Admin - Events"],
+  summary: "Get event statistics",
   request: {
     params: z.object({
       eventId: z.string().min(1),
@@ -3376,35 +3431,35 @@ const getEventStatsRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Event statistics retrieved successfully',
+      description: "Event statistics retrieved successfully",
     },
   },
 });
 
 app.openapi(getEventStatsRoute, async (c) => {
   try {
-    const { eventId } = c.req.valid('param');
-    const authUser = c.get('user');
+    const { eventId } = c.req.valid("param");
+    const authUser = c.get("user");
 
     // Check if admin has access to this event
-    if (authUser.adminData?.role !== 'SUPER') {
+    if (authUser.adminData?.role !== "SUPER") {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
         return c.json(
           {
             success: false,
-            error: 'Access denied to this event',
+            error: "Access denied to this event",
           },
-          403
+          403,
         );
       }
     }
 
-    const { prisma } = await import('../config/database.js');
+    const { prisma } = await import("../config/database.js");
 
     const [
       totalUsers,
@@ -3451,34 +3506,34 @@ app.openapi(getEventStatsRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve event statistics',
+        error: "Failed to retrieve event statistics",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const getAdministratorsRoute = createRoute({
-  method: 'get',
-  path: '/administrators',
-  tags: ['Admin - Administrators'],
-  summary: 'Get all administrators',
+  method: "get",
+  path: "/administrators",
+  tags: ["Admin - Administrators"],
+  summary: "Get all administrators",
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Administrators retrieved successfully',
+      description: "Administrators retrieved successfully",
     },
   },
 });
 
 app.openapi(getAdministratorsRoute, async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
     const admins = await AdminService.findAll({ page: 1, limit: 100 });
 
     return c.json({
@@ -3489,10 +3544,10 @@ app.openapi(getAdministratorsRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve administrators',
+        error: "Failed to retrieve administrators",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
@@ -3502,54 +3557,54 @@ app.openapi(getAdministratorsRoute, async (c) => {
 // =============================================================================
 
 const exportActivitiesRoute = createRoute({
-  method: 'get',
-  path: '/activities/export',
-  tags: ['Admin - Data Export'],
-  summary: 'Export activities data',
+  method: "get",
+  path: "/activities/export",
+  tags: ["Admin - Data Export"],
+  summary: "Export activities data",
   request: {
     query: z.object({
       eventId: z.string().min(1),
-      format: z.enum(['csv', 'json']).default('csv'),
+      format: z.enum(["csv", "json"]).default("csv"),
     }),
   },
   responses: {
     200: {
       content: {
-        'text/csv': {
+        "text/csv": {
           schema: z.string(),
         },
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Export completed successfully',
+      description: "Export completed successfully",
     },
   },
 });
 
 app.openapi(exportActivitiesRoute, async (c) => {
   try {
-    const { eventId, format } = c.req.valid('query');
+    const { eventId, format } = c.req.valid("query");
 
     const activities = await ActivityService.findByEventId(
       eventId,
       { page: 1, limit: 10000 },
-      {}
+      {},
     );
 
-    if (format === 'csv') {
+    if (format === "csv") {
       // CSV headers matching import template exactly
       const headers = [
-        'title',
-        'group',
-        'startDateTime',
-        'endDateTime',
-        'location',
-        'address',
-        'category',
-        'description',
-        'thumbnail',
-        'mapLink',
+        "title",
+        "group",
+        "startDateTime",
+        "endDateTime",
+        "location",
+        "address",
+        "category",
+        "description",
+        "thumbnail",
+        "mapLink",
       ];
 
       // Get groups for lookup
@@ -3568,29 +3623,29 @@ app.openapi(exportActivitiesRoute, async (c) => {
           activity.groupIds.length > 0
             ? activity.groupIds
                 .map((id) => groupLookup.get(id) || id)
-                .join(', ')
-            : '',
-          activity.startDateTime.toISOString().slice(0, 16).replace('T', ' '),
-          activity.endDateTime.toISOString().slice(0, 16).replace('T', ' '),
-          location.name || '',
-          location.address || '',
+                .join(", ")
+            : "",
+          activity.startDateTime.toISOString().slice(0, 16).replace("T", " "),
+          activity.endDateTime.toISOString().slice(0, 16).replace("T", " "),
+          location.name || "",
+          location.address || "",
           activity.category,
-          content.html || '',
-          activity.thumbnail || '',
-          location.mapLink || '',
+          content.html || "",
+          activity.thumbnail || "",
+          location.mapLink || "",
         ];
       });
 
       const csvContent = [headers, ...rows]
-        .map((row) => row.map((field) => `"${field}"`).join(','))
-        .join('\n');
+        .map((row) => row.map((field) => `"${field}"`).join(","))
+        .join("\n");
 
-      c.header('Content-Type', 'text/csv');
+      c.header("Content-Type", "text/csv");
       c.header(
-        'Content-Disposition',
+        "Content-Disposition",
         `attachment; filename="activities-${eventId}-${
-          new Date().toISOString().split('T')[0]
-        }.csv"`
+          new Date().toISOString().split("T")[0]
+        }.csv"`,
       );
       return c.text(csvContent);
     } else {
@@ -3603,19 +3658,19 @@ app.openapi(exportActivitiesRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Export failed',
+        error: "Export failed",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const getActivitiesRoute = createRoute({
-  method: 'get',
-  path: '/activities',
-  tags: ['Admin - Activities'],
-  summary: 'Get activities with filters',
+  method: "get",
+  path: "/activities",
+  tags: ["Admin - Activities"],
+  summary: "Get activities with filters",
   request: {
     query: PaginationSchema.extend({
       eventId: z.string().optional(),
@@ -3626,18 +3681,18 @@ const getActivitiesRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Activities retrieved successfully',
+      description: "Activities retrieved successfully",
     },
   },
 });
 
 app.openapi(getActivitiesRoute, async (c) => {
   try {
-    const { page, limit, eventId, groupId, status } = c.req.valid('query');
+    const { page, limit, eventId, groupId, status } = c.req.valid("query");
 
     let result;
     if (eventId) {
@@ -3649,7 +3704,7 @@ app.openapi(getActivitiesRoute, async (c) => {
         },
         {
           groupId, // ✅ FIX: Pass groupId as filter
-        }
+        },
       );
     } else if (groupId) {
       result = await ActivityService.findByGroupId(groupId, {
@@ -3671,19 +3726,19 @@ app.openapi(getActivitiesRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve activities',
+        error: "Failed to retrieve activities",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const getActivityByIdRoute = createRoute({
-  method: 'get',
-  path: '/activities/{activityId}',
-  tags: ['Admin - Activities'],
-  summary: 'Get activity by ID',
+  method: "get",
+  path: "/activities/{activityId}",
+  tags: ["Admin - Activities"],
+  summary: "Get activity by ID",
   request: {
     params: z.object({
       activityId: z.string().min(1),
@@ -3692,35 +3747,35 @@ const getActivityByIdRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Activity retrieved successfully',
+      description: "Activity retrieved successfully",
     },
     404: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Activity not found',
+      description: "Activity not found",
     },
   },
 });
 
 app.openapi(getActivityByIdRoute, async (c) => {
   try {
-    const { activityId } = c.req.valid('param');
+    const { activityId } = c.req.valid("param");
     const activity = await ActivityService.findById(activityId);
 
     if (!activity) {
       return c.json(
         {
           success: false,
-          error: 'Activity not found',
+          error: "Activity not found",
         },
-        404
+        404,
       );
     }
 
@@ -3732,19 +3787,19 @@ app.openapi(getActivityByIdRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve activity',
+        error: "Failed to retrieve activity",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const deleteActivityRoute = createRoute({
-  method: 'delete',
-  path: '/activities/{activityId}',
-  tags: ['Admin - Activities'],
-  summary: 'Delete activity',
+  method: "delete",
+  path: "/activities/{activityId}",
+  tags: ["Admin - Activities"],
+  summary: "Delete activity",
   request: {
     params: z.object({
       activityId: z.string().min(1),
@@ -3753,34 +3808,34 @@ const deleteActivityRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Activity deleted successfully',
+      description: "Activity deleted successfully",
     },
   },
 });
 
 app.openapi(deleteActivityRoute, async (c) => {
   try {
-    const { activityId } = c.req.valid('param');
-    const authUser = c.get('user');
+    const { activityId } = c.req.valid("param");
+    const authUser = c.get("user");
 
     // Check if admin can modify this activity
     const permissionCheck = await ActivityService.canAdminModifyActivity(
       activityId,
-      authUser.id
+      authUser.id,
     );
 
     if (!permissionCheck.canModify) {
       return c.json(
         {
           success: false,
-          error: 'Permission denied',
+          error: "Permission denied",
           details: permissionCheck.reason,
         },
-        403
+        403,
       );
     }
 
@@ -3789,35 +3844,35 @@ app.openapi(deleteActivityRoute, async (c) => {
     return c.json({
       success: true,
       data: activity,
-      message: 'Activity deleted successfully',
+      message: "Activity deleted successfully",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to delete activity',
+        error: "Failed to delete activity",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 // Assign Activity to Group
 const assignActivityToGroupRoute = createRoute({
-  method: 'put',
-  path: '/activities/{activityId}/assign',
-  tags: ['Admin - Activities'],
-  summary: 'Assign activity to group',
+  method: "put",
+  path: "/activities/{activityId}/assign",
+  tags: ["Admin - Activities"],
+  summary: "Assign activity to group",
   description:
-    'Assign an unassigned activity to a specific group - only creator or super admin can perform this operation',
+    "Assign an unassigned activity to a specific group - only creator or super admin can perform this operation",
   request: {
     params: z.object({
       activityId: z.string().min(1),
     }),
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: AssignActivitySchema,
         },
       },
@@ -3826,91 +3881,91 @@ const assignActivityToGroupRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Activity assigned successfully',
+      description: "Activity assigned successfully",
     },
     403: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Permission denied',
+      description: "Permission denied",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Assignment failed',
+      description: "Assignment failed",
     },
   },
 });
 
 app.openapi(assignActivityToGroupRoute, async (c) => {
   try {
-    const { activityId } = c.req.valid('param');
-    const { groupId, adminId } = c.req.valid('json');
+    const { activityId } = c.req.valid("param");
+    const { groupId, adminId } = c.req.valid("json");
 
     // Check if admin can modify this activity
     const permissionCheck = await ActivityService.canAdminModifyActivity(
       activityId,
-      adminId
+      adminId,
     );
 
     if (!permissionCheck.canModify) {
       return c.json(
         {
           success: false,
-          error: 'Permission denied',
+          error: "Permission denied",
           details: permissionCheck.reason,
         },
-        403
+        403,
       );
     }
 
     const activity = await ActivityService.assignToGroup(
       activityId,
       groupId,
-      adminId
+      adminId,
     );
 
     return c.json({
       success: true,
       data: activity,
-      message: 'Activity assigned to group successfully',
+      message: "Activity assigned to group successfully",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to assign activity',
+        error: "Failed to assign activity",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 // Unassign Activity from Group
 const unassignActivityFromGroupRoute = createRoute({
-  method: 'post',
-  path: '/activities/{activityId}/unassign',
-  tags: ['Admin - Activities'],
-  summary: 'Unassign activity from group',
+  method: "post",
+  path: "/activities/{activityId}/unassign",
+  tags: ["Admin - Activities"],
+  summary: "Unassign activity from group",
   description:
-    'Remove activity from its current group assignment - only creator or super admin can perform this operation',
+    "Remove activity from its current group assignment - only creator or super admin can perform this operation",
   request: {
     params: z.object({
       activityId: z.string().min(1),
     }),
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: UnassignActivitySchema,
         },
       },
@@ -3919,83 +3974,83 @@ const unassignActivityFromGroupRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Activity unassigned successfully',
+      description: "Activity unassigned successfully",
     },
     403: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Permission denied',
+      description: "Permission denied",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Unassignment failed',
+      description: "Unassignment failed",
     },
   },
 });
 
 app.openapi(unassignActivityFromGroupRoute, async (c) => {
   try {
-    const { activityId } = c.req.valid('param');
-    const { adminId } = c.req.valid('json');
+    const { activityId } = c.req.valid("param");
+    const { adminId } = c.req.valid("json");
 
     // Check if admin can modify this activity
     const permissionCheck = await ActivityService.canAdminModifyActivity(
       activityId,
-      adminId
+      adminId,
     );
 
     if (!permissionCheck.canModify) {
       return c.json(
         {
           success: false,
-          error: 'Permission denied',
+          error: "Permission denied",
           details: permissionCheck.reason,
         },
-        403
+        403,
       );
     }
 
     const activity = await ActivityService.unassignFromGroup(
       activityId,
-      adminId
+      adminId,
     );
 
     return c.json({
       success: true,
       data: activity,
-      message: 'Activity unassigned from group successfully',
+      message: "Activity unassigned from group successfully",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to unassign activity',
+        error: "Failed to unassign activity",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 // Exclude User from Activity
 const excludeUserFromActivityRoute = createRoute({
-  method: 'post',
-  path: '/groups/{groupId}/users/{userId}/exclude-activity',
-  tags: ['Admin - User Activity Exclusions'],
-  summary: 'Exclude user from specific activity',
+  method: "post",
+  path: "/groups/{groupId}/users/{userId}/exclude-activity",
+  tags: ["Admin - User Activity Exclusions"],
+  summary: "Exclude user from specific activity",
   description:
-    'Prevent a group member from seeing/participating in a specific activity',
+    "Prevent a group member from seeing/participating in a specific activity",
   request: {
     params: z.object({
       groupId: z.string().min(1),
@@ -4003,7 +4058,7 @@ const excludeUserFromActivityRoute = createRoute({
     }),
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: CreateExclusionSchema.omit({ groupId: true, userId: true }),
         },
       },
@@ -4012,27 +4067,27 @@ const excludeUserFromActivityRoute = createRoute({
   responses: {
     201: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'User excluded from activity successfully',
+      description: "User excluded from activity successfully",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Exclusion failed',
+      description: "Exclusion failed",
     },
   },
 });
 
 app.openapi(excludeUserFromActivityRoute, async (c) => {
   try {
-    const { groupId, userId } = c.req.valid('param');
-    const { activityId, adminId, reason } = c.req.valid('json');
+    const { groupId, userId } = c.req.valid("param");
+    const { activityId, adminId, reason } = c.req.valid("json");
 
     // Get eventId from the group
     const group = await prisma.group.findUnique({
@@ -4044,9 +4099,9 @@ app.openapi(excludeUserFromActivityRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Group not found',
+          error: "Group not found",
         },
-        404
+        404,
       );
     }
 
@@ -4064,30 +4119,30 @@ app.openapi(excludeUserFromActivityRoute, async (c) => {
       {
         success: true,
         data: exclusion,
-        message: 'User excluded from activity successfully',
+        message: "User excluded from activity successfully",
       },
-      201
+      201,
     );
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to exclude user from activity',
+        error: "Failed to exclude user from activity",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 // Include User in Activity (Remove Exclusion)
 const includeUserInActivityRoute = createRoute({
-  method: 'delete',
-  path: '/groups/{groupId}/users/{userId}/include-activity/{activityId}',
-  tags: ['Admin - User Activity Exclusions'],
-  summary: 'Include user in activity (remove exclusion)',
+  method: "delete",
+  path: "/groups/{groupId}/users/{userId}/include-activity/{activityId}",
+  tags: ["Admin - User Activity Exclusions"],
+  summary: "Include user in activity (remove exclusion)",
   description:
-    'Remove exclusion so user can see/participate in the activity again',
+    "Remove exclusion so user can see/participate in the activity again",
   request: {
     params: z.object({
       groupId: z.string().min(1),
@@ -4096,7 +4151,7 @@ const includeUserInActivityRoute = createRoute({
     }),
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             adminId: z.string().min(1),
           }),
@@ -4107,57 +4162,57 @@ const includeUserInActivityRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'User included in activity successfully',
+      description: "User included in activity successfully",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Inclusion failed',
+      description: "Inclusion failed",
     },
   },
 });
 
 app.openapi(includeUserInActivityRoute, async (c) => {
   try {
-    const { userId, activityId } = c.req.valid('param');
-    const { adminId } = c.req.valid('json');
+    const { userId, activityId } = c.req.valid("param");
+    const { adminId } = c.req.valid("json");
 
     await UserActivityExclusionService.includeUserInActivity(
       userId,
-      activityId
+      activityId,
     );
 
     return c.json({
       success: true,
-      message: 'User included in activity successfully',
+      message: "User included in activity successfully",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to include user in activity',
+        error: "Failed to include user in activity",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 // Get Group User Exclusions
 const getGroupUserExclusionsRoute = createRoute({
-  method: 'get',
-  path: '/groups/{groupId}/user-exclusions',
-  tags: ['Admin - User Activity Exclusions'],
-  summary: 'Get all user exclusions for a group',
+  method: "get",
+  path: "/groups/{groupId}/user-exclusions",
+  tags: ["Admin - User Activity Exclusions"],
+  summary: "Get all user exclusions for a group",
   description:
-    'Retrieve list of users and their excluded activities within a group',
+    "Retrieve list of users and their excluded activities within a group",
   request: {
     params: z.object({
       groupId: z.string().min(1),
@@ -4166,18 +4221,18 @@ const getGroupUserExclusionsRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'User exclusions retrieved successfully',
+      description: "User exclusions retrieved successfully",
     },
   },
 });
 
 app.openapi(getGroupUserExclusionsRoute, async (c) => {
   try {
-    const { groupId } = c.req.valid('param');
+    const { groupId } = c.req.valid("param");
 
     const exclusions =
       await UserActivityExclusionService.getGroupUserExclusions(groupId);
@@ -4190,40 +4245,40 @@ app.openapi(getGroupUserExclusionsRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve user exclusions',
+        error: "Failed to retrieve user exclusions",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const createActivityRoute = createRoute({
-  method: 'post',
-  path: '/activities',
-  tags: ['Admin - Activities'],
-  summary: 'Create activity',
-  description: 'Create a new activity with rich content for a specific group',
+  method: "post",
+  path: "/activities",
+  tags: ["Admin - Activities"],
+  summary: "Create activity",
+  description: "Create a new activity with rich content for a specific group",
   request: {
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: CreateActivitySchema,
           example: {
-            eventId: '60f7b3b3b3b3b3b3b3b3b3b3',
-            groupId: '60f7b3b3b3b3b3b3b3b3b3b4',
-            title: 'Welcome Gala Dinner',
-            startDateTime: '2025-09-05T19:00:00Z',
-            endDateTime: '2025-09-05T22:00:00Z',
-            category: 'HOSPITALITY',
-            thumbnail: 'https://example.com/gala-dinner.jpg',
+            eventId: "60f7b3b3b3b3b3b3b3b3b3b3",
+            groupId: "60f7b3b3b3b3b3b3b3b3b3b4",
+            title: "Welcome Gala Dinner",
+            startDateTime: "2025-09-05T19:00:00Z",
+            endDateTime: "2025-09-05T22:00:00Z",
+            category: "HOSPITALITY",
+            thumbnail: "https://example.com/gala-dinner.jpg",
             location: {
-              name: 'Grand Ballroom',
-              address: '123 Concorde Avenue, Geneva, Switzerland',
-              mapLink: 'https://maps.google.com/place/grand-ballroom',
+              name: "Grand Ballroom",
+              address: "123 Concorde Avenue, Geneva, Switzerland",
+              mapLink: "https://maps.google.com/place/grand-ballroom",
             },
             content: {
-              html: '<h1>Welcome to Concorde Showcase Summit</h1><p>Join us for an elegant gala dinner featuring <strong>regional cuisine</strong> and networking opportunities.</p><ul><li>Cocktail reception: 7:00 PM</li><li>Dinner service: 8:00 PM</li><li>Networking: 9:30 PM</li></ul>',
+              html: "<h1>Welcome to Concorde Showcase Summit</h1><p>Join us for an elegant gala dinner featuring <strong>regional cuisine</strong> and networking opportunities.</p><ul><li>Cocktail reception: 7:00 PM</li><li>Dinner service: 8:00 PM</li><li>Networking: 9:30 PM</li></ul>",
             },
           },
         },
@@ -4233,27 +4288,27 @@ const createActivityRoute = createRoute({
   responses: {
     201: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Activity created successfully',
+      description: "Activity created successfully",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Failed to create activity',
+      description: "Failed to create activity",
     },
   },
 });
 
 app.openapi(createActivityRoute, async (c) => {
   try {
-    const data = c.req.valid('json');
-    const authUser = c.get('user');
+    const data = c.req.valid("json");
+    const authUser = c.get("user");
 
     // Add createdBy from authenticated user
     const activityData = {
@@ -4267,34 +4322,34 @@ app.openapi(createActivityRoute, async (c) => {
       {
         success: true,
         data: activity,
-        message: 'Activity created successfully',
+        message: "Activity created successfully",
       },
-      201
+      201,
     );
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to create activity',
+        error: "Failed to create activity",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 const updateActivityRoute = createRoute({
-  method: 'patch',
-  path: '/activities/{activityId}',
-  tags: ['Admin - Activities'],
-  summary: 'Update activity',
+  method: "patch",
+  path: "/activities/{activityId}",
+  tags: ["Admin - Activities"],
+  summary: "Update activity",
   request: {
     params: z.object({
       activityId: z.string().min(1),
     }),
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: UpdateActivitySchema,
         },
       },
@@ -4303,43 +4358,43 @@ const updateActivityRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Activity updated successfully',
+      description: "Activity updated successfully",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Failed to update activity',
+      description: "Failed to update activity",
     },
   },
 });
 
 app.openapi(updateActivityRoute, async (c) => {
   try {
-    const { activityId } = c.req.valid('param');
-    const data = c.req.valid('json');
-    const authUser = c.get('user');
+    const { activityId } = c.req.valid("param");
+    const data = c.req.valid("json");
+    const authUser = c.get("user");
 
     // Check if admin can modify this activity
     const permissionCheck = await ActivityService.canAdminModifyActivity(
       activityId,
-      authUser.id
+      authUser.id,
     );
 
     if (!permissionCheck.canModify) {
       return c.json(
         {
           success: false,
-          error: 'Permission denied',
+          error: "Permission denied",
           details: permissionCheck.reason,
         },
-        403
+        403,
       );
     }
 
@@ -4354,27 +4409,27 @@ app.openapi(updateActivityRoute, async (c) => {
     return c.json({
       success: true,
       data: activity,
-      message: 'Activity updated successfully',
+      message: "Activity updated successfully",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to update activity',
+        error: "Failed to update activity",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 // Get User Activity Exclusions
 const getUserExclusionsRoute = createRoute({
-  method: 'get',
-  path: '/users/{userId}/activity-exclusions',
-  tags: ['Admin - User Activity Exclusions'],
-  summary: 'Get user activity exclusions',
-  description: 'Retrieve all activities this user is excluded from',
+  method: "get",
+  path: "/users/{userId}/activity-exclusions",
+  tags: ["Admin - User Activity Exclusions"],
+  summary: "Get user activity exclusions",
+  description: "Retrieve all activities this user is excluded from",
   request: {
     params: z.object({
       userId: z.string().min(1),
@@ -4383,18 +4438,18 @@ const getUserExclusionsRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'User exclusions retrieved successfully',
+      description: "User exclusions retrieved successfully",
     },
   },
 });
 
 app.openapi(getUserExclusionsRoute, async (c) => {
   try {
-    const { userId } = c.req.valid('param');
+    const { userId } = c.req.valid("param");
 
     const exclusions =
       await UserActivityExclusionService.getUserExclusions(userId);
@@ -4407,10 +4462,10 @@ app.openapi(getUserExclusionsRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve user exclusions',
+        error: "Failed to retrieve user exclusions",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
@@ -4421,16 +4476,16 @@ app.openapi(getUserExclusionsRoute, async (c) => {
 
 // Create Email Template (Super Admin Only)
 const createTemplateRoute = createRoute({
-  method: 'post',
-  path: '/templates',
-  tags: ['Admin - Email Templates'],
-  summary: 'Create email template (Super Admin only)',
+  method: "post",
+  path: "/templates",
+  tags: ["Admin - Email Templates"],
+  summary: "Create email template (Super Admin only)",
   description:
-    'Create a new email template for communication or authentication',
+    "Create a new email template for communication or authentication",
   request: {
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: CreateTemplateSchema,
         },
       },
@@ -4439,27 +4494,27 @@ const createTemplateRoute = createRoute({
   responses: {
     201: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Template created successfully',
+      description: "Template created successfully",
     },
     403: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Permission denied - Super Admin only',
+      description: "Permission denied - Super Admin only",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Template creation failed',
+      description: "Template creation failed",
     },
   },
 });
@@ -4471,14 +4526,14 @@ app.openapi(createTemplateRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Invalid template payload',
+          error: "Invalid template payload",
           details: parsedBody.error.flatten(),
         },
-        400
+        400,
       );
     }
     const data = parsedBody.data;
-    const authUser = c.get('user');
+    const authUser = c.get("user");
     if (
       !data.eventId ||
       !data.name ||
@@ -4490,9 +4545,9 @@ app.openapi(createTemplateRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Missing required template fields',
+          error: "Missing required template fields",
         },
-        400
+        400,
       );
     }
 
@@ -4510,59 +4565,59 @@ app.openapi(createTemplateRoute, async (c) => {
       {
         success: true,
         data: template,
-        message: 'Email template created successfully',
+        message: "Email template created successfully",
       },
-      201
+      201,
     );
   } catch (error: any) {
-    const statusCode = error.message.includes('Only super administrators')
+    const statusCode = error.message.includes("Only super administrators")
       ? 403
       : 400;
     return c.json(
       {
         success: false,
-        error: 'Failed to create template',
+        error: "Failed to create template",
         details: error.message,
       },
-      statusCode
+      statusCode,
     );
   }
 });
 
 // Get Templates by Event
 const getTemplatesRoute = createRoute({
-  method: 'get',
-  path: '/events/{eventId}/templates',
-  tags: ['Admin - Email Templates'],
-  summary: 'Get event templates with role-based filtering',
+  method: "get",
+  path: "/events/{eventId}/templates",
+  tags: ["Admin - Email Templates"],
+  summary: "Get event templates with role-based filtering",
   description:
-    'Retrieve templates for an event - authentication templates only visible to super admin',
+    "Retrieve templates for an event - authentication templates only visible to super admin",
   request: {
     params: z.object({
       eventId: z.string().min(1),
     }),
     query: z.object({
-      type: z.enum(['COMMUNICATION', 'AUTHENTICATION']).optional(),
+      type: z.enum(["COMMUNICATION", "AUTHENTICATION"]).optional(),
       category: z.string().optional(),
     }),
   },
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Templates retrieved successfully',
+      description: "Templates retrieved successfully",
     },
   },
 });
 
 app.openapi(getTemplatesRoute, async (c) => {
   try {
-    const { eventId } = c.req.valid('param');
-    const { type, category } = c.req.valid('query');
-    const authUser = c.get('user');
+    const { eventId } = c.req.valid("param");
+    const { type, category } = c.req.valid("query");
+    const authUser = c.get("user");
 
     // Get all templates for the event
     let templates = await TemplateService.findByEventId(eventId, {
@@ -4571,9 +4626,9 @@ app.openapi(getTemplatesRoute, async (c) => {
     });
 
     // Filter based on admin role - only super admin sees authentication templates
-    if (authUser.role !== 'superadmin') {
+    if (authUser.role !== "superadmin") {
       templates = templates.filter(
-        (template) => template.type === 'COMMUNICATION'
+        (template) => template.type === "COMMUNICATION",
       );
     }
 
@@ -4585,28 +4640,28 @@ app.openapi(getTemplatesRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve templates',
+        error: "Failed to retrieve templates",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 // Update Template (Super Admin Only)
 const updateTemplateRoute = createRoute({
-  method: 'put',
-  path: '/templates/{templateId}',
-  tags: ['Admin - Email Templates'],
-  summary: 'Update email template (Super Admin only)',
-  description: 'Update an existing email template',
+  method: "put",
+  path: "/templates/{templateId}",
+  tags: ["Admin - Email Templates"],
+  summary: "Update email template (Super Admin only)",
+  description: "Update an existing email template",
   request: {
     params: z.object({
       templateId: z.string().min(1),
     }),
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: UpdateTemplateSchema,
         },
       },
@@ -4615,62 +4670,62 @@ const updateTemplateRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Template updated successfully',
+      description: "Template updated successfully",
     },
     403: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Permission denied - Super Admin only',
+      description: "Permission denied - Super Admin only",
     },
   },
 });
 
 app.openapi(updateTemplateRoute, async (c) => {
   try {
-    const { templateId } = c.req.valid('param');
-    const data = c.req.valid('json');
-    const authUser = c.get('user');
+    const { templateId } = c.req.valid("param");
+    const data = c.req.valid("json");
+    const authUser = c.get("user");
 
     const template = await TemplateService.update(
       templateId,
       data,
-      authUser.id
+      authUser.id,
     );
 
     return c.json({
       success: true,
       data: template,
-      message: 'Template updated successfully',
+      message: "Template updated successfully",
     });
   } catch (error: any) {
-    const statusCode = error.message.includes('Only super administrators')
+    const statusCode = error.message.includes("Only super administrators")
       ? 403
       : 400;
     return c.json(
       {
         success: false,
-        error: 'Failed to update template',
+        error: "Failed to update template",
         details: error.message,
       },
-      statusCode
+      statusCode,
     );
   }
 });
 
 // Delete Template (Super Admin Only)
 const deleteTemplateRoute = createRoute({
-  method: 'delete',
-  path: '/templates/{templateId}',
-  tags: ['Admin - Email Templates'],
-  summary: 'Delete email template (Super Admin only)',
-  description: 'Soft delete an email template',
+  method: "delete",
+  path: "/templates/{templateId}",
+  tags: ["Admin - Email Templates"],
+  summary: "Delete email template (Super Admin only)",
+  description: "Soft delete an email template",
   request: {
     params: z.object({
       templateId: z.string().min(1),
@@ -4679,63 +4734,63 @@ const deleteTemplateRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Template deleted successfully',
+      description: "Template deleted successfully",
     },
     403: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Permission denied - Super Admin only',
+      description: "Permission denied - Super Admin only",
     },
   },
 });
 
 app.openapi(deleteTemplateRoute, async (c) => {
   try {
-    const { templateId } = c.req.valid('param');
-    const authUser = c.get('user');
+    const { templateId } = c.req.valid("param");
+    const authUser = c.get("user");
 
     await TemplateService.delete(templateId, authUser.id);
 
     return c.json({
       success: true,
-      message: 'Template deleted successfully',
+      message: "Template deleted successfully",
     });
   } catch (error: any) {
-    const statusCode = error.message.includes('Only super administrators')
+    const statusCode = error.message.includes("Only super administrators")
       ? 403
       : 400;
     return c.json(
       {
         success: false,
-        error: 'Failed to delete template',
+        error: "Failed to delete template",
         details: error.message,
       },
-      statusCode
+      statusCode,
     );
   }
 });
 
 // Test Template
 const testTemplateRoute = createRoute({
-  method: 'post',
-  path: '/templates/{templateId}/test',
-  tags: ['Admin - Email Templates'],
-  summary: 'Send test email using template',
-  description: 'Send a test email to verify template functionality',
+  method: "post",
+  path: "/templates/{templateId}/test",
+  tags: ["Admin - Email Templates"],
+  summary: "Send test email using template",
+  description: "Send a test email to verify template functionality",
   request: {
     params: z.object({
       templateId: z.string().min(1),
     }),
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: TestTemplateSchema,
         },
       },
@@ -4744,42 +4799,42 @@ const testTemplateRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Test email sent successfully',
+      description: "Test email sent successfully",
     },
     403: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Access denied',
+      description: "Access denied",
     },
   },
 });
 
 app.openapi(testTemplateRoute, async (c) => {
   try {
-    const { templateId } = c.req.valid('param');
-    const { recipientEmail, variables = {} } = c.req.valid('json');
-    const authUser = c.get('user');
+    const { templateId } = c.req.valid("param");
+    const { recipientEmail, variables = {} } = c.req.valid("json");
+    const authUser = c.get("user");
 
     // Check if admin can access this template
     const accessCheck = await TemplateService.checkAccess(
       templateId,
-      authUser.id
+      authUser.id,
     );
     if (!accessCheck.canAccess) {
       return c.json(
         {
           success: false,
-          error: 'Access denied',
-          details: 'You do not have permission to access this template',
+          error: "Access denied",
+          details: "You do not have permission to access this template",
         },
-        403
+        403,
       );
     }
 
@@ -4788,14 +4843,14 @@ app.openapi(testTemplateRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Template not found',
+          error: "Template not found",
         },
-        404
+        404,
       );
     }
 
     // Send test email
-    const { EmailService } = await import('../services/email.js');
+    const { EmailService } = await import("../services/email.js");
     const emailResult = await EmailService.sendEmail(
       recipientEmail,
       {
@@ -4805,46 +4860,46 @@ app.openapi(testTemplateRoute, async (c) => {
       {
         ...variables,
         // Default test variables
-        firstName: 'Test',
-        lastName: 'User',
-        eventName: 'Test Event',
-        magicLink: 'https://example.com/test-link',
-      }
+        firstName: "Test",
+        lastName: "User",
+        eventName: "Test Event",
+        magicLink: "https://example.com/test-link",
+      },
     );
 
     return c.json({
       success: emailResult.success,
       message: emailResult.success
-        ? 'Test email sent successfully'
-        : 'Test email failed',
+        ? "Test email sent successfully"
+        : "Test email failed",
       details: emailResult.error,
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to send test email',
+        error: "Failed to send test email",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 // Send Template-Based Communication
 const sendTemplateCommunicationRoute = createRoute({
-  method: 'post',
-  path: '/communications/send-template',
-  tags: ['Admin - Communications'],
-  summary: 'Send template-based communication',
-  description: 'Send emails using templates with role-based access control',
+  method: "post",
+  path: "/communications/send-template",
+  tags: ["Admin - Communications"],
+  summary: "Send template-based communication",
+  description: "Send emails using templates with role-based access control",
   request: {
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             templateId: z.string().min(1),
-            recipientType: z.enum(['individual', 'group', 'all']),
+            recipientType: z.enum(["individual", "group", "all"]),
             recipientIds: z.array(z.string()).optional(),
             variables: z.record(z.string()).optional(),
             adminId: z.string().min(1),
@@ -4856,19 +4911,19 @@ const sendTemplateCommunicationRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Message sent successfully',
+      description: "Message sent successfully",
     },
     403: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Access denied',
+      description: "Access denied",
     },
   },
 });
@@ -4878,7 +4933,7 @@ app.openapi(sendTemplateCommunicationRoute, async (c) => {
     const parsedBody = z
       .object({
         templateId: z.string().min(1),
-        recipientType: z.enum(['individual', 'group', 'all']),
+        recipientType: z.enum(["individual", "group", "all"]),
         recipientIds: z.array(z.string()).optional(),
         variables: z.record(z.string()).optional(),
         adminId: z.string().min(1),
@@ -4888,10 +4943,10 @@ app.openapi(sendTemplateCommunicationRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Invalid template communication payload',
+          error: "Invalid template communication payload",
           details: parsedBody.error.flatten(),
         },
-        400
+        400,
       );
     }
     const data = parsedBody.data;
@@ -4913,26 +4968,26 @@ app.openapi(sendTemplateCommunicationRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to send message',
+        error: "Failed to send message",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 // Send Template Email from CSV (Admin)
 const sendCsvTemplateCommunicationRoute = createRoute({
-  method: 'post',
-  path: '/communications/send-csv',
-  tags: ['Admin - Communications'],
-  summary: 'Send template emails to CSV recipients (no DB required)',
+  method: "post",
+  path: "/communications/send-csv",
+  tags: ["Admin - Communications"],
+  summary: "Send template emails to CSV recipients (no DB required)",
   description:
-    'Send template-based emails to arbitrary recipients from CSV. All CSV columns become template variables.',
+    "Send template-based emails to arbitrary recipients from CSV. All CSV columns become template variables.",
   request: {
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             templateId: z.string(),
             csvRecipients: z.array(z.record(z.any())),
@@ -4940,12 +4995,12 @@ const sendCsvTemplateCommunicationRoute = createRoute({
             enableTracking: z.boolean().optional().default(false),
           }),
           example: {
-            templateId: '123abc',
+            templateId: "123abc",
             csvRecipients: [
-              { email: 'user1@test.com', firstName: 'John', code: 'ABC123' },
-              { email: 'user2@test.com', firstName: 'Jane', code: 'XYZ789' },
+              { email: "user1@test.com", firstName: "John", code: "ABC123" },
+              { email: "user2@test.com", firstName: "Jane", code: "XYZ789" },
             ],
-            adminId: 'admin123',
+            adminId: "admin123",
             enableTracking: false,
           },
         },
@@ -4955,19 +5010,19 @@ const sendCsvTemplateCommunicationRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Emails sent successfully',
+      description: "Emails sent successfully",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Failed to send emails',
+      description: "Failed to send emails",
     },
   },
 });
@@ -4986,10 +5041,10 @@ app.openapi(sendCsvTemplateCommunicationRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Invalid CSV communication payload',
+          error: "Invalid CSV communication payload",
           details: parsedBody.error.flatten(),
         },
-        400
+        400,
       );
     }
     const data = parsedBody.data;
@@ -5004,7 +5059,7 @@ app.openapi(sendCsvTemplateCommunicationRoute, async (c) => {
       adminId: data.adminId,
       enableTracking: data.enableTracking,
     }).catch((error) => {
-      console.error('CSV email sending failed:', error);
+      console.error("CSV email sending failed:", error);
     });
 
     // Return immediate success response
@@ -5013,36 +5068,36 @@ app.openapi(sendCsvTemplateCommunicationRoute, async (c) => {
       message: `CSV email job started for ${data.csvRecipients.length} recipients. Refresh the communications page later to see results.`,
       data: {
         totalRecipients: data.csvRecipients.length,
-        status: 'processing',
+        status: "processing",
       },
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to start CSV email job',
+        error: "Failed to start CSV email job",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
 
 // Get Message Detail with All Recipients (Admin)
 const getMessageDetailRoute = createRoute({
-  method: 'get',
-  path: '/messages/{messageId}/detail',
-  tags: ['Admin - Communications'],
-  summary: 'Get detailed message with all recipients and delivery status',
+  method: "get",
+  path: "/messages/{messageId}/detail",
+  tags: ["Admin - Communications"],
+  summary: "Get detailed message with all recipients and delivery status",
   request: {
     params: z.object({
-      messageId: z.string().min(1, 'Message ID is required'),
+      messageId: z.string().min(1, "Message ID is required"),
     }),
   },
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             success: z.boolean(),
             data: z.object({
@@ -5079,12 +5134,12 @@ const getMessageDetailRoute = createRoute({
                   firstName: z.string(),
                   lastName: z.string(),
                   groupName: z.string().nullable(),
-                  status: z.enum(['sent', 'delivered', 'failed', 'pending']),
+                  status: z.enum(["sent", "delivered", "failed", "pending"]),
                   sentAt: z.string().nullable(),
                   openedAt: z.string().nullable(),
                   error: z.string().nullable(),
                   trackingEnabled: z.boolean(),
-                })
+                }),
               ),
               summary: z.object({
                 totalRecipients: z.number(),
@@ -5098,22 +5153,22 @@ const getMessageDetailRoute = createRoute({
           }),
         },
       },
-      description: 'Communication log details retrieved successfully',
+      description: "Communication log details retrieved successfully",
     },
     404: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Communication log not found',
+      description: "Communication log not found",
     },
   },
 });
 
 app.openapi(getMessageDetailRoute, async (c) => {
   try {
-    const { messageId } = c.req.valid('param');
+    const { messageId } = c.req.valid("param");
 
     // Get the message with all related data
     const message = await prisma.message.findUnique({
@@ -5149,9 +5204,9 @@ app.openapi(getMessageDetailRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Message not found',
+          error: "Message not found",
         },
-        404
+        404,
       );
     }
 
@@ -5171,20 +5226,21 @@ app.openapi(getMessageDetailRoute, async (c) => {
       // Use deliveries data (preferred method)
       recipients = deliveries.map((delivery: any) => {
         const tracking = message.emailTracking.find(
-          (t) => t.userId === delivery.user
+          (t) => t.userId === delivery.user,
         );
         const userProfile = getUserProfile(tracking?.user);
 
         return {
           userId: delivery.user,
-          email: delivery.userEmail || userProfile.email || '',
-          firstName: delivery.userName?.split(' ')[0] || userProfile.firstName || '',
+          email: delivery.userEmail || userProfile.email || "",
+          firstName:
+            delivery.userName?.split(" ")[0] || userProfile.firstName || "",
           lastName:
-            delivery.userName?.split(' ').slice(1).join(' ') ||
+            delivery.userName?.split(" ").slice(1).join(" ") ||
             userProfile.lastName ||
-            '',
+            "",
           groupName: null, // TODO: Implement multi-group name resolution if needed
-          status: delivery.email?.sent ? 'sent' : 'failed',
+          status: delivery.email?.sent ? "sent" : "failed",
           sentAt: delivery.email?.sentAt || null,
           openedAt: tracking?.opened ? tracking.openedAt : null,
           error: delivery.email?.error || null,
@@ -5216,16 +5272,16 @@ app.openapi(getMessageDetailRoute, async (c) => {
       recipients = communicationLogs.map((log) => {
         const userProfile = getUserProfile(log.user);
         const tracking = message.emailTracking.find(
-          (t) => t.userId === log.userId
+          (t) => t.userId === log.userId,
         );
 
         return {
           userId: log.userId,
-          email: userProfile.email || '',
-          firstName: userProfile.firstName || '',
-          lastName: userProfile.lastName || '',
+          email: userProfile.email || "",
+          firstName: userProfile.firstName || "",
+          lastName: userProfile.lastName || "",
           groupName: null, // TODO: Implement multi-group name resolution if needed
-          status: log.status as 'sent' | 'failed' | 'pending',
+          status: log.status as "sent" | "failed" | "pending",
           sentAt: log.sentAt.toISOString(),
           openedAt: tracking?.opened ? tracking.openedAt : null,
           error: log.error || null,
@@ -5235,8 +5291,8 @@ app.openapi(getMessageDetailRoute, async (c) => {
     }
 
     // Calculate summary stats
-    const sentCount = recipients.filter((r) => r.status === 'sent').length;
-    const failedCount = recipients.filter((r) => r.status === 'failed').length;
+    const sentCount = recipients.filter((r) => r.status === "sent").length;
+    const failedCount = recipients.filter((r) => r.status === "failed").length;
     const openedCount = recipients.filter((r) => r.openedAt).length;
     const groups = [
       ...new Set(recipients.map((r) => r.groupName).filter(Boolean)),
@@ -5245,23 +5301,23 @@ app.openapi(getMessageDetailRoute, async (c) => {
     const messageDetail = {
       log: {
         id: message.id,
-        type: message.type || 'COMMUNICATION',
-        channel: 'email',
+        type: message.type || "COMMUNICATION",
+        channel: "email",
         purpose:
-          message.template?.type === 'AUTHENTICATION'
-            ? 'authentication'
-            : 'communication',
+          message.template?.type === "AUTHENTICATION"
+            ? "authentication"
+            : "communication",
         subject:
-          message.emailSubject || message.template?.subject || 'Untitled',
+          message.emailSubject || message.template?.subject || "Untitled",
         recipientType: message.recipientType.toLowerCase(),
-        status: message.status || 'sent',
+        status: message.status || "sent",
         sentAt: message.createdAt,
         event: message.event,
         admin: admin || {
           id: message.sentBy,
-          firstName: 'Unknown',
-          lastName: 'Admin',
-          email: '',
+          firstName: "Unknown",
+          lastName: "Admin",
+          email: "",
         },
       },
       recipients,
@@ -5280,29 +5336,29 @@ app.openapi(getMessageDetailRoute, async (c) => {
       data: messageDetail,
     });
   } catch (error: any) {
-    console.error('Failed to retrieve message detail:', error);
+    console.error("Failed to retrieve message detail:", error);
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve message details',
+        error: "Failed to retrieve message details",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 // Send Authentication Magic Link (Super Admin Only)
 const sendAuthenticationRoute = createRoute({
-  method: 'post',
-  path: '/auth/send-magic-link',
-  tags: ['Admin - Authentication'],
-  summary: 'Send magic link using authentication template (Super Admin only)',
-  description: 'Generate and send magic link using authentication template',
+  method: "post",
+  path: "/auth/send-magic-link",
+  tags: ["Admin - Authentication"],
+  summary: "Send magic link using authentication template (Super Admin only)",
+  description: "Generate and send magic link using authentication template",
   request: {
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             templateId: z.string().min(1),
             userId: z.string().min(1),
@@ -5316,50 +5372,50 @@ const sendAuthenticationRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Magic link sent successfully',
+      description: "Magic link sent successfully",
     },
     403: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Super Admin access required',
+      description: "Super Admin access required",
     },
   },
 });
 
 app.openapi(sendAuthenticationRoute, async (c) => {
   try {
-    const { templateId, userId, variables, adminId } = c.req.valid('json');
-    const authUser = c.get('user');
+    const { templateId, userId, variables, adminId } = c.req.valid("json");
+    const authUser = c.get("user");
 
     // Only super admin can send authentication emails
-    if (authUser.role !== 'superadmin') {
+    if (authUser.role !== "superadmin") {
       return c.json(
         {
           success: false,
-          error: 'Access denied',
-          details: 'Only super administrators can send authentication emails',
+          error: "Access denied",
+          details: "Only super administrators can send authentication emails",
         },
-        403
+        403,
       );
     }
 
     // Generate magic link for the user
-    const { UserService } = await import('../services/users.js');
+    const { UserService } = await import("../services/users.js");
     const user = await UserService.findById(userId);
     if (!user) {
       return c.json(
         {
           success: false,
-          error: 'User not found',
+          error: "User not found",
         },
-        404
+        404,
       );
     }
 
@@ -5368,12 +5424,14 @@ app.openapi(sendAuthenticationRoute, async (c) => {
     // Send using template with magic link variable
     const result = await CommunicationsService.sendTemplateEmail({
       templateId,
-      recipientType: 'individual',
+      recipientType: "individual",
       recipientIds: [userId],
       variables: {
         ...variables,
         magicLink: `${
-          process.env.FRONTEND_URL || process.env.APP_URL || 'https://demo.savvio.digital'
+          process.env.FRONTEND_URL ||
+          process.env.APP_URL ||
+          "https://demo.savvio.digital"
         }/auth/magic?token=${magicLink.token}&event=${user.eventId}`,
       },
       adminId,
@@ -5382,16 +5440,16 @@ app.openapi(sendAuthenticationRoute, async (c) => {
     return c.json({
       success: true,
       data: result,
-      message: 'Magic link sent successfully',
+      message: "Magic link sent successfully",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to send magic link',
+        error: "Failed to send magic link",
         details: error.message,
       },
-      400
+      400,
     );
   }
 });
@@ -5401,22 +5459,22 @@ app.openapi(sendAuthenticationRoute, async (c) => {
 // =============================================================================
 
 const generateUploadUrlRoute = createRoute({
-  method: 'post',
-  path: '/upload/presigned-url',
-  tags: ['Admin - File Upload'],
-  summary: 'Generate presigned URL for file upload',
+  method: "post",
+  path: "/upload/presigned-url",
+  tags: ["Admin - File Upload"],
+  summary: "Generate presigned URL for file upload",
   request: {
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             fileName: z.string().min(1),
             contentType: z.string().min(1),
             eventId: z.string().min(1),
             activityId: z.string().optional(),
             folder: z
-              .enum(['activities', 'events', 'assets'])
-              .default('activities'),
+              .enum(["activities", "events", "assets"])
+              .default("activities"),
           }),
         },
       },
@@ -5425,19 +5483,19 @@ const generateUploadUrlRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Presigned URL generated successfully',
+      description: "Presigned URL generated successfully",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Invalid file type or size',
+      description: "Invalid file type or size",
     },
   },
 });
@@ -5445,7 +5503,7 @@ const generateUploadUrlRoute = createRoute({
 app.openapi(generateUploadUrlRoute, async (c) => {
   try {
     const { fileName, contentType, eventId, activityId, folder } =
-      c.req.valid('json');
+      c.req.valid("json");
 
     // Validate file type for images
     if (!S3Service.isValidImageType(contentType)) {
@@ -5453,24 +5511,24 @@ app.openapi(generateUploadUrlRoute, async (c) => {
         {
           success: false,
           error:
-            'Invalid file type. Only JPEG, PNG, WebP, and GIF images are allowed.',
+            "Invalid file type. Only JPEG, PNG, WebP, and GIF images are allowed.",
         },
-        400
+        400,
       );
     }
 
     // Generate the appropriate folder path
     let folderPath: string;
     switch (folder) {
-      case 'activities':
+      case "activities":
         folderPath = `events/${eventId}/activities${
-          activityId ? `/${activityId}` : ''
+          activityId ? `/${activityId}` : ""
         }`;
         break;
-      case 'events':
+      case "events":
         folderPath = `events/${eventId}/assets`;
         break;
-      case 'assets':
+      case "assets":
         folderPath = `events/${eventId}/assets`;
         break;
       default:
@@ -5481,16 +5539,16 @@ app.openapi(generateUploadUrlRoute, async (c) => {
       fileName,
       contentType,
       folderPath,
-      3600 // 1 hour expiry
+      3600, // 1 hour expiry
     );
 
     if (!result.success) {
       return c.json(
         {
           success: false,
-          error: result.error || 'Failed to generate upload URL',
+          error: result.error || "Failed to generate upload URL",
         },
-        500
+        500,
       );
     }
 
@@ -5501,16 +5559,16 @@ app.openapi(generateUploadUrlRoute, async (c) => {
         fileUrl: result.fileUrl,
         key: result.key,
       },
-      message: 'Presigned URL generated successfully',
+      message: "Presigned URL generated successfully",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to generate upload URL',
+        error: "Failed to generate upload URL",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
@@ -5520,17 +5578,17 @@ app.openapi(generateUploadUrlRoute, async (c) => {
 // =============================================================================
 
 const importUsersRoute = createRoute({
-  method: 'post',
-  path: '/users/import',
-  tags: ['Admin - Data Import'],
-  summary: 'Import users from CSV file',
+  method: "post",
+  path: "/users/import",
+  tags: ["Admin - Data Import"],
+  summary: "Import users from CSV file",
   request: {
     query: z.object({
       eventId: z.string().min(1),
     }),
     body: {
       content: {
-        'multipart/form-data': {
+        "multipart/form-data": {
           schema: z.object({
             file: z.any(),
             entity: z.string().optional(),
@@ -5542,27 +5600,27 @@ const importUsersRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Import completed successfully',
+      description: "Import completed successfully",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Import failed',
+      description: "Import failed",
     },
   },
 });
 
 app.openapi(importUsersRoute, async (c) => {
   try {
-    const { eventId } = c.req.valid('query');
-    const authUser = c.get('user'); // [V3: FIXED — Task 2.7.2] importUsers must use authenticated admin context.
+    const { eventId } = c.req.valid("query");
+    const authUser = c.get("user"); // [V3: FIXED — Task 2.7.2] importUsers must use authenticated admin context.
     const body = await c.req.parseBody();
     const file = body.file as File;
 
@@ -5570,9 +5628,9 @@ app.openapi(importUsersRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'No file provided',
+          error: "No file provided",
         },
-        400
+        400,
       );
     }
 
@@ -5602,101 +5660,101 @@ app.openapi(importUsersRoute, async (c) => {
           if (!value) return;
 
           switch (header) {
-            case 'firstName':
+            case "firstName":
               userData.profile.firstName = value;
               break;
-            case 'lastName':
+            case "lastName":
               userData.profile.lastName = value;
               break;
-            case 'email':
+            case "email":
               userData.profile.email = value;
               break;
-            case 'phone':
+            case "phone":
               userData.profile.phone = value;
               break;
-            case 'dietaryRequirements':
+            case "dietaryRequirements":
               userData.requirements.dietary = value;
               break;
-            case 'medicalRequirements':
+            case "medicalRequirements":
               userData.requirements.medical = value;
               break;
-            case 'accessibilityRequirements':
+            case "accessibilityRequirements":
               userData.requirements.accessibility = value;
               break;
-            case 'accommodationRequired':
+            case "accommodationRequired":
               userData.accommodation.required =
-                value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
+                value.toLowerCase() === "yes" || value.toLowerCase() === "true";
               break;
-            case 'hotel':
+            case "hotel":
               userData.accommodation.hotel = value;
               break;
-            case 'checkInDate':
+            case "checkInDate":
               userData.accommodation.checkIn = value; // 🎯 FIX: Keep ISO string as-is, no conversion
               break;
-            case 'checkOutDate':
+            case "checkOutDate":
               userData.accommodation.checkOut = value; // 🎯 FIX: Keep ISO string as-is, no conversion
               break;
-            case 'flightArrival':
+            case "flightArrival":
               userData.flight.arrival = new Date(value);
               break;
-            case 'flightDeparture':
+            case "flightDeparture":
               userData.flight.departure = new Date(value);
               break;
-            case 'arrivalAirport':
+            case "arrivalAirport":
               userData.flight.arrivalAirport = value;
               break;
-            case 'departureAirport':
+            case "departureAirport":
               userData.flight.departureAirport = value;
               break;
-            case 'airline':
+            case "airline":
               userData.flight.airline = value;
               break;
-            case 'flightNumber':
+            case "flightNumber":
               userData.flight.number = value;
               break;
-            case 'emergencyContactName':
+            case "emergencyContactName":
               userData.emergencyContact.name = value;
               break;
-            case 'emergencyContactPhone':
+            case "emergencyContactPhone":
               userData.emergencyContact.phone = value;
               break;
-            case 'emergencyContactEmail':
+            case "emergencyContactEmail":
               userData.emergencyContact.email = value;
               break;
-            case 'emergencyContactRelationship':
+            case "emergencyContactRelationship":
               userData.emergencyContact.relationship = value;
               break;
-            case 'transferRequirements':
+            case "transferRequirements":
               userData.transferRequirements =
-                value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
+                value.toLowerCase() === "yes" || value.toLowerCase() === "true";
               break;
-            case 'gpTransfersRequired':
+            case "gpTransfersRequired":
               userData.gpTransfersRequired =
-                value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
+                value.toLowerCase() === "yes" || value.toLowerCase() === "true";
               break;
-            case 'eventTransfersRequired':
+            case "eventTransfersRequired":
               userData.eventTransfersRequired =
-                value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
+                value.toLowerCase() === "yes" || value.toLowerCase() === "true";
               break;
-            case 'specialRequests':
+            case "specialRequests":
               userData.requirements.specialRequests = value;
               break;
-            case 'shirtSize':
+            case "shirtSize":
               userData.merchandiseSize.shirt = value;
               break;
-            case 'jacketSize':
+            case "jacketSize":
               userData.merchandiseSize.jacket = value;
               break;
-            case 'hatSize':
+            case "hatSize":
               userData.merchandiseSize.hat = value;
               break;
-            case 'emailOptIn':
+            case "emailOptIn":
               userData.communication.emailOptIn =
-                value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
+                value.toLowerCase() === "yes" || value.toLowerCase() === "true";
               break;
-            case 'whatsappOptIn':
+            case "whatsappOptIn":
               userData.communication.whatsappOptIn =
-                value.toLowerCase() === 'yes' || value.toLowerCase() === 'true';
+                value.toLowerCase() === "yes" || value.toLowerCase() === "true";
               break;
           }
         });
@@ -5708,7 +5766,7 @@ app.openapi(importUsersRoute, async (c) => {
           !userData.profile.lastName
         ) {
           errors.push(
-            `Row ${i + 2}: Missing required fields (firstName, lastName, email)`
+            `Row ${i + 2}: Missing required fields (firstName, lastName, email)`,
           );
           continue;
         }
@@ -5716,85 +5774,85 @@ app.openapi(importUsersRoute, async (c) => {
         const formResponses: Array<{ fieldName: string; value: string }> = [];
         if (userData.profile.firstName) {
           formResponses.push({
-            fieldName: 'firstName',
+            fieldName: "firstName",
             value: userData.profile.firstName,
           });
         }
         if (userData.profile.lastName) {
           formResponses.push({
-            fieldName: 'lastName',
+            fieldName: "lastName",
             value: userData.profile.lastName,
           });
         }
         if (userData.profile.phone) {
           formResponses.push({
-            fieldName: 'phone',
+            fieldName: "phone",
             value: userData.profile.phone,
           });
         }
         if (userData.requirements.dietary) {
           formResponses.push({
-            fieldName: 'dietaryRequirements',
+            fieldName: "dietaryRequirements",
             value: userData.requirements.dietary,
           });
         }
         if (userData.requirements.medical) {
           formResponses.push({
-            fieldName: 'medicalRequirements',
+            fieldName: "medicalRequirements",
             value: userData.requirements.medical,
           });
         }
         if (userData.requirements.accessibility) {
           formResponses.push({
-            fieldName: 'accessibilityRequirements',
+            fieldName: "accessibilityRequirements",
             value: userData.requirements.accessibility,
           });
         }
         if (userData.requirements.specialRequests) {
           formResponses.push({
-            fieldName: 'specialRequests',
+            fieldName: "specialRequests",
             value: userData.requirements.specialRequests,
           });
         }
         if (userData.merchandiseSize.shirt) {
           formResponses.push({
-            fieldName: 'shirtSize',
+            fieldName: "shirtSize",
             value: userData.merchandiseSize.shirt,
           });
         }
         if (userData.merchandiseSize.jacket) {
           formResponses.push({
-            fieldName: 'jacketSize',
+            fieldName: "jacketSize",
             value: userData.merchandiseSize.jacket,
           });
         }
         if (userData.merchandiseSize.hat) {
           formResponses.push({
-            fieldName: 'hatSize',
+            fieldName: "hatSize",
             value: userData.merchandiseSize.hat,
           });
         }
         if (userData.emergencyContact.name) {
           formResponses.push({
-            fieldName: 'emergencyContactName',
+            fieldName: "emergencyContactName",
             value: userData.emergencyContact.name,
           });
         }
         if (userData.emergencyContact.phone) {
           formResponses.push({
-            fieldName: 'emergencyContactPhone',
+            fieldName: "emergencyContactPhone",
             value: userData.emergencyContact.phone,
           });
         }
         if (userData.emergencyContact.email) {
           formResponses.push({
-            fieldName: 'emergencyContactEmail',
+            fieldName: "emergencyContactEmail",
             value: userData.emergencyContact.email,
           });
         }
         if (userData.emergencyContact.relationship) {
           formResponses.push({
-            fieldName: 'emergencyContactRelationship',
+            fieldName: "emergencyContactRelationship",
             value: userData.emergencyContact.relationship,
           });
         }
@@ -5827,13 +5885,13 @@ app.openapi(importUsersRoute, async (c) => {
 
     // Log bulk import operation
     await AuditTrailService.logImport(
-      'User',
+      "User",
       dataRows.length,
       imported,
       errors.length,
       authUser.id,
       eventId,
-      file.name
+      file.name,
     );
 
     return c.json({
@@ -5849,26 +5907,26 @@ app.openapi(importUsersRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Import failed',
+        error: "Import failed",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const importGroupsRoute = createRoute({
-  method: 'post',
-  path: '/groups/import',
-  tags: ['Admin - Data Import'],
-  summary: 'Import groups from CSV file',
+  method: "post",
+  path: "/groups/import",
+  tags: ["Admin - Data Import"],
+  summary: "Import groups from CSV file",
   request: {
     query: z.object({
       eventId: z.string().min(1),
     }),
     body: {
       content: {
-        'multipart/form-data': {
+        "multipart/form-data": {
           schema: z.object({
             file: z.any(),
             entity: z.string().optional(),
@@ -5880,26 +5938,26 @@ const importGroupsRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Import completed successfully',
+      description: "Import completed successfully",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Import failed',
+      description: "Import failed",
     },
   },
 });
 
 app.openapi(importGroupsRoute, async (c) => {
   try {
-    const { eventId } = c.req.valid('query');
+    const { eventId } = c.req.valid("query");
     const body = await c.req.parseBody();
     const file = body.file as File;
 
@@ -5907,9 +5965,9 @@ app.openapi(importGroupsRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'No file provided',
+          error: "No file provided",
         },
-        400
+        400,
       );
     }
 
@@ -5929,21 +5987,21 @@ app.openapi(importGroupsRoute, async (c) => {
           if (!value) return;
 
           switch (header) {
-            case 'name':
+            case "name":
               groupData.name = value;
               break;
-            case 'description':
+            case "description":
               groupData.description = value;
               break;
-            case 'capacity':
+            case "capacity":
               groupData.capacity = parseInt(value) || 0;
               break;
-            case 'category':
+            case "category":
               groupData.category = value;
               break;
-            case 'assignedMembers':
+            case "assignedMembers":
               groupData.assignedMembers = value
-                .split(',')
+                .split(",")
                 .map((email) => email.trim());
               break;
           }
@@ -5957,7 +6015,7 @@ app.openapi(importGroupsRoute, async (c) => {
         const createGroupData = {
           eventId,
           name: groupData.name,
-          description: groupData.description || '',
+          description: groupData.description || "",
         };
 
         await GroupService.create(createGroupData);
@@ -5980,26 +6038,26 @@ app.openapi(importGroupsRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Import failed',
+        error: "Import failed",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const importActivitiesRoute = createRoute({
-  method: 'post',
-  path: '/activities/import',
-  tags: ['Admin - Data Import'],
-  summary: 'Import activities from CSV file',
+  method: "post",
+  path: "/activities/import",
+  tags: ["Admin - Data Import"],
+  summary: "Import activities from CSV file",
   request: {
     query: z.object({
       eventId: z.string().min(1),
     }),
     body: {
       content: {
-        'multipart/form-data': {
+        "multipart/form-data": {
           schema: z.object({
             file: z.any(),
             entity: z.string().optional(),
@@ -6011,37 +6069,37 @@ const importActivitiesRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Import completed successfully',
+      description: "Import completed successfully",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Import failed',
+      description: "Import failed",
     },
   },
 });
 
 app.openapi(importActivitiesRoute, async (c) => {
   try {
-    const { eventId } = c.req.valid('query');
+    const { eventId } = c.req.valid("query");
     const body = await c.req.parseBody();
     const file = body.file as File;
-    const authUser = c.get('user');
+    const authUser = c.get("user");
 
     if (!file) {
       return c.json(
         {
           success: false,
-          error: 'No file provided',
+          error: "No file provided",
         },
-        400
+        400,
       );
     }
 
@@ -6054,7 +6112,7 @@ app.openapi(importActivitiesRoute, async (c) => {
       limit: 1000,
     });
     const groupLookup = new Map(
-      groups.items.map((g) => [g.name.toLowerCase(), g.id])
+      groups.items.map((g) => [g.name.toLowerCase(), g.id]),
     );
 
     let imported = 0;
@@ -6073,13 +6131,13 @@ app.openapi(importActivitiesRoute, async (c) => {
           if (!value) return;
 
           switch (header) {
-            case 'title':
+            case "title":
               activityData.title = value;
               break;
-            case 'group':
+            case "group":
               // [V3: FIXED — Task 2.7.2] Normalize to current groupIds[] contract.
               const groupNames = value
-                .split(',')
+                .split(",")
                 .map((g) => g.trim())
                 .filter(Boolean);
               const resolvedGroupIds = groupNames
@@ -6095,34 +6153,34 @@ app.openapi(importActivitiesRoute, async (c) => {
               }
               if (resolvedGroupIds.length !== groupNames.length) {
                 errors.push(
-                  `Row ${i + 2}: One or more groups not found in "${value}"`
+                  `Row ${i + 2}: One or more groups not found in "${value}"`,
                 );
                 return;
               }
               activityData.groupIds = [...new Set(resolvedGroupIds)];
               break;
-            case 'startDateTime':
+            case "startDateTime":
               activityData.startDateTime = new Date(value);
               break;
-            case 'endDateTime':
+            case "endDateTime":
               activityData.endDateTime = new Date(value);
               break;
-            case 'location':
+            case "location":
               activityData.location.name = value;
               break;
-            case 'address':
+            case "address":
               activityData.location.address = value;
               break;
-            case 'category':
+            case "category":
               activityData.category = value.toUpperCase();
               break;
-            case 'description':
+            case "description":
               activityData.content = { html: value };
               break;
-            case 'thumbnail':
+            case "thumbnail":
               activityData.thumbnail = value;
               break;
-            case 'mapLink':
+            case "mapLink":
               activityData.location.mapLink = value;
               break;
           }
@@ -6138,7 +6196,7 @@ app.openapi(importActivitiesRoute, async (c) => {
           errors.push(
             `Row ${
               i + 2
-            }: Missing required fields (title, group, startDateTime, endDateTime)`
+            }: Missing required fields (title, group, startDateTime, endDateTime)`,
           );
           continue;
         }
@@ -6150,12 +6208,12 @@ app.openapi(importActivitiesRoute, async (c) => {
           startDateTime: activityData.startDateTime,
           endDateTime: activityData.endDateTime,
           thumbnail: activityData.thumbnail,
-          category: activityData.category || 'OTHER',
+          category: activityData.category || "OTHER",
           location:
             Object.keys(activityData.location).length > 0
               ? activityData.location
               : undefined,
-          content: activityData.content || { html: '' },
+          content: activityData.content || { html: "" },
           createdBy: authUser.id,
         };
 
@@ -6179,10 +6237,10 @@ app.openapi(importActivitiesRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Import failed',
+        error: "Import failed",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
@@ -6192,43 +6250,43 @@ app.openapi(importActivitiesRoute, async (c) => {
 // =============================================================================
 
 const getCommunicationLogsRoute = createRoute({
-  method: 'get',
-  path: '/users/{userId}/communication-logs',
-  tags: ['Admin - Communication Logs'],
-  summary: 'Get user communication logs',
+  method: "get",
+  path: "/users/{userId}/communication-logs",
+  tags: ["Admin - Communication Logs"],
+  summary: "Get user communication logs",
   request: {
     params: z.object({
       userId: z.string().min(1),
     }),
     query: PaginationSchema.extend({
-      type: z.enum(['email', 'whatsapp']).optional(),
+      type: z.enum(["email", "whatsapp"]).optional(),
       purpose: z
-        .enum(['group_assignment', 'event_reminder', 'custom', 'announcement'])
+        .enum(["group_assignment", "event_reminder", "custom", "announcement"])
         .optional(),
-      status: z.enum(['sent', 'delivered', 'failed', 'pending']).optional(),
+      status: z.enum(["sent", "delivered", "failed", "pending"]).optional(),
     }),
   },
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Communication logs retrieved successfully',
+      description: "Communication logs retrieved successfully",
     },
   },
 });
 
 app.openapi(getCommunicationLogsRoute, async (c) => {
   try {
-    const { userId } = c.req.valid('param');
-    const { page, limit, type, purpose, status } = c.req.valid('query');
+    const { userId } = c.req.valid("param");
+    const { page, limit, type, purpose, status } = c.req.valid("query");
 
     const result = await CommunicationLogService.findByUserId(
       userId,
       { page: page || 1, limit: limit || 20 },
-      { type, purpose, status }
+      { type, purpose, status },
     );
 
     return c.json({
@@ -6239,19 +6297,19 @@ app.openapi(getCommunicationLogsRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve communication logs',
+        error: "Failed to retrieve communication logs",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const getGroupNotificationStatsRoute = createRoute({
-  method: 'get',
-  path: '/groups/{groupId}/notification-stats',
-  tags: ['Admin - Groups'],
-  summary: 'Get group notification statistics',
+  method: "get",
+  path: "/groups/{groupId}/notification-stats",
+  tags: ["Admin - Groups"],
+  summary: "Get group notification statistics",
   request: {
     params: z.object({
       groupId: z.string().min(1),
@@ -6260,18 +6318,18 @@ const getGroupNotificationStatsRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Group notification stats retrieved successfully',
+      description: "Group notification stats retrieved successfully",
     },
   },
 });
 
 app.openapi(getGroupNotificationStatsRoute, async (c) => {
   try {
-    const { groupId } = c.req.valid('param');
+    const { groupId } = c.req.valid("param");
     const stats =
       await CommunicationLogService.getGroupNotificationStats(groupId);
 
@@ -6283,29 +6341,29 @@ app.openapi(getGroupNotificationStatsRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve notification stats',
+        error: "Failed to retrieve notification stats",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const sendGroupNotificationsRoute = createRoute({
-  method: 'post',
-  path: '/groups/{groupId}/send-notifications',
-  tags: ['Admin - Groups'],
-  summary: 'Send group assignment notifications to selected users',
+  method: "post",
+  path: "/groups/{groupId}/send-notifications",
+  tags: ["Admin - Groups"],
+  summary: "Send group assignment notifications to selected users",
   request: {
     params: z.object({
       groupId: z.string().min(1),
     }),
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             userIds: z.array(z.string()),
-            channel: z.enum(['email', 'whatsapp']).default('email'),
+            channel: z.enum(["email", "whatsapp"]).default("email"),
             customMessage: z.string().optional(),
           }),
         },
@@ -6315,43 +6373,20 @@ const sendGroupNotificationsRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Notifications sent successfully',
-    },
-    409: {
-      content: {
-        'application/json': {
-          schema: ApiErrorSchema.extend({
-            code: z.literal('DEFERRED_PHASE2_GROUP_NOTIFICATION'),
-          }),
-        },
-      },
-      description: '[V2] Group notifications are deferred in demo mode',
+      description: "Notifications sent successfully",
     },
   },
 });
 
 app.openapi(sendGroupNotificationsRoute, async (c) => {
   try {
-    if (env.DEMO_MODE) {
-      return c.json(
-        {
-          success: false,
-          code: 'DEFERRED_PHASE2_GROUP_NOTIFICATION',
-          error: 'Group notifications are deferred in Phase 1 demo mode',
-          details:
-            '[V2: FIXED — Task 2.7.3] Group notification sending is intentionally disabled in demo mode.',
-        },
-        409
-      );
-    }
-
-    const { groupId } = c.req.valid('param');
-    const { userIds, channel, customMessage } = c.req.valid('json');
-    const authUser = c.get('user');
+    const { groupId } = c.req.valid("param");
+    const { userIds, channel, customMessage } = c.req.valid("json");
+    const authUser = c.get("user");
 
     // Get group info for the message
     const group = await GroupService.findById(groupId);
@@ -6359,9 +6394,9 @@ app.openapi(sendGroupNotificationsRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Group not found',
+          error: "Group not found",
         },
-        404
+        404,
       );
     }
 
@@ -6370,9 +6405,9 @@ app.openapi(sendGroupNotificationsRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Event not found',
+          error: "Event not found",
         },
-        404
+        404,
       );
     }
 
@@ -6393,7 +6428,7 @@ app.openapi(sendGroupNotificationsRoute, async (c) => {
       group.eventId,
       authUser.id,
       channel,
-      content
+      content,
     );
 
     return c.json({
@@ -6412,19 +6447,19 @@ app.openapi(sendGroupNotificationsRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to send notifications',
+        error: "Failed to send notifications",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const getGroupMembersWithNotificationStatusRoute = createRoute({
-  method: 'get',
-  path: '/groups/{groupId}/members-with-status',
-  tags: ['Admin - Groups'],
-  summary: 'Get group members with notification status',
+  method: "get",
+  path: "/groups/{groupId}/members-with-status",
+  tags: ["Admin - Groups"],
+  summary: "Get group members with notification status",
   request: {
     params: z.object({
       groupId: z.string().min(1),
@@ -6434,20 +6469,20 @@ const getGroupMembersWithNotificationStatusRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
       description:
-        'Group members with notification status retrieved successfully',
+        "Group members with notification status retrieved successfully",
     },
   },
 });
 
 app.openapi(getGroupMembersWithNotificationStatusRoute, async (c) => {
   try {
-    const { groupId } = c.req.valid('param');
-    const { page, limit } = c.req.valid('query');
+    const { groupId } = c.req.valid("param");
+    const { page, limit } = c.req.valid("query");
 
     const result = await UserService.getUsersWithNotificationStatus(groupId, {
       page: page || 1,
@@ -6462,10 +6497,10 @@ app.openapi(getGroupMembersWithNotificationStatusRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve group members with status',
+        error: "Failed to retrieve group members with status",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
@@ -6475,27 +6510,27 @@ app.openapi(getGroupMembersWithNotificationStatusRoute, async (c) => {
 // =============================================================================
 
 const sendCommunicationRoute = createRoute({
-  method: 'post',
-  path: '/communications/send',
-  tags: ['Admin - Communications'],
-  summary: 'Send communication to users via email',
+  method: "post",
+  path: "/communications/send",
+  tags: ["Admin - Communications"],
+  summary: "Send communication to users via email",
   request: {
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             eventId: z.string().min(1),
-            recipientType: z.enum(['individual', 'group', 'all']),
+            recipientType: z.enum(["individual", "group", "all"]),
             recipientIds: z.array(z.string()).optional(),
             subject: z.string().min(1),
             content: z.string().min(1),
             templateType: z
               .enum([
-                'welcome',
-                'assignment',
-                'activity_update',
-                'announcement',
-                'custom',
+                "welcome",
+                "assignment",
+                "activity_update",
+                "announcement",
+                "custom",
               ])
               .optional(),
             variables: z.record(z.any()).optional(),
@@ -6507,11 +6542,11 @@ const sendCommunicationRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Communication sent successfully',
+      description: "Communication sent successfully",
     },
   },
 });
@@ -6521,18 +6556,18 @@ app.openapi(sendCommunicationRoute, async (c) => {
     const parsedBody = z
       .object({
         eventId: z.string().min(1),
-        recipientType: z.enum(['individual', 'group', 'all']),
+        recipientType: z.enum(["individual", "group", "all"]),
         recipientIds: z.array(z.string()).optional(),
         templateId: z.string().optional(),
         subject: z.string().optional(),
         content: z.string().optional(),
         templateType: z
           .enum([
-            'welcome',
-            'assignment',
-            'activity_update',
-            'announcement',
-            'custom',
+            "welcome",
+            "assignment",
+            "activity_update",
+            "announcement",
+            "custom",
           ])
           .optional(),
         variables: z.record(z.any()).optional(),
@@ -6542,14 +6577,14 @@ app.openapi(sendCommunicationRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Invalid communication payload',
+          error: "Invalid communication payload",
           details: parsedBody.error.flatten(),
         },
-        400
+        400,
       );
     }
     const body = parsedBody.data;
-    const authUser = c.get('user');
+    const authUser = c.get("user");
 
     const request = {
       eventId: body.eventId,
@@ -6559,7 +6594,7 @@ app.openapi(sendCommunicationRoute, async (c) => {
       templateId: body.templateId,
       subject: body.subject,
       content: body.content,
-      channel: 'email' as const,
+      channel: "email" as const,
       variables: body.variables,
     };
 
@@ -6574,19 +6609,19 @@ app.openapi(sendCommunicationRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to send communication',
+        error: "Failed to send communication",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const getCommunicationStatsRoute = createRoute({
-  method: 'get',
-  path: '/communications/{eventId}/stats',
-  tags: ['Admin - Communications'],
-  summary: 'Get communication statistics for event',
+  method: "get",
+  path: "/communications/{eventId}/stats",
+  tags: ["Admin - Communications"],
+  summary: "Get communication statistics for event",
   request: {
     params: z.object({
       eventId: z.string().min(1),
@@ -6595,30 +6630,30 @@ const getCommunicationStatsRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Communication stats retrieved successfully',
+      description: "Communication stats retrieved successfully",
     },
   },
 });
 
 app.openapi(getCommunicationStatsRoute, async (c) => {
   try {
-    const { eventId } = c.req.valid('param');
-    const authUser = c.get('user');
+    const { eventId } = c.req.valid("param");
+    const authUser = c.get("user");
 
     // Check if admin has access to this event
-    if (authUser.adminData?.role !== 'SUPER') {
+    if (authUser.adminData?.role !== "SUPER") {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
         return c.json(
           {
             success: false,
-            error: 'Access denied to this event',
+            error: "Access denied to this event",
           },
-          403
+          403,
         );
       }
     }
@@ -6633,27 +6668,27 @@ app.openapi(getCommunicationStatsRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve communication stats',
+        error: "Failed to retrieve communication stats",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const getEmailTemplatesRoute = createRoute({
-  method: 'get',
-  path: '/communications/templates',
-  tags: ['Admin - Communications'],
-  summary: 'Get available email templates',
+  method: "get",
+  path: "/communications/templates",
+  tags: ["Admin - Communications"],
+  summary: "Get available email templates",
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Email templates retrieved successfully',
+      description: "Email templates retrieved successfully",
     },
   },
 });
@@ -6670,56 +6705,56 @@ app.openapi(getEmailTemplatesRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve email templates',
+        error: "Failed to retrieve email templates",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const getCommunicationHistoryRoute = createRoute({
-  method: 'get',
-  path: '/communications/{eventId}/history',
-  tags: ['Admin - Communications'],
-  summary: 'Get communication history for event',
+  method: "get",
+  path: "/communications/{eventId}/history",
+  tags: ["Admin - Communications"],
+  summary: "Get communication history for event",
   request: {
     params: z.object({
       eventId: z.string().min(1),
     }),
     query: PaginationSchema.extend({
-      type: z.enum(['email', 'whatsapp']).optional(),
-      status: z.enum(['sent', 'delivered', 'failed', 'pending']).optional(),
+      type: z.enum(["email", "whatsapp"]).optional(),
+      status: z.enum(["sent", "delivered", "failed", "pending"]).optional(),
     }),
   },
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Communication history retrieved successfully',
+      description: "Communication history retrieved successfully",
     },
   },
 });
 
 app.openapi(getCommunicationHistoryRoute, async (c) => {
   try {
-    const { eventId } = c.req.valid('param');
-    const { page, limit, type, status } = c.req.valid('query');
-    const authUser = c.get('user');
+    const { eventId } = c.req.valid("param");
+    const { page, limit, type, status } = c.req.valid("query");
+    const authUser = c.get("user");
 
     // Check if admin has access to this event
-    if (authUser.adminData?.role !== 'SUPER') {
+    if (authUser.adminData?.role !== "SUPER") {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
         return c.json(
           {
             success: false,
-            error: 'Access denied to this event',
+            error: "Access denied to this event",
           },
-          403
+          403,
         );
       }
     }
@@ -6733,7 +6768,7 @@ app.openapi(getCommunicationHistoryRoute, async (c) => {
         },
         emailTracking: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: limit || 20,
       skip: ((page || 1) - 1) * (limit || 20),
     });
@@ -6750,7 +6785,7 @@ app.openapi(getCommunicationHistoryRoute, async (c) => {
             subject: message.template.subject,
           }
         : null,
-      subject: message.emailSubject || 'Untitled', // emailSubject now contains processed subject
+      subject: message.emailSubject || "Untitled", // emailSubject now contains processed subject
       recipientType: message.recipientType,
       recipientCount: message.recipientIds.length,
       sentBy: message.sentBy,
@@ -6780,68 +6815,68 @@ app.openapi(getCommunicationHistoryRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve communication history',
+        error: "Failed to retrieve communication history",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 // Generate Silent Magic Link for Admin Preview (NO EMAIL SENT)
 const generateAdminPreviewTokenRoute = createRoute({
-  method: 'post',
-  path: '/users/{userId}/admin-preview-token',
-  tags: ['Admin - Users'],
+  method: "post",
+  path: "/users/{userId}/admin-preview-token",
+  tags: ["Admin - Users"],
   summary:
-    'Generate silent magic link token for admin to preview user experience',
+    "Generate silent magic link token for admin to preview user experience",
   description:
-    'Creates a magic link token for admin preview without sending any email notifications to the user',
+    "Creates a magic link token for admin preview without sending any email notifications to the user",
   security: [{ bearerAuth: [] }],
   request: {
     params: z.object({
-      userId: z.string().describe('User ID to generate preview token for'),
+      userId: z.string().describe("User ID to generate preview token for"),
     }),
   },
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
           example: {
             success: true,
             data: {
-              token: 'ml_abc123...',
-              micrositeUrl: 'https://demo.savvio.digital',
+              token: "ml_abc123...",
+              micrositeUrl: "https://demo.savvio.digital",
               previewUrl:
-                'https://demo.savvio.digital/auth/magic?token=ml_abc123...',
-              expiresAt: '2025-01-03T10:00:00Z',
+                "https://demo.savvio.digital/auth/magic?token=ml_abc123...",
+              expiresAt: "2025-01-03T10:00:00Z",
             },
-            message: 'Admin preview token generated successfully',
+            message: "Admin preview token generated successfully",
           },
         },
       },
-      description: 'Preview token generated successfully',
+      description: "Preview token generated successfully",
     },
     404: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
           example: {
             success: false,
-            error: 'User not found',
+            error: "User not found",
           },
         },
       },
-      description: 'User not found',
+      description: "User not found",
     },
   },
 });
 
 app.openapi(generateAdminPreviewTokenRoute, async (c) => {
   try {
-    const { userId } = c.req.valid('param');
-    const authUser = c.get('user');
+    const { userId } = c.req.valid("param");
+    const authUser = c.get("user");
 
     // Find the user
     const user = await UserService.findById(userId);
@@ -6849,9 +6884,9 @@ app.openapi(generateAdminPreviewTokenRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'User not found',
+          error: "User not found",
         },
-        404
+        404,
       );
     }
 
@@ -6861,9 +6896,9 @@ app.openapi(generateAdminPreviewTokenRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Event not found',
+          error: "Event not found",
         },
-        404
+        404,
       );
     }
 
@@ -6872,7 +6907,7 @@ app.openapi(generateAdminPreviewTokenRoute, async (c) => {
 
     // Get microsite URL from event config
     const micrositeUrl =
-      (event.config as any)?.micrositeUrl || 'https://localhost:3000';
+      (event.config as any)?.micrositeUrl || "https://localhost:3000";
     const previewUrl = `${micrositeUrl}/auth/magic?token=${magicLink.token}`;
 
     // Calculate expiration time (24 hours from now)
@@ -6893,17 +6928,17 @@ app.openapi(generateAdminPreviewTokenRoute, async (c) => {
           lastName: userProfile.lastName,
         },
       },
-      message: 'Admin preview token generated successfully (no email sent)',
+      message: "Admin preview token generated successfully (no email sent)",
     });
   } catch (error: any) {
-    console.error('Failed to generate admin preview token:', error);
+    console.error("Failed to generate admin preview token:", error);
     return c.json(
       {
         success: false,
-        error: 'Failed to generate preview token',
+        error: "Failed to generate preview token",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
@@ -6913,116 +6948,116 @@ app.openapi(generateAdminPreviewTokenRoute, async (c) => {
 // =============================================================================
 
 const getAuditTrailRoute = createRoute({
-  method: 'get',
-  path: '/audit-trail',
-  tags: ['Super Admin - Audit Trail'],
-  summary: 'Get system audit trail timeline (Super Admin only)',
+  method: "get",
+  path: "/audit-trail",
+  tags: ["Super Admin - Audit Trail"],
+  summary: "Get system audit trail timeline (Super Admin only)",
   description:
-    'Retrieve comprehensive audit trail of all system changes with filtering options',
+    "Retrieve comprehensive audit trail of all system changes with filtering options",
   request: {
     query: PaginationSchema.extend({
       eventId: z
         .string()
         .optional()
         .openapi({
-          param: { name: 'eventId', in: 'query' },
-          example: '68c1a6975faa5f8e91d9e846',
+          param: { name: "eventId", in: "query" },
+          example: "68c1a6975faa5f8e91d9e846",
         }),
       performedBy: z
         .string()
         .optional()
         .openapi({
-          param: { name: 'performedBy', in: 'query' },
-          example: '68c1a6975faa5f8e91d9e847',
+          param: { name: "performedBy", in: "query" },
+          example: "68c1a6975faa5f8e91d9e847",
         }),
       resourceType: z
         .enum([
-          'User',
-          'Activity',
-          'Group',
-          'Event',
-          'EmailTemplate',
-          'Admin',
-          'BulkOperation',
-          'RoomAssignment',
+          "User",
+          "Activity",
+          "Group",
+          "Event",
+          "EmailTemplate",
+          "Admin",
+          "BulkOperation",
+          "RoomAssignment",
         ])
         .optional()
         .openapi({
-          param: { name: 'resourceType', in: 'query' },
-          example: 'User',
+          param: { name: "resourceType", in: "query" },
+          example: "User",
         }),
       action: z
         .enum([
-          'CREATE',
-          'UPDATE',
-          'DELETE',
-          'IMPORT',
-          'EXPORT',
-          'ASSIGN',
-          'UNASSIGN',
+          "CREATE",
+          "UPDATE",
+          "DELETE",
+          "IMPORT",
+          "EXPORT",
+          "ASSIGN",
+          "UNASSIGN",
         ])
         .optional()
         .openapi({
-          param: { name: 'action', in: 'query' },
-          example: 'CREATE',
+          param: { name: "action", in: "query" },
+          example: "CREATE",
         }),
       resourceId: z
         .string()
         .optional()
         .openapi({
-          param: { name: 'resourceId', in: 'query' },
-          example: '68c1a6975faa5f8e91d9e848',
+          param: { name: "resourceId", in: "query" },
+          example: "68c1a6975faa5f8e91d9e848",
         }),
       dateFrom: z
         .string()
         .datetime()
         .optional()
         .openapi({
-          param: { name: 'dateFrom', in: 'query' },
-          example: '2025-01-01T00:00:00Z',
+          param: { name: "dateFrom", in: "query" },
+          example: "2025-01-01T00:00:00Z",
         }),
       dateTo: z
         .string()
         .datetime()
         .optional()
         .openapi({
-          param: { name: 'dateTo', in: 'query' },
-          example: '2025-12-31T23:59:59Z',
+          param: { name: "dateTo", in: "query" },
+          example: "2025-12-31T23:59:59Z",
         }),
     }),
   },
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Audit trail retrieved successfully',
+      description: "Audit trail retrieved successfully",
     },
     403: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Super admin access required',
+      description: "Super admin access required",
     },
   },
 });
 
 app.openapi(getAuditTrailRoute, async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
 
     // Only super admins can access audit trail
-    if (authUser.adminData?.role !== 'SUPER') {
+    if (authUser.adminData?.role !== "SUPER") {
       return c.json(
         {
           success: false,
-          error: 'Super admin access required to view audit trail',
+          error: "Super admin access required to view audit trail",
         },
-        403
+        403,
       );
     }
 
@@ -7036,7 +7071,7 @@ app.openapi(getAuditTrailRoute, async (c) => {
       resourceId,
       dateFrom,
       dateTo,
-    } = c.req.valid('query');
+    } = c.req.valid("query");
 
     const filters: any = {};
     if (eventId) filters.eventId = eventId;
@@ -7049,7 +7084,7 @@ app.openapi(getAuditTrailRoute, async (c) => {
 
     const result = await AuditTrailService.getAuditTrail(
       { page: page || 1, limit: limit || 50 },
-      filters
+      filters,
     );
 
     return c.json({
@@ -7060,67 +7095,67 @@ app.openapi(getAuditTrailRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve audit trail',
+        error: "Failed to retrieve audit trail",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const getAuditTrailStatsRoute = createRoute({
-  method: 'get',
-  path: '/audit-trail/stats',
-  tags: ['Super Admin - Audit Trail'],
-  summary: 'Get audit trail statistics (Super Admin only)',
-  description: 'Get comprehensive statistics about system changes',
+  method: "get",
+  path: "/audit-trail/stats",
+  tags: ["Super Admin - Audit Trail"],
+  summary: "Get audit trail statistics (Super Admin only)",
+  description: "Get comprehensive statistics about system changes",
   request: {
     query: z.object({
       eventId: z
         .string()
         .optional()
         .openapi({
-          param: { name: 'eventId', in: 'query' },
-          example: '68c1a6975faa5f8e91d9e846',
+          param: { name: "eventId", in: "query" },
+          example: "68c1a6975faa5f8e91d9e846",
         }),
     }),
   },
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Audit trail statistics retrieved successfully',
+      description: "Audit trail statistics retrieved successfully",
     },
     403: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Super admin access required',
+      description: "Super admin access required",
     },
   },
 });
 
 app.openapi(getAuditTrailStatsRoute, async (c) => {
   try {
-    const authUser = c.get('user');
+    const authUser = c.get("user");
 
     // Only super admins can access audit trail
-    if (authUser.adminData?.role !== 'SUPER') {
+    if (authUser.adminData?.role !== "SUPER") {
       return c.json(
         {
           success: false,
-          error: 'Super admin access required to view audit trail statistics',
+          error: "Super admin access required to view audit trail statistics",
         },
-        403
+        403,
       );
     }
 
-    const { eventId } = c.req.valid('query');
+    const { eventId } = c.req.valid("query");
     const stats = await AuditTrailService.getStatistics(eventId);
 
     return c.json({
@@ -7131,54 +7166,54 @@ app.openapi(getAuditTrailStatsRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve audit trail statistics',
+        error: "Failed to retrieve audit trail statistics",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 // Activity Capacity Status Route
 const getActivityCapacityStatusRoute = createRoute({
-  method: 'get',
-  path: '/activities/{activityId}/capacity-status',
-  tags: ['Admin - Activities'],
-  summary: 'Get activity capacity status and attendee information',
+  method: "get",
+  path: "/activities/{activityId}/capacity-status",
+  tags: ["Admin - Activities"],
+  summary: "Get activity capacity status and attendee information",
   request: {
     params: z.object({
       activityId: z
         .string()
         .min(1)
         .openapi({
-          param: { name: 'activityId', in: 'path' },
-          example: '60f7b3b3b3b3b3b3b3b3b3b3',
+          param: { name: "activityId", in: "path" },
+          example: "60f7b3b3b3b3b3b3b3b3b3b3",
         }),
     }),
   },
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Capacity status retrieved successfully',
+      description: "Capacity status retrieved successfully",
     },
     404: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Activity not found',
+      description: "Activity not found",
     },
   },
 });
 
 app.openapi(getActivityCapacityStatusRoute, async (c) => {
   try {
-    const { activityId } = c.req.valid('param');
+    const { activityId } = c.req.valid("param");
 
     const status =
       await ConflictDetectionService.getActivityCapacityStatus(activityId);
@@ -7187,9 +7222,9 @@ app.openapi(getActivityCapacityStatusRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Activity not found',
+          error: "Activity not found",
         },
-        404
+        404,
       );
     }
 
@@ -7201,24 +7236,24 @@ app.openapi(getActivityCapacityStatusRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to get capacity status',
+        error: "Failed to get capacity status",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 // Update Activity Capacity Settings Route
 const updateActivityCapacityRoute = createRoute({
-  method: 'put',
-  path: '/activities/capacity-settings',
-  tags: ['Admin - Activities'],
-  summary: 'Bulk update activity capacity and timing settings',
+  method: "put",
+  path: "/activities/capacity-settings",
+  tags: ["Admin - Activities"],
+  summary: "Bulk update activity capacity and timing settings",
   request: {
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: z.object({
             updates: z.array(
               z.object({
@@ -7231,10 +7266,10 @@ const updateActivityCapacityRoute = createRoute({
                       time: z.string(),
                       description: z.string(),
                       location: z.string().optional(),
-                    })
+                    }),
                   )
                   .optional(),
-              })
+              }),
             ),
           }),
         },
@@ -7244,24 +7279,24 @@ const updateActivityCapacityRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Capacity settings updated successfully',
+      description: "Capacity settings updated successfully",
     },
   },
 });
 
 app.openapi(updateActivityCapacityRoute, async (c) => {
   try {
-    const { updates } = c.req.valid('json');
-    const authUser = c.get('user');
+    const { updates } = c.req.valid("json");
+    const authUser = c.get("user");
 
     const normalizedUpdates = updates
       .filter(
         (
-          update
+          update,
         ): update is {
           id: string;
           capacity?: number;
@@ -7271,7 +7306,7 @@ app.openapi(updateActivityCapacityRoute, async (c) => {
             description?: string;
             location?: string;
           }>;
-        } => typeof update.id === 'string' && update.id.length > 0
+        } => typeof update.id === "string" && update.id.length > 0,
       )
       .map((update) => ({
         id: update.id,
@@ -7283,13 +7318,16 @@ app.openapi(updateActivityCapacityRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Each activity capacity update must include a valid id',
+          error: "Each activity capacity update must include a valid id",
         },
-        400
+        400,
       );
     }
 
-    await ActivityService.updateCapacitySettings(normalizedUpdates, authUser.id);
+    await ActivityService.updateCapacitySettings(
+      normalizedUpdates,
+      authUser.id,
+    );
 
     return c.json({
       success: true,
@@ -7299,10 +7337,10 @@ app.openapi(updateActivityCapacityRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to update capacity settings',
+        error: "Failed to update capacity settings",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
@@ -7313,18 +7351,18 @@ app.openapi(updateActivityCapacityRoute, async (c) => {
 
 // Get Available Reports
 const getAvailableReportsRoute = createRoute({
-  method: 'get',
-  path: '/reports/available',
-  tags: ['Admin - Reports'],
-  summary: 'Get all available reports metadata',
+  method: "get",
+  path: "/reports/available",
+  tags: ["Admin - Reports"],
+  summary: "Get all available reports metadata",
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Available reports retrieved successfully',
+      description: "Available reports retrieved successfully",
     },
   },
 });
@@ -7341,20 +7379,20 @@ app.openapi(getAvailableReportsRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to retrieve available reports',
+        error: "Failed to retrieve available reports",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 // Export Individual Report
 const exportReportRoute = createRoute({
-  method: 'get',
-  path: '/reports/{reportType}/export',
-  tags: ['Admin - Reports'],
-  summary: 'Export individual report as Excel file',
+  method: "get",
+  path: "/reports/{reportType}/export",
+  tags: ["Admin - Reports"],
+  summary: "Export individual report as Excel file",
   request: {
     params: z.object({
       reportType: ReportType,
@@ -7369,24 +7407,24 @@ const exportReportRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
           schema: z.string(),
         },
       },
-      description: 'Report exported successfully',
+      description: "Report exported successfully",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Export failed',
+      description: "Export failed",
     },
   },
 });
 
-app.get('/reports/:reportType/export', async (c) => {
+app.get("/reports/:reportType/export", async (c) => {
   try {
     const parsedParams = z
       .object({ reportType: ReportType })
@@ -7395,10 +7433,10 @@ app.get('/reports/:reportType/export', async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Invalid report type',
+          error: "Invalid report type",
           details: parsedParams.error.flatten(),
         },
-        400
+        400,
       );
     }
 
@@ -7414,27 +7452,27 @@ app.get('/reports/:reportType/export', async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Invalid report export query',
+          error: "Invalid report export query",
           details: parsedQuery.error.flatten(),
         },
-        400
+        400,
       );
     }
 
     const { reportType } = parsedParams.data;
     const { eventId, activityId, dateFrom, dateTo } = parsedQuery.data;
-    const authUser = c.get('user');
+    const authUser = c.get("user");
 
     // Check if admin has access to this event
-    if (authUser.adminData?.role !== 'SUPER') {
+    if (authUser.adminData?.role !== "SUPER") {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
         return c.json(
           {
             success: false,
-            error: 'Access denied to this event',
+            error: "Access denied to this event",
           },
-          403
+          403,
         );
       }
     }
@@ -7443,101 +7481,101 @@ app.get('/reports/:reportType/export', async (c) => {
     const pagination = { page: 1, limit: 10000 };
 
     switch (reportType) {
-      case 'arrival-list':
+      case "arrival-list":
         reportData = await ReportsService.getArrivalListReport(eventId);
         break;
-      case 'departure-list':
+      case "departure-list":
         reportData = await ReportsService.getDepartureListReport(eventId);
         break;
-      case 'medical-list':
+      case "medical-list":
         reportData = await ReportsService.getMedicalListReport(eventId);
         break;
-      case 'dietary-list':
+      case "dietary-list":
         reportData = await ReportsService.getDietaryListReport(eventId);
         break;
-      case 'dietary-requirements':
+      case "dietary-requirements":
         reportData = await ReportsService.getDietaryRequirementsReport(eventId);
         break;
-      case 'emergency-report':
+      case "emergency-report":
         reportData = await ReportsService.getEmergencyReport(eventId);
         break;
-      case 'rooming-list':
+      case "rooming-list":
         reportData = await ReportsService.getRoomingListReport(eventId);
         break;
-      case 'guest-list-alpha':
+      case "guest-list-alpha":
         reportData = await ReportsService.getGuestListAlphaReport(eventId);
         break;
-      case 'activity-attendance':
+      case "activity-attendance":
         reportData = await ReportsService.getActivityAttendanceReport(
           eventId,
-          activityId
+          activityId,
         );
         break;
-      case 'guest-list-type':
+      case "guest-list-type":
         reportData = await ReportsService.getGuestListByTypeReport(eventId);
         break;
-      case 'guest-list-group':
+      case "guest-list-group":
         reportData = await ReportsService.getGuestListByGroupReport(eventId);
         break;
-      case 'master-guest':
+      case "master-guest":
         reportData = await ReportsService.getMasterGuestReport(eventId);
         break;
-      case 'change-report-user':
+      case "change-report-user":
         reportData = await ReportsService.getUserChangeReport(
           eventId,
           pagination,
           dateFrom ? new Date(dateFrom) : undefined,
-          dateTo ? new Date(dateTo) : undefined
+          dateTo ? new Date(dateTo) : undefined,
         );
         break;
-      case 'change-report-activity':
+      case "change-report-activity":
         reportData = await ReportsService.getActivityChangeReport(
           eventId,
           pagination,
           undefined,
-          undefined
+          undefined,
         );
         break;
-      case 'change-report-group':
+      case "change-report-group":
         reportData = await ReportsService.getGroupChangeReport(
           eventId,
           pagination,
           undefined,
-          undefined
+          undefined,
         );
         break;
-      case 'change-report-event':
+      case "change-report-event":
         reportData = await ReportsService.getEventChangeReport(
           eventId,
           pagination,
           undefined,
-          undefined
+          undefined,
         );
         break;
-      case 'change-report-operations':
+      case "change-report-operations":
         reportData = await ReportsService.getOperationsChangeReport(
           eventId,
           pagination,
           undefined,
-          undefined
+          undefined,
         );
         break;
-      case 'merchandise-report':
+      case "merchandise-report":
         reportData = await ReportsService.getMerchandiseReport(eventId);
         break;
-      case 'room-drops':
+      case "room-drops":
         reportData = await ReportsService.getRoomDropsReport(eventId);
         break;
-      case 'car-assignment':
+      case "car-assignment":
         reportData = await ReportsService.getCarAssignmentReport(eventId);
         break;
       default:
         return c.json(
           {
             success: false,
-            error: 'Invalid report type',
+            error: "Invalid report type",
           },
-          400
+          400,
         );
     }
 
@@ -7551,32 +7589,32 @@ app.get('/reports/:reportType/export', async (c) => {
       rows: unknown[][];
     };
     const excelBuffer =
-      reportType === 'activity-attendance' && maybeMultiTabReport.isMultiTab
+      reportType === "activity-attendance" && maybeMultiTabReport.isMultiTab
         ? await ReportsService.generateMultiTabExcelFile(
             reportData as {
               headers: string[];
               rows: unknown[][];
               activityTabs?: unknown[];
-            }
+            },
           )
         : await ReportsService.generateExcelFile(reportData);
 
     // Log export operation
     await AuditTrailService.logExport(
-      'BulkOperation',
+      "BulkOperation",
       reportData.rows.length,
-      'excel',
+      "excel",
       authUser.id,
-      eventId
+      eventId,
     );
 
     const excelBody = new Uint8Array(excelBuffer);
     return new Response(excelBody, {
       headers: {
-        'Content-Type':
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="${reportType}-${eventId}-${
-          new Date().toISOString().split('T')[0]
+        "Content-Type":
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="${reportType}-${eventId}-${
+          new Date().toISOString().split("T")[0]
         }.xlsx"`,
       },
     });
@@ -7584,20 +7622,20 @@ app.get('/reports/:reportType/export', async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to export report',
+        error: "Failed to export report",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 // Preview Report Data
 const previewReportRoute = createRoute({
-  method: 'get',
-  path: '/reports/{reportType}/preview',
-  tags: ['Admin - Reports'],
-  summary: 'Preview report data for UI display',
+  method: "get",
+  path: "/reports/{reportType}/preview",
+  tags: ["Admin - Reports"],
+  summary: "Preview report data for UI display",
   request: {
     params: z.object({
       reportType: ReportType,
@@ -7614,40 +7652,40 @@ const previewReportRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Report preview retrieved successfully',
+      description: "Report preview retrieved successfully",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Preview failed',
+      description: "Preview failed",
     },
   },
 });
 
 app.openapi(previewReportRoute, async (c) => {
   try {
-    const { reportType } = c.req.valid('param');
+    const { reportType } = c.req.valid("param");
     const { eventId, activityId, page, limit, dateFrom, dateTo } =
-      c.req.valid('query');
-    const authUser = c.get('user');
+      c.req.valid("query");
+    const authUser = c.get("user");
 
     // Check if admin has access to this event
-    if (authUser.adminData?.role !== 'SUPER') {
+    if (authUser.adminData?.role !== "SUPER") {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
         return c.json(
           {
             success: false,
-            error: 'Access denied to this event',
+            error: "Access denied to this event",
           },
-          403
+          403,
         );
       }
     }
@@ -7655,102 +7693,102 @@ app.openapi(previewReportRoute, async (c) => {
     let reportData;
 
     switch (reportType) {
-      case 'arrival-list':
+      case "arrival-list":
         reportData = await ReportsService.getArrivalListReport(eventId);
         break;
-      case 'departure-list':
+      case "departure-list":
         reportData = await ReportsService.getDepartureListReport(eventId);
         break;
-      case 'medical-list':
+      case "medical-list":
         reportData = await ReportsService.getMedicalListReport(eventId);
         break;
-      case 'dietary-list':
+      case "dietary-list":
         reportData = await ReportsService.getDietaryListReport(eventId);
         break;
-      case 'dietary-requirements':
+      case "dietary-requirements":
         reportData = await ReportsService.getDietaryRequirementsReport(eventId);
         break;
-      case 'emergency-report':
+      case "emergency-report":
         reportData = await ReportsService.getEmergencyReport(eventId);
         break;
-      case 'rooming-list':
+      case "rooming-list":
         reportData = await ReportsService.getRoomingListReport(eventId);
         break;
-      case 'guest-list-alpha':
+      case "guest-list-alpha":
         reportData = await ReportsService.getGuestListAlphaReport(eventId);
         break;
-      case 'activity-attendance':
+      case "activity-attendance":
         reportData = await ReportsService.getActivityAttendanceReport(
           eventId,
-          activityId
+          activityId,
         );
         break;
-      case 'guest-list-type':
+      case "guest-list-type":
         reportData = await ReportsService.getGuestListByTypeReport(eventId);
         break;
-      case 'guest-list-group':
+      case "guest-list-group":
         reportData = await ReportsService.getGuestListByGroupReport(eventId);
         break;
-      case 'master-guest':
+      case "master-guest":
         reportData = await ReportsService.getMasterGuestReport(eventId);
         break;
-      case 'change-report-user':
+      case "change-report-user":
         const userChangeReportPagination = { page: 1, limit: 50000 };
         reportData = await ReportsService.getUserChangeReport(
           eventId,
           userChangeReportPagination,
           dateFrom ? new Date(dateFrom) : undefined,
-          dateTo ? new Date(dateTo) : undefined
+          dateTo ? new Date(dateTo) : undefined,
         );
         break;
-      case 'change-report-activity':
+      case "change-report-activity":
         reportData = await ReportsService.getActivityChangeReport(
           eventId,
           { page: 1, limit: 50000 },
           dateFrom ? new Date(dateFrom) : undefined,
-          dateTo ? new Date(dateTo) : undefined
+          dateTo ? new Date(dateTo) : undefined,
         );
         break;
-      case 'change-report-group':
+      case "change-report-group":
         reportData = await ReportsService.getGroupChangeReport(
           eventId,
           { page: 1, limit: 50000 },
           dateFrom ? new Date(dateFrom) : undefined,
-          dateTo ? new Date(dateTo) : undefined
+          dateTo ? new Date(dateTo) : undefined,
         );
         break;
-      case 'change-report-event':
+      case "change-report-event":
         reportData = await ReportsService.getEventChangeReport(
           eventId,
           { page: 1, limit: 50000 },
           dateFrom ? new Date(dateFrom) : undefined,
-          dateTo ? new Date(dateTo) : undefined
+          dateTo ? new Date(dateTo) : undefined,
         );
         break;
-      case 'change-report-operations':
+      case "change-report-operations":
         reportData = await ReportsService.getOperationsChangeReport(
           eventId,
           { page: 1, limit: 50000 },
           dateFrom ? new Date(dateFrom) : undefined,
-          dateTo ? new Date(dateTo) : undefined
+          dateTo ? new Date(dateTo) : undefined,
         );
         break;
-      case 'merchandise-report':
+      case "merchandise-report":
         reportData = await ReportsService.getMerchandiseReport(eventId);
         break;
-      case 'room-drops':
+      case "room-drops":
         reportData = await ReportsService.getRoomDropsReport(eventId);
         break;
-      case 'car-assignment':
+      case "car-assignment":
         reportData = await ReportsService.getCarAssignmentReport(eventId);
         break;
       default:
         return c.json(
           {
             success: false,
-            error: 'Invalid report type',
+            error: "Invalid report type",
           },
-          400
+          400,
         );
     }
 
@@ -7776,24 +7814,24 @@ app.openapi(previewReportRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to preview report',
+        error: "Failed to preview report",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 // Bulk Export Multiple Reports
 const bulkExportReportsRoute = createRoute({
-  method: 'post',
-  path: '/reports/bulk-export',
-  tags: ['Admin - Reports'],
-  summary: 'Export multiple reports as ZIP file',
+  method: "post",
+  path: "/reports/bulk-export",
+  tags: ["Admin - Reports"],
+  summary: "Export multiple reports as ZIP file",
   request: {
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: BulkExportRequestSchema,
         },
       },
@@ -7802,50 +7840,50 @@ const bulkExportReportsRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/zip': {
+        "application/zip": {
           schema: z.string(),
         },
       },
-      description: 'Reports exported successfully',
+      description: "Reports exported successfully",
     },
     400: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiErrorSchema,
         },
       },
-      description: 'Bulk export failed',
+      description: "Bulk export failed",
     },
   },
 });
 
-app.post('/reports/bulk-export', async (c) => {
+app.post("/reports/bulk-export", async (c) => {
   try {
     const parsedBody = BulkExportRequestSchema.safeParse(await c.req.json());
     if (!parsedBody.success) {
       return c.json(
         {
           success: false,
-          error: 'Invalid bulk export payload',
+          error: "Invalid bulk export payload",
           details: parsedBody.error.flatten(),
         },
-        400
+        400,
       );
     }
 
     const { eventId, reportTypes, format } = parsedBody.data;
-    const authUser = c.get('user');
+    const authUser = c.get("user");
 
     // Check if admin has access to this event
-    if (authUser.adminData?.role !== 'SUPER') {
+    if (authUser.adminData?.role !== "SUPER") {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
         return c.json(
           {
             success: false,
-            error: 'Access denied to this event',
+            error: "Access denied to this event",
           },
-          403
+          403,
         );
       }
     }
@@ -7857,88 +7895,88 @@ app.post('/reports/bulk-export', async (c) => {
       let reportData;
 
       switch (reportType) {
-        case 'arrival-list':
+        case "arrival-list":
           reportData = await ReportsService.getArrivalListReport(eventId);
           break;
-        case 'departure-list':
+        case "departure-list":
           reportData = await ReportsService.getDepartureListReport(eventId);
           break;
-        case 'medical-list':
+        case "medical-list":
           reportData = await ReportsService.getMedicalListReport(eventId);
           break;
-        case 'dietary-list':
+        case "dietary-list":
           reportData = await ReportsService.getDietaryListReport(eventId);
           break;
-        case 'emergency-report':
+        case "emergency-report":
           reportData = await ReportsService.getEmergencyReport(eventId);
           break;
-        case 'rooming-list':
+        case "rooming-list":
           reportData = await ReportsService.getRoomingListReport(eventId);
           break;
-        case 'guest-list-alpha':
+        case "guest-list-alpha":
           reportData = await ReportsService.getGuestListAlphaReport(eventId);
           break;
-        case 'activity-attendance':
+        case "activity-attendance":
           reportData =
             await ReportsService.getActivityAttendanceReport(eventId);
           break;
-        case 'guest-list-type':
+        case "guest-list-type":
           reportData = await ReportsService.getGuestListByTypeReport(eventId);
           break;
-        case 'guest-list-group':
+        case "guest-list-group":
           reportData = await ReportsService.getGuestListByGroupReport(eventId);
           break;
-        case 'master-guest':
+        case "master-guest":
           reportData = await ReportsService.getMasterGuestReport(eventId);
           break;
-        case 'change-report-user':
+        case "change-report-user":
           const userChangeReportPagination = { page: 1, limit: 50000 };
           reportData = await ReportsService.getUserChangeReport(
             eventId,
             userChangeReportPagination,
             undefined,
-            undefined
+            undefined,
           );
           break;
-        case 'change-report-activity':
+        case "change-report-activity":
           reportData = await ReportsService.getActivityChangeReport(
             eventId,
             { page: 1, limit: 50000 },
             undefined,
-            undefined
+            undefined,
           );
           break;
-        case 'change-report-group':
+        case "change-report-group":
           reportData = await ReportsService.getGroupChangeReport(
             eventId,
             { page: 1, limit: 50000 },
             undefined,
-            undefined
+            undefined,
           );
           break;
-        case 'change-report-event':
+        case "change-report-event":
           reportData = await ReportsService.getEventChangeReport(
             eventId,
             { page: 1, limit: 50000 },
             undefined,
-            undefined
+            undefined,
           );
           break;
-        case 'change-report-operations':
+        case "change-report-operations":
           reportData = await ReportsService.getOperationsChangeReport(
             eventId,
             { page: 1, limit: 50000 },
             undefined,
-            undefined
+            undefined,
           );
           break;
-        case 'merchandise-report':
+        case "merchandise-report":
           reportData = await ReportsService.getMerchandiseReport(eventId);
           break;
-        case 'room-drops':
+        case "room-drops":
           reportData = await ReportsService.getRoomDropsReport(eventId);
           break;
-        case 'car-assignment':
+        case "car-assignment":
           reportData = await ReportsService.getCarAssignmentReport(eventId);
           break;
         default:
@@ -7953,8 +7991,8 @@ app.post('/reports/bulk-export', async (c) => {
       }
     }
 
-    if (format === 'excel') {
-      const JSZip = (await import('jszip')).default;
+    if (format === "excel") {
+      const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
 
       for (const report of reports) {
@@ -7962,23 +8000,23 @@ app.post('/reports/bulk-export', async (c) => {
         zip.file(`${report.type}-${eventId}.xlsx`, excelBuffer);
       }
 
-      const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
+      const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
 
       // Log bulk export operation
       await AuditTrailService.logExport(
-        'BulkOperation',
+        "BulkOperation",
         reports.length,
-        'zip',
+        "zip",
         authUser.id,
-        eventId
+        eventId,
       );
 
       const zipBody = new Uint8Array(zipBuffer);
       return new Response(zipBody, {
         headers: {
-          'Content-Type': 'application/zip',
-          'Content-Disposition': `attachment; filename="reports-${eventId}-${
-            new Date().toISOString().split('T')[0]
+          "Content-Type": "application/zip",
+          "Content-Disposition": `attachment; filename="reports-${eventId}-${
+            new Date().toISOString().split("T")[0]
           }.zip"`,
         },
       });
@@ -7993,10 +8031,10 @@ app.post('/reports/bulk-export', async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Bulk export failed',
+        error: "Bulk export failed",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
@@ -8006,10 +8044,10 @@ app.post('/reports/bulk-export', async (c) => {
 // =============================================================================
 
 const getHotelsRoute = createRoute({
-  method: 'get',
-  path: '/hotels',
-  tags: ['Admin - Hotels'],
-  summary: 'Get all hotels for an event',
+  method: "get",
+  path: "/hotels",
+  tags: ["Admin - Hotels"],
+  summary: "Get all hotels for an event",
   request: {
     query: z.object({
       eventId: z.string().min(1),
@@ -8018,18 +8056,18 @@ const getHotelsRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Hotels retrieved successfully',
+      description: "Hotels retrieved successfully",
     },
   },
 });
 
 app.openapi(getHotelsRoute, async (c) => {
   try {
-    const { eventId } = c.req.valid('query');
+    const { eventId } = c.req.valid("query");
 
     const hotels = await prisma.hotel.findMany({
       where: {
@@ -8039,7 +8077,7 @@ app.openapi(getHotelsRoute, async (c) => {
       include: {
         roomTypes: {
           where: { active: true },
-          orderBy: { name: 'asc' },
+          orderBy: { name: "asc" },
         },
         _count: {
           select: {
@@ -8048,7 +8086,7 @@ app.openapi(getHotelsRoute, async (c) => {
           },
         },
       },
-      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
     });
 
     return c.json({
@@ -8059,23 +8097,23 @@ app.openapi(getHotelsRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to fetch hotels',
+        error: "Failed to fetch hotels",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const createHotelRoute = createRoute({
-  method: 'post',
-  path: '/hotels',
-  tags: ['Admin - Hotels'],
-  summary: 'Create a new hotel',
+  method: "post",
+  path: "/hotels",
+  tags: ["Admin - Hotels"],
+  summary: "Create a new hotel",
   request: {
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: CreateHotelSchema,
         },
       },
@@ -8084,18 +8122,18 @@ const createHotelRoute = createRoute({
   responses: {
     201: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Hotel created successfully',
+      description: "Hotel created successfully",
     },
   },
 });
 
 app.openapi(createHotelRoute, async (c) => {
   try {
-    const validatedData = c.req.valid('json');
+    const validatedData = c.req.valid("json");
 
     // If this is set as default, unset other default hotels for this event
     if (validatedData.isDefault) {
@@ -8127,7 +8165,7 @@ app.openapi(createHotelRoute, async (c) => {
       include: {
         roomTypes: {
           where: { active: true },
-          orderBy: { name: 'asc' },
+          orderBy: { name: "asc" },
         },
         _count: {
           select: {
@@ -8142,34 +8180,34 @@ app.openapi(createHotelRoute, async (c) => {
       {
         success: true,
         data: { hotel },
-        message: 'Hotel created successfully',
+        message: "Hotel created successfully",
       },
-      201
+      201,
     );
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to create hotel',
+        error: "Failed to create hotel",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const updateHotelRoute = createRoute({
-  method: 'put',
-  path: '/hotels/{hotelId}',
-  tags: ['Admin - Hotels'],
-  summary: 'Update a hotel',
+  method: "put",
+  path: "/hotels/{hotelId}",
+  tags: ["Admin - Hotels"],
+  summary: "Update a hotel",
   request: {
     params: z.object({
       hotelId: z.string().min(1),
     }),
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: UpdateHotelSchema,
         },
       },
@@ -8178,19 +8216,19 @@ const updateHotelRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Hotel updated successfully',
+      description: "Hotel updated successfully",
     },
   },
 });
 
 app.openapi(updateHotelRoute, async (c) => {
   try {
-    const { hotelId } = c.req.valid('param');
-    const validatedData = c.req.valid('json');
+    const { hotelId } = c.req.valid("param");
+    const validatedData = c.req.valid("json");
 
     // Check if hotel exists
     const existingHotel = await prisma.hotel.findUnique({
@@ -8201,9 +8239,9 @@ app.openapi(updateHotelRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Hotel not found',
+          error: "Hotel not found",
         },
-        404
+        404,
       );
     }
 
@@ -8227,7 +8265,7 @@ app.openapi(updateHotelRoute, async (c) => {
       include: {
         roomTypes: {
           where: { active: true },
-          orderBy: { name: 'asc' },
+          orderBy: { name: "asc" },
         },
         _count: {
           select: {
@@ -8241,16 +8279,16 @@ app.openapi(updateHotelRoute, async (c) => {
     return c.json({
       success: true,
       data: { hotel },
-      message: 'Hotel updated successfully',
+      message: "Hotel updated successfully",
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to update hotel',
+        error: "Failed to update hotel",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
@@ -8260,10 +8298,10 @@ app.openapi(updateHotelRoute, async (c) => {
 // =============================================================================
 
 const getRoomTypesRoute = createRoute({
-  method: 'get',
-  path: '/room-types',
-  tags: ['Admin - Room Types'],
-  summary: 'Get all room types for an event or hotel',
+  method: "get",
+  path: "/room-types",
+  tags: ["Admin - Room Types"],
+  summary: "Get all room types for an event or hotel",
   request: {
     query: z.object({
       eventId: z.string().min(1),
@@ -8273,18 +8311,18 @@ const getRoomTypesRoute = createRoute({
   responses: {
     200: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Room types retrieved successfully',
+      description: "Room types retrieved successfully",
     },
   },
 });
 
 app.openapi(getRoomTypesRoute, async (c) => {
   try {
-    const { eventId, hotelId } = c.req.valid('query');
+    const { eventId, hotelId } = c.req.valid("query");
 
     const where: any = {
       eventId,
@@ -8310,7 +8348,7 @@ app.openapi(getRoomTypesRoute, async (c) => {
           },
         },
       },
-      orderBy: [{ hotel: { name: 'asc' } }, { name: 'asc' }],
+      orderBy: [{ hotel: { name: "asc" } }, { name: "asc" }],
     });
 
     return c.json({
@@ -8321,23 +8359,23 @@ app.openapi(getRoomTypesRoute, async (c) => {
     return c.json(
       {
         success: false,
-        error: 'Failed to fetch room types',
+        error: "Failed to fetch room types",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
 
 const createRoomTypeRoute = createRoute({
-  method: 'post',
-  path: '/room-types',
-  tags: ['Admin - Room Types'],
-  summary: 'Create a new room type',
+  method: "post",
+  path: "/room-types",
+  tags: ["Admin - Room Types"],
+  summary: "Create a new room type",
   request: {
     body: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: CreateRoomTypeSchema,
         },
       },
@@ -8346,18 +8384,18 @@ const createRoomTypeRoute = createRoute({
   responses: {
     201: {
       content: {
-        'application/json': {
+        "application/json": {
           schema: ApiSuccessSchema,
         },
       },
-      description: 'Room type created successfully',
+      description: "Room type created successfully",
     },
   },
 });
 
 app.openapi(createRoomTypeRoute, async (c) => {
   try {
-    const validatedData = c.req.valid('json');
+    const validatedData = c.req.valid("json");
 
     // Verify hotel exists and belongs to the event
     const hotel = await prisma.hotel.findUnique({
@@ -8368,9 +8406,9 @@ app.openapi(createRoomTypeRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Hotel not found',
+          error: "Hotel not found",
         },
-        404
+        404,
       );
     }
 
@@ -8378,9 +8416,9 @@ app.openapi(createRoomTypeRoute, async (c) => {
       return c.json(
         {
           success: false,
-          error: 'Hotel does not belong to the specified event',
+          error: "Hotel does not belong to the specified event",
         },
-        400
+        400,
       );
     }
 
@@ -8417,18 +8455,18 @@ app.openapi(createRoomTypeRoute, async (c) => {
       {
         success: true,
         data: { roomType },
-        message: 'Room type created successfully',
+        message: "Room type created successfully",
       },
-      201
+      201,
     );
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: 'Failed to create room type',
+        error: "Failed to create room type",
         details: error.message,
       },
-      500
+      500,
     );
   }
 });
@@ -8440,23 +8478,23 @@ app.openapi(createRoomTypeRoute, async (c) => {
 /**
  * Get event car configuration
  */
-app.get('/events/:eventId/car-config', async (c) => {
+app.get("/events/:eventId/car-config", async (c) => {
   try {
-    const eventId = c.req.param('eventId');
+    const eventId = c.req.param("eventId");
     const cars = await TransportService.getEventCarConfig(eventId);
 
     return c.json({
       success: true,
-      message: 'Car configuration retrieved successfully',
+      message: "Car configuration retrieved successfully",
       data: { cars },
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: error.message || 'Failed to retrieve car configuration',
+        error: error.message || "Failed to retrieve car configuration",
       },
-      500
+      500,
     );
   }
 });
@@ -8464,25 +8502,25 @@ app.get('/events/:eventId/car-config', async (c) => {
 /**
  * Update event car configuration
  */
-app.put('/events/:eventId/car-config', async (c) => {
+app.put("/events/:eventId/car-config", async (c) => {
   try {
-    const eventId = c.req.param('eventId');
+    const eventId = c.req.param("eventId");
     const body = await c.req.json();
 
     await TransportService.updateEventCarConfig(eventId, body.cars);
 
     return c.json({
       success: true,
-      message: 'Car configuration updated successfully',
+      message: "Car configuration updated successfully",
       data: {},
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: error.message || 'Failed to update car configuration',
+        error: error.message || "Failed to update car configuration",
       },
-      500
+      500,
     );
   }
 });
@@ -8490,9 +8528,9 @@ app.put('/events/:eventId/car-config', async (c) => {
 /**
  * Get car assignments for all users in event
  */
-app.get('/transport/assignments/:eventId', async (c) => {
+app.get("/transport/assignments/:eventId", async (c) => {
   try {
-    const eventId = c.req.param('eventId');
+    const eventId = c.req.param("eventId");
 
     // Get car assignments with additional user data
     const assignments = await TransportService.getCarAssignments(eventId);
@@ -8516,27 +8554,27 @@ app.get('/transport/assignments/:eventId', async (c) => {
 
         return {
           ...assignment,
-          contactNumber: profile?.phone || '',
+          contactNumber: profile?.phone || "",
           arrivalDate:
-            flight?.inbound?.arrivalDate || accommodation?.checkIn || '',
+            flight?.inbound?.arrivalDate || accommodation?.checkIn || "",
           departureDate:
-            flight?.outbound?.departureDate || accommodation?.checkOut || '',
+            flight?.outbound?.departureDate || accommodation?.checkOut || "",
         };
-      })
+      }),
     );
 
     return c.json({
       success: true,
-      message: 'Car assignments retrieved successfully',
+      message: "Car assignments retrieved successfully",
       data: enhancedAssignments,
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: error.message || 'Failed to retrieve car assignments',
+        error: error.message || "Failed to retrieve car assignments",
       },
-      500
+      500,
     );
   }
 });
@@ -8544,23 +8582,23 @@ app.get('/transport/assignments/:eventId', async (c) => {
 /**
  * Get car usage analysis
  */
-app.get('/transport/usage/:eventId', async (c) => {
+app.get("/transport/usage/:eventId", async (c) => {
   try {
-    const eventId = c.req.param('eventId');
+    const eventId = c.req.param("eventId");
     const usage = await TransportService.getCarUsage(eventId);
 
     return c.json({
       success: true,
-      message: 'Car usage analysis retrieved successfully',
+      message: "Car usage analysis retrieved successfully",
       data: usage,
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: error.message || 'Failed to retrieve car usage',
+        error: error.message || "Failed to retrieve car usage",
       },
-      500
+      500,
     );
   }
 });
@@ -8568,21 +8606,21 @@ app.get('/transport/usage/:eventId', async (c) => {
 /**
  * Get available change dates for reports
  */
-app.get('/reports/change-dates/:eventId', async (c) => {
+app.get("/reports/change-dates/:eventId", async (c) => {
   try {
-    const eventId = c.req.param('eventId');
-    const authUser = c.get('user');
+    const eventId = c.req.param("eventId");
+    const authUser = c.get("user");
 
     // Check if admin has access to this event
-    if (authUser.adminData?.role !== 'SUPER') {
+    if (authUser.adminData?.role !== "SUPER") {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
         return c.json(
           {
             success: false,
-            error: 'Access denied to this event',
+            error: "Access denied to this event",
           },
-          403
+          403,
         );
       }
     }
@@ -8594,9 +8632,9 @@ app.get('/reports/change-dates/:eventId', async (c) => {
     return c.json(
       {
         success: false,
-        error: error.message || 'Failed to retrieve available change dates',
+        error: error.message || "Failed to retrieve available change dates",
       },
-      500
+      500,
     );
   }
 });
@@ -8604,22 +8642,22 @@ app.get('/reports/change-dates/:eventId', async (c) => {
 /**
  * Check if a car can be safely deleted
  */
-app.get('/events/:eventId/cars/:carId/can-delete', async (c) => {
+app.get("/events/:eventId/cars/:carId/can-delete", async (c) => {
   try {
-    const eventId = c.req.param('eventId');
-    const carId = c.req.param('carId');
-    const authUser = c.get('user');
+    const eventId = c.req.param("eventId");
+    const carId = c.req.param("carId");
+    const authUser = c.get("user");
 
     // Check if admin has access to this event
-    if (authUser.adminData?.role !== 'SUPER') {
+    if (authUser.adminData?.role !== "SUPER") {
       const hasAccess = await AdminService.hasEventAccess(authUser.id, eventId);
       if (!hasAccess) {
         return c.json(
           {
             success: false,
-            error: 'Access denied to this event',
+            error: "Access denied to this event",
           },
-          403
+          403,
         );
       }
     }
@@ -8634,9 +8672,9 @@ app.get('/events/:eventId/cars/:carId/can-delete', async (c) => {
     return c.json(
       {
         success: false,
-        error: error.message || 'Failed to check car deletion safety',
+        error: error.message || "Failed to check car deletion safety",
       },
-      500
+      500,
     );
   }
 });
@@ -8645,17 +8683,17 @@ app.get('/events/:eventId/cars/:carId/can-delete', async (c) => {
  * Bulk assign cars to multiple groups (single API call)
  * NOTE: This route MUST come before /groups/:groupId/cars to avoid route conflicts
  */
-app.put('/groups/bulk/cars', async (c) => {
+app.put("/groups/bulk/cars", async (c) => {
   try {
     const body = await c.req.json();
     const { groupIds, carNumbers } = body;
 
-    const authUser = c.get('user');
+    const authUser = c.get("user");
 
     await TransportService.bulkAssignCarsToGroups(
       groupIds,
       carNumbers,
-      authUser.id
+      authUser.id,
     );
 
     return c.json({
@@ -8667,9 +8705,9 @@ app.put('/groups/bulk/cars', async (c) => {
     return c.json(
       {
         success: false,
-        error: error.message || 'Failed to update group car assignments',
+        error: error.message || "Failed to update group car assignments",
       },
-      500
+      500,
     );
   }
 });
@@ -8678,12 +8716,12 @@ app.put('/groups/bulk/cars', async (c) => {
  * Bulk remove cars from multiple groups (single API call)
  * NOTE: This route MUST come before /groups/:groupId/cars to avoid route conflicts
  */
-app.delete('/groups/bulk/cars', async (c) => {
+app.delete("/groups/bulk/cars", async (c) => {
   try {
     const body = await c.req.json();
     const { groupIds } = body;
 
-    const authUser = c.get('user');
+    const authUser = c.get("user");
 
     await TransportService.bulkRemoveCarsFromGroups(groupIds, authUser.id);
 
@@ -8696,9 +8734,9 @@ app.delete('/groups/bulk/cars', async (c) => {
     return c.json(
       {
         success: false,
-        error: error.message || 'Failed to clear group car assignments',
+        error: error.message || "Failed to clear group car assignments",
       },
-      500
+      500,
     );
   }
 });
@@ -8706,31 +8744,31 @@ app.delete('/groups/bulk/cars', async (c) => {
 /**
  * Assign cars to group
  */
-app.put('/groups/:groupId/cars', async (c) => {
+app.put("/groups/:groupId/cars", async (c) => {
   try {
-    const groupId = c.req.param('groupId');
+    const groupId = c.req.param("groupId");
     const body = await c.req.json();
 
-    const authUser = c.get('user');
+    const authUser = c.get("user");
 
     await TransportService.assignCarsToGroup(
       groupId,
       body.carNumbers,
-      authUser.id
+      authUser.id,
     );
 
     return c.json({
       success: true,
-      message: 'Group car assignment updated successfully',
+      message: "Group car assignment updated successfully",
       data: {},
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: error.message || 'Failed to update group car assignment',
+        error: error.message || "Failed to update group car assignment",
       },
-      500
+      500,
     );
   }
 });
@@ -8738,12 +8776,12 @@ app.put('/groups/:groupId/cars', async (c) => {
 /**
  * Bulk assign cars to users (single transaction)
  */
-app.put('/users/bulk/cars', async (c) => {
+app.put("/users/bulk/cars", async (c) => {
   try {
     const body = await c.req.json();
     const { userIds, carNumbers } = body;
 
-    const authUser = c.get('user');
+    const authUser = c.get("user");
 
     // Single database transaction for all user updates
     await prisma.$transaction(
@@ -8751,8 +8789,8 @@ app.put('/users/bulk/cars', async (c) => {
         prisma.user.update({
           where: { id: userId },
           data: { carNumbers },
-        })
-      )
+        }),
+      ),
     );
 
     return c.json({
@@ -8764,9 +8802,9 @@ app.put('/users/bulk/cars', async (c) => {
     return c.json(
       {
         success: false,
-        error: error.message || 'Failed to complete bulk car assignment',
+        error: error.message || "Failed to complete bulk car assignment",
       },
-      500
+      500,
     );
   }
 });
@@ -8774,9 +8812,9 @@ app.put('/users/bulk/cars', async (c) => {
 /**
  * Get airport timing conflicts for transport coordination
  */
-app.get('/transport/conflicts/:eventId', async (c) => {
+app.get("/transport/conflicts/:eventId", async (c) => {
   try {
-    const eventId = c.req.param('eventId');
+    const eventId = c.req.param("eventId");
     // Use improved conflict detection with configurable buffer
     const conflicts =
       await ImprovedTransportConflictService.detectAirportTimingConflictsOptimized(
@@ -8785,21 +8823,21 @@ app.get('/transport/conflicts/:eventId', async (c) => {
           windowMinutes: 180, // 3 hour conflict window
           includeBuffer: true, // Add buffer for airport travel time
           airportDistanceMinutes: 60, // 1 hour to/from airport
-        }
+        },
       );
 
     return c.json({
       success: true,
-      message: 'Airport timing conflicts retrieved successfully',
+      message: "Airport timing conflicts retrieved successfully",
       data: conflicts,
     });
   } catch (error: any) {
     return c.json(
       {
         success: false,
-        error: error.message || 'Failed to retrieve timing conflicts',
+        error: error.message || "Failed to retrieve timing conflicts",
       },
-      500
+      500,
     );
   }
 });

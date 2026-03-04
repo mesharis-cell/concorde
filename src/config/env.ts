@@ -18,14 +18,13 @@ const envSchema = z.object({
   APP_URL: z.string().url().default('https://demo.savvio.digital'),
   FRONTEND_URL: z.string().url().optional(),
 
-  // [V1] Demo-mode gates (Task 2.9.5 + 2.5.6)
-  DEMO_MODE: boolFromEnv.default(false),
-  DEMO_OTP_MODE: boolFromEnv.default(false),
-  DEMO_OTP_FIXED_CODE: z.string().regex(/^\d{4}$/).default('1234'),
-
   EMAIL_PROVIDER: z.enum(['ses', 'resend']).default('resend'),
-  SES_FROM_EMAIL: z.string().email().default('no-reply@savvio.digital'),
-  SES_FROM_NAME: z.string().default('Savvio Concorde'),
+  // Preferred sender identity keys
+  EMAIL_FROM_ADDRESS: z.string().email().optional(),
+  EMAIL_FROM_NAME: z.string().optional(),
+  // Legacy sender identity keys (kept for backward compatibility)
+  SES_FROM_EMAIL: z.string().email().optional(),
+  SES_FROM_NAME: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
 
   AWS_ACCESS_KEY_ID: z.string().optional(),
@@ -59,23 +58,15 @@ if (!parsed.success) {
 }
 
 const envData = parsed.data;
-const modeLabel = envData.DEMO_MODE ? 'DEMO_MODE=true' : 'DEMO_MODE=false';
 const errors: string[] = [];
 
-// [V1] Keep strict provider validation outside demo mode.
-if (!envData.DEMO_MODE) {
-  if (envData.EMAIL_PROVIDER === 'resend' && !envData.RESEND_API_KEY) {
-    errors.push('RESEND_API_KEY is required when EMAIL_PROVIDER=resend and DEMO_MODE=false');
-  }
+if (envData.EMAIL_PROVIDER === 'resend' && !envData.RESEND_API_KEY) {
+  errors.push('RESEND_API_KEY is required when EMAIL_PROVIDER=resend');
+}
 
-  if (envData.EMAIL_PROVIDER === 'ses') {
-    if (!envData.AWS_ACCESS_KEY_ID) errors.push('AWS_ACCESS_KEY_ID is required for SES mode');
-    if (!envData.AWS_SECRET_ACCESS_KEY) errors.push('AWS_SECRET_ACCESS_KEY is required for SES mode');
-  }
-
-  if (!envData.AWS_S3_BUCKET) {
-    errors.push('AWS_S3_BUCKET is required when DEMO_MODE=false');
-  }
+if (envData.EMAIL_PROVIDER === 'ses') {
+  if (!envData.AWS_ACCESS_KEY_ID) errors.push('AWS_ACCESS_KEY_ID is required for SES mode');
+  if (!envData.AWS_SECRET_ACCESS_KEY) errors.push('AWS_SECRET_ACCESS_KEY is required for SES mode');
 }
 
 if (envData.TWILIO_ENABLED) {
@@ -85,7 +76,7 @@ if (envData.TWILIO_ENABLED) {
 }
 
 if (errors.length > 0) {
-  console.error(`❌ Invalid environment variables (${modeLabel}):`, errors);
+  console.error('❌ Invalid environment variables:', errors);
   throw new Error('Invalid environment variables');
 }
 

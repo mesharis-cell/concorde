@@ -24,6 +24,7 @@
     "seed:demo": "bun scripts/seed-demo.ts",
     "demo:reset": "bun scripts/seed-demo.ts --force-reset",
     "demo:setup": "bun run prisma:generate && bun run prisma:push && bun scripts/setup.js",
+    "demo:black:seed": "bun scripts/seed-black-demo.ts",
     "migrate": "bun scripts/migrate.ts up",
     "migrate:rollback": "bun scripts/migrate.ts down",
     "migrate:status": "bun scripts/migrate.ts status",

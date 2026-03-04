@@ -1,6 +1,6 @@
-import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
-import { Resend } from 'resend';
-import { env } from '../config/env.js';
+import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import { Resend } from "resend";
+import { env } from "../config/env.js";
 
 const sesClient =
   env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY
@@ -21,22 +21,84 @@ export interface EmailTemplate {
   text?: string;
 }
 
+type TemplateVariables = Record<
+  string,
+  string | number | boolean | null | undefined
+>;
+
+interface SendEmailOptions {
+  fromEmail?: string;
+  fromName?: string;
+  unsubscribeUrl?: string;
+}
+
+interface SenderIdentity {
+  fromEmail: string;
+  fromName?: string;
+  fromAddress: string;
+}
+
 export class EmailService {
+  private static resolveSenderIdentity(
+    options?: SendEmailOptions,
+  ): SenderIdentity | null {
+    const fromEmail =
+      options?.fromEmail?.trim() ||
+      env.EMAIL_FROM_ADDRESS?.trim() ||
+      env.SES_FROM_EMAIL?.trim() ||
+      "";
+
+    if (!fromEmail) {
+      return null;
+    }
+
+    const fromName =
+      options?.fromName?.trim() ||
+      env.EMAIL_FROM_NAME?.trim() ||
+      env.SES_FROM_NAME?.trim() ||
+      undefined;
+
+    return {
+      fromEmail,
+      fromName,
+      fromAddress: fromName ? `${fromName} <${fromEmail}>` : fromEmail,
+    };
+  }
+
+  private static buildListUnsubscribeHeaders(
+    unsubscribeUrl?: string,
+  ): Record<string, string> {
+    if (!unsubscribeUrl) {
+      return {};
+    }
+
+    try {
+      const normalizedUrl = new URL(unsubscribeUrl);
+      if (normalizedUrl.protocol !== "https:") {
+        return {};
+      }
+
+      return {
+        "List-Unsubscribe": `<${normalizedUrl.toString()}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      };
+    } catch {
+      return {};
+    }
+  }
+
   static async sendEmail(
     to: string | string[],
     template: EmailTemplate,
-    variables: Record<string, any> = {},
-    options?: {
-      fromEmail?: string;
-      fromName?: string;
-    }
+    variables: TemplateVariables = {},
+    options?: SendEmailOptions,
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
-      // [V4] Keep demo-mode comms deterministic even if provider credentials/domain are misconfigured.
-      if (env.DEMO_MODE) {
+      const senderIdentity = this.resolveSenderIdentity(options);
+      if (!senderIdentity) {
         return {
-          success: true,
-          messageId: `demo-email-${Date.now()}`,
+          success: false,
+          error: "Sender identity is not configured",
         };
       }
 
@@ -48,36 +110,35 @@ export class EmailService {
       const textBody = template.text
         ? this.replaceVariables(template.text, variables)
         : undefined;
+      const unsubscribeUrl =
+        options?.unsubscribeUrl ||
+        (typeof variables.unsubscribeLink === "string"
+          ? variables.unsubscribeLink
+          : undefined);
+      const unsubscribeHeaders =
+        this.buildListUnsubscribeHeaders(unsubscribeUrl);
 
-      // Use event-specific from address or fallback to env
-      const fromEmail = options?.fromEmail || env.SES_FROM_EMAIL;
-      const fromName = options?.fromName || env.SES_FROM_NAME;
-      const fromAddress = `${fromName} <${fromEmail}>`;
-      const appUrl = env.APP_URL.replace(/\/$/, '');
-      const unsubscribeHost = new URL(appUrl).hostname;
-
-      if (env.EMAIL_PROVIDER === 'resend') {
+      if (env.EMAIL_PROVIDER === "resend") {
         if (!resend) {
           return {
             success: false,
-            error: 'Resend API key is not configured',
+            error: "Resend API key is not configured",
           };
         }
         // Use Resend (new and improved!)
         const { data, error } = await resend.emails.send({
-          from: fromAddress,
+          from: senderIdentity.fromAddress,
           to: recipients,
           subject,
           html: htmlBody,
           ...(textBody && { text: textBody }),
-          headers: {
-            'List-Unsubscribe': `<mailto:unsubscribe@${unsubscribeHost}>, <${appUrl}/api/unsubscribe>`,
-            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-          },
+          ...(Object.keys(unsubscribeHeaders).length > 0
+            ? { headers: unsubscribeHeaders }
+            : {}),
         });
 
         if (error) {
-          console.error('Failed to send email via Resend:', error);
+          console.error("Failed to send email via Resend:", error);
           return {
             success: false,
             error: error.message,
@@ -91,24 +152,24 @@ export class EmailService {
       } else {
         // Fallback to AWS SES
         const command = new SendEmailCommand({
-          Source: fromAddress,
+          Source: senderIdentity.fromAddress,
           Destination: {
             ToAddresses: recipients,
           },
           Message: {
             Subject: {
               Data: subject,
-              Charset: 'UTF-8',
+              Charset: "UTF-8",
             },
             Body: {
               Html: {
                 Data: htmlBody,
-                Charset: 'UTF-8',
+                Charset: "UTF-8",
               },
               ...(textBody && {
                 Text: {
                   Data: textBody,
-                  Charset: 'UTF-8',
+                  Charset: "UTF-8",
                 },
               }),
             },
@@ -122,13 +183,89 @@ export class EmailService {
           messageId: result.MessageId,
         };
       }
-    } catch (error: any) {
-      console.error('Failed to send email:', error);
+    } catch (error: unknown) {
+      console.error("Failed to send email:", error);
       return {
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : "Unknown email error",
       };
     }
+  }
+
+  static async sendRegistrationSuccessEmail(
+    email: string,
+    input: {
+      eventName: string;
+      firstName?: string;
+      passLink: string;
+      walletLink?: string | null;
+      passReferenceId: string;
+      unsubscribeLink?: string;
+      fromEmail?: string;
+      fromName?: string;
+    },
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    const firstName = input.firstName?.trim() || "there";
+    const walletLineHtml = input.walletLink
+      ? `<p style="margin: 0 0 12px;">Google Wallet: <a href="{{walletLink}}" style="color: #1a73e8;">Add to Google Wallet</a></p>`
+      : "";
+    const walletLineText = input.walletLink
+      ? `Add to Google Wallet: {{walletLink}}\n`
+      : "";
+    const unsubscribeLineHtml = input.unsubscribeLink
+      ? `<p style="margin: 20px 0 0; font-size: 12px; color: #6b7280;">To stop receiving event emails, <a href="{{unsubscribeLink}}" style="color: #6b7280;">unsubscribe</a>.</p>`
+      : "";
+    const unsubscribeLineText = input.unsubscribeLink
+      ? `To stop receiving event emails: {{unsubscribeLink}}\n`
+      : "";
+
+    const template: EmailTemplate = {
+      subject: "Registration confirmed: {{eventName}}",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #111827;">
+          <p style="display:none!important;visibility:hidden;mso-hide:all;opacity:0;height:0;width:0;overflow:hidden;">
+            Your entry pass is ready.
+          </p>
+          <p style="margin: 0 0 12px;">Your entry pass is ready.</p>
+          <p style="margin: 0 0 12px;">Hi {{firstName}},</p>
+          <p style="margin: 0 0 12px;">Your registration for {{eventName}} is confirmed.</p>
+          <p style="margin: 20px 0;">
+            <a href="{{passLink}}" style="display:inline-block;padding:10px 16px;background:#111827;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;">
+              Open your entry pass
+            </a>
+          </p>
+          ${walletLineHtml}
+          <p style="margin: 0 0 12px; font-size: 13px; color: #4b5563;">Pass reference: {{passReferenceId}}</p>
+          ${unsubscribeLineHtml}
+        </div>
+      `,
+      text: `Your entry pass is ready.
+
+Hi {{firstName}},
+
+Your registration for {{eventName}} is confirmed.
+Open your entry pass: {{passLink}}
+${walletLineText}Pass reference: {{passReferenceId}}
+${unsubscribeLineText}`,
+    };
+
+    return this.sendEmail(
+      email,
+      template,
+      {
+        eventName: input.eventName,
+        firstName,
+        passLink: input.passLink,
+        walletLink: input.walletLink || "",
+        passReferenceId: input.passReferenceId,
+        unsubscribeLink: input.unsubscribeLink || "",
+      },
+      {
+        fromEmail: input.fromEmail,
+        fromName: input.fromName,
+        unsubscribeUrl: input.unsubscribeLink,
+      },
+    );
   }
 
   static async sendWelcomeEmail(
@@ -137,10 +274,10 @@ export class EmailService {
       eventName: string;
       firstName: string;
       lastName: string;
-    }
+    },
   ) {
     const template: EmailTemplate = {
-      subject: 'Welcome to {{eventName}} - Registration Confirmed',
+      subject: "Welcome to {{eventName}} - Registration Confirmed",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #2c3e50;">Welcome to {{eventName}}</h1>
@@ -184,10 +321,10 @@ export class EmailService {
       lastName: string;
       groupName: string;
       itineraryLink: string;
-    }
+    },
   ) {
     const template: EmailTemplate = {
-      subject: 'Your {{eventName}} Itinerary is Ready!',
+      subject: "Your {{eventName}} Itinerary is Ready!",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #2c3e50;">Your Itinerary is Ready!</h1>
@@ -232,10 +369,10 @@ export class EmailService {
       activityTitle: string;
       updateDetails: string;
       itineraryLink: string;
-    }
+    },
   ) {
     const template: EmailTemplate = {
-      subject: 'Schedule Update: {{activityTitle}}',
+      subject: "Schedule Update: {{activityTitle}}",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #2c3e50;">Schedule Update</h1>
@@ -277,10 +414,10 @@ export class EmailService {
       lastName: string;
       announcementSubject: string;
       announcementContent: string;
-    }
+    },
   ) {
     const template: EmailTemplate = {
-      subject: '{{eventName}} - {{announcementSubject}}',
+      subject: "{{eventName}} - {{announcementSubject}}",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #2c3e50;">{{announcementSubject}}</h1>
@@ -315,10 +452,10 @@ export class EmailService {
       lastName: string;
       magicLink: string;
       unsubscribeLink?: string;
-    }
+    },
   ) {
     const template: EmailTemplate = {
-      subject: 'Access Your {{eventName}} Itinerary',
+      subject: "Access Your {{eventName}} Itinerary",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #2c3e50;">Access Your Itinerary</h1>
@@ -358,13 +495,16 @@ export class EmailService {
 
   private static replaceVariables(
     template: string,
-    variables: Record<string, any>
+    variables: TemplateVariables,
   ): string {
     let result = template;
 
     Object.entries(variables).forEach(([key, value]) => {
-      const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-      result = result.replace(regex, String(value));
+      const regex = new RegExp(`\\{\\{${key}\\}\\}`, "g");
+      result = result.replace(
+        regex,
+        value === undefined || value === null ? "" : String(value),
+      );
     });
 
     return result;

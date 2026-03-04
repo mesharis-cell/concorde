@@ -1,52 +1,61 @@
-import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
-import { UserService } from '../services/users.js';
-import type { AuthContext } from '../middleware/auth.js';
-import { ApiSuccessSchema, ApiErrorSchema } from '../types/index.js';
+import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import { UserService } from "../services/users.js";
+import type { AuthContext } from "../middleware/auth.js";
+import { ApiSuccessSchema, ApiErrorSchema } from "../types/index.js";
 
 const app = new OpenAPIHono<{ Variables: AuthContext }>();
 
+const getWhatsappOptIn = (communication: unknown): boolean => {
+  if (!communication || typeof communication !== "object") {
+    return false;
+  }
+
+  const record = communication as Record<string, unknown>;
+  return record.whatsappOptIn === true;
+};
+
 // Simple Unsubscribe Route
 const unsubscribeRoute = createRoute({
-  method: 'get',
-  path: '/unsubscribe/{userId}/{eventId}',
-  tags: ['Public - Unsubscribe'],
-  summary: 'Unsubscribe user from event communications',
-  description: 'Simple one-click unsubscribe from event emails',
+  method: "get",
+  path: "/unsubscribe/{userId}/{eventId}",
+  tags: ["Public - Unsubscribe"],
+  summary: "Unsubscribe user from event communications",
+  description: "Simple one-click unsubscribe from event emails",
   request: {
     params: z.object({
-      userId: z.string().describe('User ID to unsubscribe'),
-      eventId: z.string().describe('Event ID'),
+      userId: z.string().describe("User ID to unsubscribe"),
+      eventId: z.string().describe("Event ID"),
     }),
   },
   responses: {
     200: {
       content: {
-        'text/html': {
+        "text/html": {
           schema: z.string(),
         },
       },
-      description: 'Unsubscribe confirmation page',
+      description: "Unsubscribe confirmation page",
     },
     404: {
       content: {
-        'text/html': {
+        "text/html": {
           schema: z.string(),
         },
       },
-      description: 'User not found',
+      description: "User not found",
     },
     500: {
       content: {
-        'text/html': {
+        "text/html": {
           schema: z.string(),
         },
       },
-      description: 'Server error',
+      description: "Server error",
     },
   },
 });
 
-app.get('/unsubscribe/:userId/:eventId', async (c) => {
+app.get("/unsubscribe/:userId/:eventId", async (c) => {
   try {
     const { userId, eventId } = c.req.param();
 
@@ -71,23 +80,14 @@ app.get('/unsubscribe/:userId/:eventId', async (c) => {
         </body>
         </html>
       `,
-        404
+        404,
       );
     }
 
     // Update email preferences to opt out
-    const communication =
-      user.communication && typeof user.communication === 'object'
-        ? (user.communication as Record<string, unknown>)
-        : undefined;
-    const whatsappOptIn =
-      communication?.whatsappOptIn === true || communication?.whatsappOptIn === false
-        ? (communication.whatsappOptIn as boolean)
-        : false;
-
     await UserService.updateCommunicationPreferences(userId, {
       emailOptIn: false,
-      whatsappOptIn, // Keep WhatsApp as-is
+      whatsappOptIn: getWhatsappOptIn(user.communication), // Keep WhatsApp as-is
     });
 
     // Return simple confirmation HTML
@@ -119,7 +119,7 @@ app.get('/unsubscribe/:userId/:eventId', async (c) => {
       </body>
       </html>
     `,
-      200
+      200,
     );
   } catch (error: any) {
     return c.html(
@@ -140,8 +140,30 @@ app.get('/unsubscribe/:userId/:eventId', async (c) => {
       </body>
       </html>
     `,
-      500
+      500,
     );
+  }
+});
+
+app.post("/unsubscribe/:userId/:eventId", async (c) => {
+  try {
+    const { userId, eventId } = c.req.param();
+    const user = await UserService.findById(userId);
+
+    // One-click unsubscribe should always return 200 and be idempotent.
+    if (!user || !user.active || user.eventId !== eventId) {
+      return c.text("OK", 200);
+    }
+
+    await UserService.updateCommunicationPreferences(userId, {
+      emailOptIn: false,
+      whatsappOptIn: getWhatsappOptIn(user.communication),
+    });
+
+    return c.text("OK", 200);
+  } catch (error) {
+    console.warn("One-click unsubscribe failed silently:", error);
+    return c.text("OK", 200);
   }
 });
 
