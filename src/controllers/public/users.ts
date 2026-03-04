@@ -199,7 +199,7 @@ const eventRegisterRoute = createRoute({
               },
               checkIn: {
                 qrPayloadUrl:
-                  "https://demo.savvio.digital/api/v1/public/check-in/consume?token=eyJ...",
+                  "https://demo.savvio.digital/v1/public/check-in/consume?token=eyJ...",
                 token: "eyJ...",
                 expiresAt: "2026-01-10T15:00:00.000Z",
               },
@@ -420,7 +420,7 @@ app.openapi(eventRegisterRoute, async (c) => {
     const passPageUrl = new URL("/pass", frontendBaseUrl);
     passPageUrl.searchParams.set("token", checkInPayload.token);
 
-    const unsubscribeUrl = `${env.APP_URL.replace(/\/$/, "")}/api/unsubscribe/${finalUser.id}/${finalUser.eventId}`;
+    const unsubscribeUrl = `${env.APP_URL.replace(/\/$/, "")}/unsubscribe/${finalUser.id}/${finalUser.eventId}`;
     const passReferenceId =
       walletPayload?.passReferenceId ||
       `user-${finalUser.id}-event-${finalUser.eventId}`;
@@ -707,7 +707,7 @@ app.openapi(getUserItineraryRoute, async (c) => {
     {
       success: false,
       error:
-        "Deprecated endpoint. Use /api/v1/user/itinerary with JWT bearer token.",
+        "Deprecated endpoint. Use /v1/user/itinerary with JWT bearer token.",
     },
     410,
   );
@@ -851,7 +851,7 @@ app.openapi(getUserProfileRoute, async (c) => {
     {
       success: false,
       error:
-        "Deprecated endpoint. Use /api/v1/user/profile with JWT bearer token.",
+        "Deprecated endpoint. Use /v1/user/profile with JWT bearer token.",
     },
     410,
   );
@@ -974,7 +974,7 @@ app.openapi(updateCommunicationPreferencesRoute, async (c) => {
     {
       success: false,
       error:
-        "Deprecated endpoint. Use /api/v1/user/preferences with JWT bearer token.",
+        "Deprecated endpoint. Use /v1/user/preferences with JWT bearer token.",
     },
     410,
   );
@@ -1312,7 +1312,7 @@ app.openapi(getCheckInPassRoute, async (c) => {
 
     const requestOrigin = getRequestOrigin(c.req.url);
     const apiBaseUrl = resolveApiBaseUrl(requestOrigin, c.req.header("origin"));
-    const qrPayloadUrl = `${apiBaseUrl}/api/v1/public/check-in/consume?token=${encodeURIComponent(token)}`;
+    const qrPayloadUrl = `${apiBaseUrl}/v1/public/check-in/consume?token=${encodeURIComponent(token)}`;
 
     const attendeeFirstName = getStringFormResponseValue(user.formResponses, [
       "firstName",

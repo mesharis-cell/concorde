@@ -96,7 +96,7 @@ export class CommunicationsService {
         const variables = {
           firstName: recipient.firstName || '',
           lastName: recipient.lastName || '',
-          unsubscribeLink: `${env.APP_URL || 'http://localhost:3001'}/api/unsubscribe/${recipient.userId}/${request.eventId}`,
+          unsubscribeLink: `${env.APP_URL || 'http://localhost:3001'}/unsubscribe/${recipient.userId}/${request.eventId}`,
           ...request.variables,
         };
 
@@ -299,7 +299,7 @@ export class CommunicationsService {
         firstName: recipient.firstName || '',
         lastName: recipient.lastName || '',
         email: recipient.email,
-        unsubscribeLink: `${env.APP_URL || 'http://localhost:3001'}/api/unsubscribe/${recipient.userId}/${template.eventId}`,
+        unsubscribeLink: `${env.APP_URL || 'http://localhost:3001'}/unsubscribe/${recipient.userId}/${template.eventId}`,
       };
 
       try {

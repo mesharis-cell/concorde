@@ -215,7 +215,7 @@ export class TemplateService {
     userId: string
   ): Promise<string> {
     const trackingId = uuidv4();
-    const trackingUrl = `/api/track/open/${messageId}/${userId}/${trackingId}`;
+    const trackingUrl = `/track/open/${messageId}/${userId}/${trackingId}`;
 
     await prisma.emailTracking.create({
       data: {

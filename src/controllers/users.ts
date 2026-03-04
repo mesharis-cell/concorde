@@ -136,7 +136,7 @@ app.openapi(requestMagicLinkRoute, async (c) => {
       firstName,
       lastName,
       magicLink: `https://${event.config['micrositeUrl'] ?? 'undefined'}/auth/magic?token=${magicToken}`,
-      unsubscribeLink: `${process.env.APP_URL || 'http://localhost:3001'}/api/unsubscribe/${user.id}/${eventId}`,
+      unsubscribeLink: `${process.env.APP_URL || 'http://localhost:3001'}/unsubscribe/${user.id}/${eventId}`,
     });
 
     return c.json({

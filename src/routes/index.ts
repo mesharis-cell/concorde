@@ -29,28 +29,24 @@ app.get('/health', (c) => {
 // =============================================================================
 
 // Public user operations (registration)
-app.route('/api/v1/public', publicUsersController);
+app.route('/v1/public', publicUsersController);
 
 // Public OTP authentication (no auth required)
-app.route('/api/v1/auth', authController);
-
-// Mount unsubscribe route directly under /api
-app.route('/api', publicUsersController);
+app.route('/v1/auth', authController);
 
 // Public tracking endpoints (email opens)
-app.route('/api', trackingController);
+app.route('/', trackingController);
 
 // Public unsubscribe endpoint (no auth required)
-app.route('/api', unsubscribeController);
+app.route('/', unsubscribeController);
 
 // =============================================================================
 // ADMIN API ROUTES (Admin JWT Authentication Required)
 // =============================================================================
 
-// Apply admin authentication to all admin routes except login
-app.use('/api/v1/admin/*', async (c, next) => {
+app.use('/v1/admin/*', async (c, next) => {
   // Skip auth for login endpoint
-  if (c.req.path === '/api/v1/admin/login') {
+  if (c.req.path === '/v1/admin/login') {
     return next();
   }
   const auth = await authenticateAdmin(false);
@@ -58,12 +54,12 @@ app.use('/api/v1/admin/*', async (c, next) => {
 });
 
 // All admin endpoints in one consolidated controller
-app.route('/api/v1/admin', adminController);
+app.route('/v1/admin', adminController);
 
 // Admin management endpoints (requires admin authentication)
 const adminAuth = await authenticateAdmin(true);
-app.use('/api/admins*', adminAuth);
-app.route('/api', adminsController);
+app.use('/v1/admins*', adminAuth);
+app.route('/v1', adminsController);
 
 // User-facing routes (user authentication required)
 const userRoutes = new OpenAPIHono<{ Variables: AuthContext }>();
@@ -118,7 +114,7 @@ userRoutes.get('/itinerary', async (c) => {
   });
 });
 
-// Get user profile (matches /api/user/profile)
+// Get user profile
 userRoutes.get('/profile', async (c) => {
   const user = c.get('user');
   return c.json({
@@ -182,7 +178,7 @@ userRoutes.get('/check-in-qr', async (c) => {
   }
 });
 
-// Update user preferences (matches /api/user/preferences)
+// Update user preferences
 userRoutes.put('/preferences', async (c) => {
   try {
     const user = c.get('user');
@@ -214,12 +210,9 @@ userRoutes.put('/preferences', async (c) => {
   }
 });
 
-app.route('/api/v1/user', userRoutes);
+app.route('/v1/user', userRoutes);
 
-// Mount user routes directly under /api for microsite compatibility
-app.route('/api/user', userRoutes);
-
-// Mount activity routes directly under /api for microsite compatibility
+// User activity routes
 const activityRoutes = new OpenAPIHono<{ Variables: AuthContext }>();
 activityRoutes.use(authenticateUser);
 
@@ -274,7 +267,7 @@ activityRoutes.get('/{activityId}', async (c) => {
   }
 });
 
-app.route('/api/activities', activityRoutes);
+app.route('/v1/activities', activityRoutes);
 
 // OpenAPI documentation
 app.doc('/openapi.json', {

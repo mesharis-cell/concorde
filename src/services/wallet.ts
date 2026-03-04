@@ -721,7 +721,7 @@ export class WalletService {
     });
 
     const checkInBaseUrl = this.resolveCheckInBaseUrl(input.checkInBaseUrl);
-    const qrPayloadUrl = `${checkInBaseUrl}/api/v1/public/check-in/consume?token=${encodeURIComponent(token)}`;
+    const qrPayloadUrl = `${checkInBaseUrl}/v1/public/check-in/consume?token=${encodeURIComponent(token)}`;
 
     return {
       qrPayloadUrl,
